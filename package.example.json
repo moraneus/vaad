@@ -1,0 +1,21 @@
+{
+  "name": "vaad-bayit",
+  "private": true,
+  "version": "1.0.0",
+  "description": "מערכת מאובטחת לניהול ועד בית · Cloudflare Pages + Functions + D1, מסמכים ב-Google Drive",
+  "type": "module",
+  "//": "TEMPLATE — copy to package.json and replace YOUR_D1_NAME and YOUR_PAGES_PROJECT with your real Cloudflare values. The committed package.json is gitignored locally; this template is the version pushed to git.",
+  "scripts": {
+    "dev": "wrangler pages dev ./public --d1=DB=YOUR_D1_NAME --persist-to=.wrangler/state",
+    "db:create": "wrangler d1 create YOUR_D1_NAME",
+    "db:init": "wrangler d1 execute YOUR_D1_NAME --file=./schema.sql --remote",
+    "db:init:local": "wrangler d1 execute YOUR_D1_NAME --local --file=./schema.sql",
+    "secret:session": "wrangler pages secret put SESSION_SECRET",
+    "secret:google-id": "wrangler pages secret put GOOGLE_CLIENT_ID",
+    "secret:google-secret": "wrangler pages secret put GOOGLE_CLIENT_SECRET",
+    "deploy": "wrangler pages deploy ./public --project-name=YOUR_PAGES_PROJECT"
+  },
+  "devDependencies": {
+    "wrangler": "^4.88.0"
+  }
+}

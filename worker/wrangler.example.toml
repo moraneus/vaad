@@ -1,0 +1,21 @@
+# Standalone Cloudflare Worker for the monthly-report cron — TEMPLATE.
+#
+# This file is the version committed to the repo. Your real
+# `worker/wrangler.toml` is gitignored.
+#
+# First-time setup:
+#   1. cp worker/wrangler.example.toml worker/wrangler.toml
+#   2. Edit `name` to match what you want this Worker called in Cloudflare
+#   3. cd worker
+#   4. npx wrangler secret put CRON_SECRET   # same value as Pages project
+#   5. npx wrangler secret put PAGES_ORIGIN  # https://<your-cf-pages-project>.pages.dev
+#   6. npx wrangler deploy
+#
+# The cron runs once per month — 1st of each month at 08:00 UTC.
+
+name = "your-cf-cron-worker"
+main = "./cron-monthly-report.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 8 1 * *"]

@@ -1,0 +1,41 @@
+@page { size: A4; margin: 18mm 14mm; }
+
+body { background: #fff !important; }
+
+.app-header,
+.app-sidebar,
+.scrim,
+.menu-toggle,
+.page-header__actions,
+.toolbar,
+.btn,
+#modal-root,
+#toast-root { display: none !important; }
+
+.app-shell {
+  grid-template-columns: 1fr !important;
+  grid-template-areas: "main" !important;
+}
+.app-main {
+  padding: 0 !important;
+  max-width: 100% !important;
+}
+
+.card, .stat {
+  box-shadow: none !important;
+  border: 1px solid #ccc !important;
+  break-inside: avoid;
+}
+
+.table { font-size: 12px; }
+.table th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+.print-only { display: block !important; }
+.print-header {
+  text-align: center;
+  border-bottom: 2px solid #1f4068;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+.print-header h1 { font-size: 22px; }
+.print-header .meta { font-size: 12px; color: #555; margin-top: 4px; }

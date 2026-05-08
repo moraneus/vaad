@@ -1,0 +1,46 @@
+# Cloudflare Pages config — TEMPLATE.
+#
+# This file is the version committed to the repo. Your real `wrangler.toml`
+# (with your real D1 database_id) is gitignored.
+#
+# First-time setup:
+#   1. cp wrangler.example.toml wrangler.toml
+#   2. Pick a Pages project name and a D1 database name (lowercase, hyphenated)
+#   3. wrangler d1 create <your-d1-name>     → copy the printed database_id
+#   4. Edit wrangler.toml with your three values: name, database_name, database_id
+#   5. wrangler pages deploy ./public --project-name=<your-cf-pages-project>
+#
+# DO NOT commit your real wrangler.toml. The .gitignore already excludes it.
+
+name = "your-cf-pages-project"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "./public"
+
+# D1 database
+[[d1_databases]]
+binding = "DB"
+database_name = "your-d1-name"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Document storage uses Google Drive (admin-connected via OAuth in Settings).
+# No R2 binding required.
+
+# ---- Secrets (set with `wrangler pages secret put NAME` — never commit values) ----
+# Required:
+#   SESSION_SECRET        — random 48+ bytes, signs cookies + encrypts Drive token
+#   GOOGLE_CLIENT_ID      — OAuth Client ID from Google Cloud Console
+#   GOOGLE_CLIENT_SECRET  — OAuth Client Secret from Google Cloud Console
+# Optional (email features):
+#   RESEND_API_KEY        — API key from resend.com (free tier: 3000/month)
+#   EMAIL_FROM            — verified sender address on a domain you own
+#   EMAIL_FROM_NAME       — display name (e.g. building name)
+# Optional (admin password recovery + monthly cron):
+#   CRON_SECRET           — shared with the standalone cron Worker
+
+[vars]
+COOKIE_NAME = "vaad_session"
+SESSION_TTL_HOURS = "12"
+RATE_LIMIT_WINDOW_MIN = "5"
+RATE_LIMIT_MAX = "5"
+PBKDF2_ITERATIONS = "100000"
+MAX_DOC_SIZE_MB = "20"

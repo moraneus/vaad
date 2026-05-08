@@ -1,0 +1,101 @@
+# ── Dependencies ───────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+package-lock.json.bak
+
+# ── Build artifacts / wrangler state ───────────────────────────
+.wrangler/
+dist/
+build/
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+
+# ── Secrets & local-only config (NEVER commit) ─────────────────
+# Wrangler local secrets file (used by `wrangler dev`)
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Generic env files
+.env
+.env.*
+!.env.example
+
+# Cloudflare credentials / API tokens
+.cloudflare/
+cf-token*
+cloudflare-token*
+
+# Google OAuth client / service account JSON
+client_secret*.json
+google-credentials*.json
+service-account*.json
+*-credentials.json
+
+# Generic key/token/cert files that should never be committed
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets.json
+secrets.toml
+.secrets/
+
+# Database dumps / local D1 copies
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+
+# ── Backup / scratch files ─────────────────────────────────────
+*.bak
+*.backup
+*.orig
+*.rej
+*~
+.~lock.*
+
+# ── Logs & temporary output ────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pids/
+*.pid
+*.seed
+coverage/
+.nyc_output/
+
+# ── OS / editor files ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.iml
+*.sublime-project
+*.sublime-workspace
+.history/
+.fleet/
+
+# ── Personal notes / scratch ───────────────────────────────────
+notes.local.md
+TODO.local.md
+scratch/
+playground/
+
+# ── Per-user config (local-only — templates are committed as .example.*) ─
+wrangler.toml
+worker/wrangler.toml
+package.json
+wrangler.local.toml
+worker/wrangler.local.toml
