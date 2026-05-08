@@ -130,7 +130,7 @@ new var or script), edit the `.example.*` file and commit that.
 For someone who already knows Cloudflare and Google Cloud:
 
 ```bash
-git clone <repo> vaad && cd vaad
+git clone https://github.com/moraneus/vaad.git vaad && cd vaad
 # 1. Create your local config from the templates
 cp wrangler.example.toml         wrangler.toml
 cp worker/wrangler.example.toml  worker/wrangler.toml
@@ -174,7 +174,7 @@ Before you start, make sure you have:
 ### Step 1 — Clone the repo, create your local config, install dependencies
 
 ```bash
-git clone <your-repo-url> vaad
+git clone https://github.com/moraneus/vaad.git vaad
 cd vaad
 
 # Create your local config files from the committed templates.

@@ -129,7 +129,7 @@ cp package.example.json           package.json
 מי שכבר מכיר Cloudflare ו-Google Cloud:
 
 ```bash
-git clone <repo> vaad && cd vaad
+git clone https://github.com/moraneus/vaad.git vaad && cd vaad
 # 1. צור את קבצי ההגדרה המקומיים מהתבניות
 cp wrangler.example.toml         wrangler.toml
 cp worker/wrangler.example.toml  worker/wrangler.toml
@@ -173,7 +173,7 @@ npx wrangler pages deploy ./public --project-name=<cf-pages-project>            
 ### שלב 1 — שכפול ה-repo, יצירת קבצי הגדרה מקומיים והתקנת תלויות
 
 ```bash
-git clone <your-repo-url> vaad
+git clone https://github.com/moraneus/vaad.git vaad
 cd vaad
 
 # יצירת קבצי ההגדרה המקומיים מהתבניות שב-git.
