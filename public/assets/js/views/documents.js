@@ -1,6 +1,6 @@
 // Documents library — upload/view/download/delete via Google Drive (proxied through Pages Functions).
 
-import { getDocuments, uploadDocument, deleteDocument, getExpenses, getPayments } from '../store.js';
+import { getDocuments, uploadDocument, deleteDocument, getExpenses, getPayments, getInfrastructureExpenses } from '../store.js';
 import { api } from '../api.js';
 import { fmtDate, formatBytes, esc } from '../utils.js';
 import { t } from '../i18n.js';
@@ -15,6 +15,7 @@ export function renderDocuments() {
   const totalSize = docs.reduce((s, d) => s + (d.size || 0), 0);
   const expenses = getExpenses();
   const payments = getPayments();
+  const infraExpenses = getInfrastructureExpenses();
   const links = new Map();
   for (const e of expenses) for (const id of (e.documents || [])) {
     if (!links.has(id)) links.set(id, []);
@@ -23,6 +24,18 @@ export function renderDocuments() {
   for (const p of payments) for (const id of (p.documents || [])) {
     if (!links.has(id)) links.set(id, []);
     links.get(id).push({ kind: 'payment', label: t('docs.linkedPayment', { ym: `${p.year}/${String(p.month).padStart(2,'0')}` }) });
+  }
+  // Infrastructure-expense links — populated from the document.links array
+  // (added to the documents endpoint when we introduced the new attachment).
+  const infraById = new Map(infraExpenses.map(e => [e.id, e]));
+  for (const d of docs) {
+    for (const l of (d.links || [])) {
+      if (l.type !== 'infrastructure_expense') continue;
+      const infra = infraById.get(l.targetId);
+      const label = infra ? t('docs.linkedInfra', { name: infra.name }) : t('docs.linkedInfraDeleted');
+      if (!links.has(d.id)) links.set(d.id, []);
+      links.get(d.id).push({ kind: 'infra', label });
+    }
   }
 
   setHTML(main, `

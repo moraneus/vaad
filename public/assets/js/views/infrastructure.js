@@ -11,12 +11,15 @@ import {
   getApartments, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments,
   createInfrastructureExpense, updateInfrastructureExpense, deleteInfrastructureExpense,
   updateInfrastructureDemand, createInfrastructurePayment, deleteInfrastructurePayment,
+  getDocuments, uploadDocument, deleteDocument,
   getSession,
 } from '../store.js';
 import { fmtCurrency, esc, fmtDate, todayISO } from '../utils.js';
 import { t } from '../i18n.js';
 import { infrastructureDemandStatus } from '../calc.js';
 import { setHTML, renderPageHeader, renderEmpty, openModal, confirmDialog, toast, requireAdmin, Icon } from '../ui.js';
+// All HTML interpolated below uses esc() for any user-supplied value;
+// Icon.* are static SVG constants from ui.js and are safe to inline.
 
 export function renderInfrastructure() {
   const main = document.getElementById('app-main');
@@ -110,6 +113,11 @@ function renderExpenseCard(exp, isAdmin) {
 function openExpenseDialog(exp = null) {
   if (!requireAdmin()) return;
   const isEdit = !!exp;
+  // Documents already attached to this expense (edit mode only). Found by
+  // intersecting the documents cache with the link entries pointing at this id.
+  const existingDocs = isEdit
+    ? getDocuments().filter(d => (d.links || []).some(l => l.type === 'infrastructure_expense' && l.targetId === exp.id))
+    : [];
   const m = openModal({
     title: isEdit ? t('infra.dialog.edit') : t('infra.dialog.add'),
     body: `
@@ -133,6 +141,16 @@ function openExpenseDialog(exp = null) {
           <label class="field__label">${esc(t('common.notes'))}</label>
           <textarea class="textarea" name="notes" rows="2">${esc(exp?.notes || '')}</textarea>
         </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('infra.dialog.files'))}</label>
+          <div class="field__hint">${esc(t('infra.dialog.filesHint'))}</div>
+          <div id="infra-existing-docs" style="margin-top:8px"></div>
+          <div id="infra-files-queue" style="display:flex; flex-direction:column; gap:6px; margin-top:8px"></div>
+          <div style="margin-top:8px">
+            <input type="file" id="infra-files-input" accept="image/*,application/pdf" multiple style="display:none" />
+            <button type="button" class="btn btn--sm" id="infra-add-files-btn">${Icon.upload} ${esc(t('infra.dialog.addFiles'))}</button>
+          </div>
+        </div>
       </form>
       ${isEdit ? '' : `
         <div class="callout" style="font-size:12px; margin-top:10px">
@@ -146,6 +164,61 @@ function openExpenseDialog(exp = null) {
     `,
     size: 'md',
   });
+
+  // ----- File queue + (in edit mode) existing attachments -----
+  const pendingFiles = [];
+  const queueEl = m.bodyEl.querySelector('#infra-files-queue');
+  const existingEl = m.bodyEl.querySelector('#infra-existing-docs');
+  const fileInput = m.bodyEl.querySelector('#infra-files-input');
+
+  const renderQueue = () => {
+    if (!pendingFiles.length) { setHTML(queueEl, ''); return; }
+    setHTML(queueEl, `
+      <div class="muted" style="font-size:12px">${esc(t('infra.dialog.filesPending', { n: pendingFiles.length }))}</div>
+      ${pendingFiles.map((f, i) => `
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px">
+          <span>${Icon.document} ${esc(f.name)}</span>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn--sm btn--icon" data-rm-i="${i}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+        </div>
+      `).join('')}
+    `);
+    queueEl.querySelectorAll('[data-rm-i]').forEach(b => b.addEventListener('click', () => {
+      pendingFiles.splice(Number(b.dataset.rmI), 1);
+      renderQueue();
+    }));
+  };
+  const renderExisting = () => {
+    if (!existingDocs.length) { setHTML(existingEl, ''); return; }
+    setHTML(existingEl, `
+      <div class="muted" style="font-size:12px; margin-bottom:4px">${esc(t('infra.dialog.filesExisting', { n: existingDocs.length }))}</div>
+      ${existingDocs.map(d => `
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; margin-bottom:4px">
+          <a href="/api/documents/${esc(d.id)}" target="_blank" rel="noopener">${Icon.document} ${esc(d.displayName || d.name)}</a>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn--sm btn--icon" data-del-doc="${esc(d.id)}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+        </div>
+      `).join('')}
+    `);
+    existingEl.querySelectorAll('[data-del-doc]').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: t('common.delete'), message: t('docs.delete.confirm'), confirmText: t('common.delete'), danger: true });
+      if (!ok) return;
+      try {
+        await deleteDocument(b.dataset.delDoc);
+        const idx = existingDocs.findIndex(x => x.id === b.dataset.delDoc);
+        if (idx >= 0) existingDocs.splice(idx, 1);
+        renderExisting();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    }));
+  };
+  m.bodyEl.querySelector('#infra-add-files-btn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    for (const f of fileInput.files || []) pendingFiles.push(f);
+    fileInput.value = '';
+    renderQueue();
+  });
+  renderExisting();
+
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
   m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
     const f = m.bodyEl.querySelector('#infra-form');
@@ -153,14 +226,23 @@ function openExpenseDialog(exp = null) {
     if (!data.name) { toast(t('infra.field.nameRequired'), 'warning'); return; }
     if (!data.expenseDate) { toast(t('infra.field.dateRequired'), 'warning'); return; }
     try {
+      let expenseId = exp?.id;
       if (isEdit) {
         await updateInfrastructureExpense(exp.id, { name: data.name, expenseDate: data.expenseDate, notes: data.notes });
       } else {
         const totalAmount = Number(data.totalAmount);
         if (!Number.isFinite(totalAmount) || totalAmount <= 0) { toast(t('infra.field.totalAmountRequired'), 'warning'); return; }
-        await createInfrastructureExpense({ name: data.name, totalAmount, expenseDate: data.expenseDate, notes: data.notes });
+        const created = await createInfrastructureExpense({ name: data.name, totalAmount, expenseDate: data.expenseDate, notes: data.notes });
+        expenseId = created?.id;
       }
-      toast(isEdit ? t('infra.updated') : t('infra.added'), 'success');
+      // Upload queued files. Failures surface via toast and don't roll back
+      // the expense — the admin can re-attach later from the edit dialog.
+      let uploadFails = 0;
+      for (const file of pendingFiles) {
+        try { await uploadDocument(file, { type: 'infrastructure_expense', id: expenseId }); }
+        catch (err) { uploadFails++; toast(`${file.name}: ${err.message || t('common.error')}`, 'danger'); }
+      }
+      if (uploadFails === 0) toast(isEdit ? t('infra.updated') : t('infra.added'), 'success');
       m.close();
       renderInfrastructure();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }

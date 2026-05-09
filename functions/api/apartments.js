@@ -98,6 +98,12 @@ export const onRequestPost = async ({ request, env }) => {
   let body; try { body = await readJSON(request); } catch { return error('בקשה לא תקינה'); }
   const number = pickStr(body.number, 20).trim();
   if (!number) return error('יש להזין מספר דירה', 400);
+  // Apartment number must be a positive integer — bulk operations, numeric
+  // sorting, and the login dropdown all assume it. Enforce at the boundary so
+  // a misbehaving client can't slip non-digit values into the column.
+  if (!/^[0-9]+$/.test(number) || Number(number) < 1) {
+    return error('מספר דירה חייב להיות מספר חיובי שלם', 400);
+  }
   const owner = pickStr(body.owner, 200);
   const phone = pickStr(body.phone, 30);
   const notes = pickStr(body.notes, 1000);
@@ -151,6 +157,12 @@ export const onRequestPut = async ({ request, env }) => {
   let body; try { body = await readJSON(request); } catch { return error('בקשה לא תקינה'); }
   const number = pickStr(body.number, 20).trim();
   if (!number) return error('יש להזין מספר דירה', 400);
+  // Apartment number must be a positive integer — bulk operations, numeric
+  // sorting, and the login dropdown all assume it. Enforce at the boundary so
+  // a misbehaving client can't slip non-digit values into the column.
+  if (!/^[0-9]+$/.test(number) || Number(number) < 1) {
+    return error('מספר דירה חייב להיות מספר חיובי שלם', 400);
+  }
   const owner = pickStr(body.owner, 200);
   const phone = pickStr(body.phone, 30);
   const notes = pickStr(body.notes, 1000);

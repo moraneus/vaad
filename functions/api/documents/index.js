@@ -23,14 +23,25 @@ export const onRequestGet = async ({ request, env }) => {
       ORDER BY d.uploaded_at DESC`
   ).all();
   const ids = docs.results.map(d => d.id);
+  const placeholders = ids.map(() => '?').join(',');
   const links = ids.length ? (await env.DB.prepare(
     `SELECT document_id AS docId, target_type AS type, target_id AS targetId
-     FROM document_links WHERE document_id IN (${ids.map(() => '?').join(',')})`
+     FROM document_links WHERE document_id IN (${placeholders})`
+  ).bind(...ids).all()).results : [];
+  // Infrastructure-expense links live in their own table — surface them under
+  // the same `type` key the frontend already knows how to render.
+  const infraLinks = ids.length ? (await env.DB.prepare(
+    `SELECT document_id AS docId, expense_id AS targetId
+     FROM infrastructure_expense_documents WHERE document_id IN (${placeholders})`
   ).bind(...ids).all()).results : [];
   const linkMap = new Map();
   for (const l of links) {
     if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
     linkMap.get(l.docId).push({ type: l.type, targetId: l.targetId });
+  }
+  for (const l of infraLinks) {
+    if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
+    linkMap.get(l.docId).push({ type: 'infrastructure_expense', targetId: l.targetId });
   }
   for (const d of docs.results) d.links = linkMap.get(d.id) || [];
   return json({ documents: docs.results });
@@ -85,9 +96,17 @@ export const onRequestPost = async ({ request, env }) => {
 
   const targetType = form.get('targetType');
   const targetId = form.get('targetId');
-  if (targetType && targetId && ['expense', 'payment'].includes(targetType)) {
-    await env.DB.prepare('INSERT OR IGNORE INTO document_links (document_id, target_type, target_id) VALUES (?, ?, ?)')
-      .bind(id, targetType, targetId).run();
+  if (targetType && targetId) {
+    if (['expense', 'payment'].includes(targetType)) {
+      await env.DB.prepare('INSERT OR IGNORE INTO document_links (document_id, target_type, target_id) VALUES (?, ?, ?)')
+        .bind(id, targetType, targetId).run();
+    } else if (targetType === 'infrastructure_expense') {
+      // Stored in a dedicated table (see schema.sql) — document_links' CHECK
+      // constraint can't include this type without an idempotency-breaking
+      // migration.
+      await env.DB.prepare('INSERT OR IGNORE INTO infrastructure_expense_documents (document_id, expense_id) VALUES (?, ?)')
+        .bind(id, targetId).run();
+    }
   }
 
   await logAudit(env.DB, request, { event: 'document_uploaded', role: 'admin', userLabel: r.sess.userLabel, meta: { id, name: file.name, displayName: displayName || null, size: file.size, driveFileId }, success: true });

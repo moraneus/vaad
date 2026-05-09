@@ -45,6 +45,7 @@ export const api = {
     call(`/api/admin/reveal-password?scope=${encodeURIComponent(scope)}&id=${encodeURIComponent(id)}`),
   bulkResetApartmentPasswords: (apartmentIds, newPassword) =>
     call('/api/admin/bulk-reset-passwords', opts('POST', { apartmentIds, newPassword })),
+  bulkMarkPaid: (payload) => call('/api/admin/bulk-mark-paid', opts('POST', payload)),
   twoFAStatus: () => call('/api/auth/2fa-status'),
   twoFASetupInit: () => call('/api/auth/2fa-setup-init', opts('POST', {})),
   twoFASetupVerify: (payload) => call('/api/auth/2fa-setup-verify', opts('POST', payload)),

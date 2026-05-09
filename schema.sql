@@ -83,6 +83,22 @@ CREATE TABLE IF NOT EXISTS owners (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_login_email
   ON owners(login_email) WHERE login_email IS NOT NULL;
 
+-- Multi-phone storage for owners. The legacy `owners.phone` column stays
+-- (acts as the "primary" phone for backwards compat); rows here are the
+-- additional phones an owner has registered, each with an optional `label`
+-- (e.g., "אישה", "בן"). `sort_order` controls display order in the UI.
+-- Replacement strategy on save: PUT /api/owners replaces all rows for that
+-- owner_id with the array supplied in the body.
+CREATE TABLE IF NOT EXISTS owner_phones (
+  id          TEXT PRIMARY KEY,
+  owner_id    TEXT NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+  phone       TEXT NOT NULL,
+  label       TEXT,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_owner_phones_owner ON owner_phones(owner_id, sort_order);
+
 -- Apartment ↔ Owner link. PK on apartment_id enforces "one apartment, one
 -- owner". Many apartments can map to the same owner_id (multi-apartment owner).
 -- ON DELETE RESTRICT on owner_id prevents deleting an owner who still holds
@@ -338,6 +354,18 @@ CREATE TABLE IF NOT EXISTS document_links (
   target_id TEXT NOT NULL,
   PRIMARY KEY (document_id, target_type, target_id)
 );
+
+-- Infrastructure-expense ↔ documents linking. Kept in a separate table from
+-- document_links because that table's CHECK(target_type IN ('expense','payment'))
+-- can't be altered idempotently in SQLite. ON DELETE CASCADE on both sides
+-- keeps orphan rows from accumulating.
+CREATE TABLE IF NOT EXISTS infrastructure_expense_documents (
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  expense_id  TEXT NOT NULL REFERENCES infrastructure_expenses(id) ON DELETE CASCADE,
+  PRIMARY KEY (document_id, expense_id)
+);
+CREATE INDEX IF NOT EXISTS idx_infra_doc_expense
+  ON infrastructure_expense_documents(expense_id);
 
 -- Per-apartment manual adjustments (charges/credits) that affect the apartment
 -- outstanding balance independently of monthly fees and payments.

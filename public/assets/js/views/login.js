@@ -127,7 +127,15 @@ export async function renderLogin(onSuccess) {
           <label class="field__label">${esc(t('login.owner.select'))}</label>
           <select class="select" id="owner-select" required>
             <option value="">${esc(t('login.owner.choose'))}</option>
-            ${owners.map(o => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
+            ${owners.map(o => {
+              // Identify owners by their apartments rather than by name —
+              // the dropdown is visible to anyone on the public login screen.
+              const apts = (o.apartmentNumbers || []).join(', ');
+              const label = apts
+                ? t('login.owner.optionByApts', { apts })
+                : t('login.owner.optionUnlinked');
+              return `<option value="${esc(o.id)}">${esc(label)}</option>`;
+            }).join('')}
           </select>
         </div>
         <div id="owner-pwd-fields"></div>
@@ -178,7 +186,7 @@ export async function renderLogin(onSuccess) {
           <label class="field__label">${esc(t('login.selectApt'))}</label>
           <select class="select" id="apt-select" required>
             <option value="">${esc(t('login.chooseApt'))}</option>
-            ${apts.map(a => `<option value="${a.id}">${esc(t('login.aptOption', { number: a.number }))}${a.owner ? ` · ${esc(a.owner)}` : ''}</option>`).join('')}
+            ${apts.map(a => `<option value="${a.id}">${esc(t('login.aptOption', { number: a.number }))}</option>`).join('')}
           </select>
         </div>
         <div id="role-fields-tenant"></div>

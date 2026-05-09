@@ -1,6 +1,6 @@
 // Apartments management + per-apartment ledger
 
-import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword } from '../store.js';
+import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword, refreshAll } from '../store.js';
 import { wireLiveValidator, validatePassword } from '../password.js';
 import { api } from '../api.js';
 import { fmtCurrency, esc, fmtDate, valueAtMonth, todayISO, monthKey, parseMonthKey } from '../utils.js';
@@ -35,8 +35,28 @@ export function renderApartments() {
         </select>
       </div>
       <div class="spacer"></div>
+      ${isAdmin ? `<button class="btn btn--sm" id="bulk-paid-toggle">${esc(t('apt.bulkPaid.toggle'))}</button>` : ''}
       <div class="muted" style="font-size:13px">${esc(t('apt.totalInSystem'))} <strong>${apts.length}</strong></div>
     </div>
+
+    ${isAdmin ? `
+      <div id="bulk-paid-bar" class="callout" style="display:none; font-size:13px; margin-bottom:10px">
+        <div class="hstack" style="gap:10px; flex-wrap:wrap; align-items:center">
+          <span><strong id="bulk-paid-count">${esc(t('apt.bulkPaid.selected', { n: 0 }))}</strong></span>
+          <button class="btn btn--sm" id="bulk-paid-select-all">${esc(t('apt.bulkPaid.selectAll'))}</button>
+          <button class="btn btn--sm" id="bulk-paid-clear">${esc(t('apt.bulkPaid.clear'))}</button>
+          <div class="hstack" style="gap:6px; align-items:center">
+            <label class="muted" style="font-size:12px">${esc(t('apt.bulkPaid.month'))}</label>
+            <select class="select" id="bulk-paid-month" style="width:140px">
+              ${Array.from({ length: 12 }, (_, i) => i + 1).map(m =>
+                `<option value="${m}" ${m === (new Date().getMonth() + 1) ? 'selected' : ''}>${esc(monthName(m))}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <button class="btn btn--sm btn--primary" id="bulk-paid-go" disabled>${esc(t('apt.bulkPaid.go'))}</button>
+        </div>
+      </div>
+    ` : ''}
 
     ${apts.length === 0 ? renderEmpty({
       title: t('apt.empty.title'),
@@ -48,6 +68,7 @@ export function renderApartments() {
           <table class="table">
             <thead>
               <tr>
+                <th class="bulk-paid-col" style="display:none; width:32px"></th>
                 <th>${esc(t('apt.col.number'))}</th>
                 <th>${esc(t('apt.col.owner'))}</th>
                 <th>${esc(t('apt.col.phone'))}</th>
@@ -73,6 +94,89 @@ export function renderApartments() {
   });
   document.getElementById('add-apt')?.addEventListener('click', () => openApartmentDialog());
   document.getElementById('add-apt-empty')?.addEventListener('click', () => openApartmentDialog());
+
+  // ----- Bulk-mark-paid mode -----
+  // Toggle reveals a checkbox column + a bulk-bar with month picker. On
+  // "סמן כשולם" we compute remaining = expected − alreadyPaid for each
+  // selected apartment for the chosen month, skip ones already fully paid,
+  // and POST the rest in a single bulk request.
+  if (isAdmin) {
+    const bulkToggleBtn = document.getElementById('bulk-paid-toggle');
+    const bulkBar = document.getElementById('bulk-paid-bar');
+    const bulkGoBtn = document.getElementById('bulk-paid-go');
+    const bulkCountEl = document.getElementById('bulk-paid-count');
+    const monthSel = document.getElementById('bulk-paid-month');
+
+    const updateBulkCount = () => {
+      const n = document.querySelectorAll('.bulk-paid-cb:checked').length;
+      bulkCountEl.textContent = t('apt.bulkPaid.selected', { n });
+      bulkGoBtn.disabled = n === 0;
+    };
+
+    bulkToggleBtn?.addEventListener('click', () => {
+      const opening = bulkBar.style.display === 'none';
+      bulkBar.style.display = opening ? '' : 'none';
+      document.querySelectorAll('.bulk-paid-col').forEach(td => { td.style.display = opening ? '' : 'none'; });
+      if (!opening) document.querySelectorAll('.bulk-paid-cb').forEach(cb => { cb.checked = false; });
+      updateBulkCount();
+    });
+
+    document.getElementById('bulk-paid-select-all')?.addEventListener('click', () => {
+      document.querySelectorAll('.bulk-paid-cb').forEach(cb => { cb.checked = true; });
+      updateBulkCount();
+    });
+    document.getElementById('bulk-paid-clear')?.addEventListener('click', () => {
+      document.querySelectorAll('.bulk-paid-cb').forEach(cb => { cb.checked = false; });
+      updateBulkCount();
+    });
+    document.querySelectorAll('.bulk-paid-cb').forEach(cb => cb.addEventListener('change', updateBulkCount));
+
+    bulkGoBtn?.addEventListener('click', async () => {
+      const selectedIds = [...document.querySelectorAll('.bulk-paid-cb:checked')].map(cb => cb.dataset.id);
+      const month = Number(monthSel.value);
+      if (!selectedIds.length || !month) return;
+
+      // Build the items array. Skip apartments already fully paid for this
+      // month (skipped count is reported in the toast).
+      const items = [];
+      let alreadyPaid = 0;
+      for (const id of selectedIds) {
+        const st = apartmentMonthStatus(id, currentYear, month);
+        const remaining = (st.expected || 0) - (st.paid || 0);
+        if (remaining > 0) items.push({ apartmentId: id, amount: remaining });
+        else alreadyPaid++;
+      }
+      if (!items.length) {
+        toast(t('apt.bulkPaid.allAlreadyPaid', { n: alreadyPaid }), 'warning');
+        return;
+      }
+
+      const ok = await confirmDialog({
+        title: t('apt.bulkPaid.confirmTitle'),
+        message: t('apt.bulkPaid.confirmMessage', { n: items.length, month: monthName(month), year: currentYear }),
+        confirmText: t('apt.bulkPaid.go'),
+      });
+      if (!ok) return;
+
+      bulkGoBtn.disabled = true;
+      try {
+        const res = await api.bulkMarkPaid({
+          year: currentYear,
+          month,
+          paidOn: todayISO(),
+          method: 'cash',
+          items,
+        });
+        await refreshAll();
+        const skipped = alreadyPaid + (res.skipped || 0);
+        toast(t('apt.bulkPaid.done', { created: res.created, skipped }), 'success');
+        renderApartments();
+      } catch (err) {
+        toast(err.message || t('common.error'), 'danger');
+        bulkGoBtn.disabled = false;
+      }
+    });
+  }
 
   document.querySelectorAll('[data-act="edit-apt"]').forEach(b => b.addEventListener('click', () => {
     const apt = getApartments().find(a => a.id === b.dataset.id);
@@ -162,18 +266,30 @@ function renderAptRow(apt, year, isAdmin) {
     dotsRow.push(`<span title="${monthName(m)}: ${fmtCurrency(st.paid)} / ${fmtCurrency(st.expected)}" style="width:10px;height:10px;border-radius:3px;display:inline-block;${cls}"></span>`);
   }
   // Resident column shows the resident's name + a label indicating whether
-  // they're the property owner ("בעלים") or a renter ("שוכר"). Renter rows
-  // get an expand chevron — when clicked, the row reveals a sub-row with the
-  // property owner's name (clickable → opens the owner edit dialog).
+  // they're the property owner ("בעלים") or a renter ("שוכר"). For owner-
+  // occupied apartments, the resident IS the owner — pull the live name and
+  // multi-phone list from the owners cache so admin edits show up here
+  // immediately. Renter rows use the renter-specific apartment fields (the
+  // renter is a separate person, with their own phone stored on the apt row).
   const isRenter = apt.occupantType === 'renter';
   const labelClass = isRenter ? 'badge--warning' : 'badge--success';
   const labelText = isRenter ? t('apt.badge.renter') : t('apt.badge.owner');
+  const ownerRecord = apt.ownerId ? getOwners().find(o => o.id === apt.ownerId) : null;
+  const residentName = isRenter ? (apt.owner || '—') : (ownerRecord?.name || apt.ownerName || apt.owner || '—');
+  // For owner-occupied: prefer the full multi-phone list from owners.phones,
+  // falling back to the single legacy ownerPhone for owners that haven't
+  // migrated yet. For renter: just the apt.phone (single).
+  const residentPhones = isRenter
+    ? (apt.phone ? [{ phone: apt.phone, label: '' }] : [])
+    : ((ownerRecord?.phones && ownerRecord.phones.length)
+        ? ownerRecord.phones
+        : (apt.ownerPhone ? [{ phone: apt.ownerPhone, label: '' }] : (apt.phone ? [{ phone: apt.phone, label: '' }] : [])));
   const expandBtn = isRenter
     ? `<button class="btn btn--sm btn--icon" data-act="expand-apt" data-id="${apt.id}" title="${esc(t('apt.row.expand.show'))}" aria-expanded="false" style="padding:2px 6px">▾</button>`
     : '';
   const residentCell = `
     <div class="hstack" style="gap:6px; align-items:baseline">
-      <span>${esc(apt.owner || '—')}</span>
+      <span>${esc(residentName)}</span>
       <span class="badge ${labelClass}" style="font-size:10px; padding:1px 6px">${esc(labelText)}</span>
       ${expandBtn}
     </div>
@@ -182,6 +298,7 @@ function renderAptRow(apt, year, isAdmin) {
   // that opens the owner edit form.
   const ownerSubRow = isRenter ? `
     <tr class="apt-owner-row" data-apt="${apt.id}" style="display:none; background:var(--c-surface-2)">
+      <td class="bulk-paid-col" style="display:none"></td>
       <td></td>
       <td colspan="7" style="font-size:13px">
         <div class="hstack" style="gap:8px; padding:6px 0">
@@ -195,9 +312,10 @@ function renderAptRow(apt, year, isAdmin) {
   ` : '';
   return `
     <tr>
+      <td class="bulk-paid-col" style="display:none"><input type="checkbox" class="bulk-paid-cb" data-id="${apt.id}" /></td>
       <td><strong>${esc(String(apt.number))}</strong></td>
       <td>${residentCell}</td>
-      <td>${apt.phone ? `<a href="tel:${esc(apt.phone)}" class="muted">${esc(apt.phone)}</a>` : '<span class="muted">—</span>'}${apt.email ? `<div class="muted" style="font-size:11px; direction:ltr; text-align:start"><a href="mailto:${esc(apt.email)}" class="muted">${esc(apt.email)}</a></div>` : ''}</td>
+      <td>${residentPhones.length ? residentPhones.map(p => `<div><a href="tel:${esc(p.phone)}" class="muted">${esc(p.phone)}</a>${p.label ? `<span class="muted" style="font-size:11px"> · ${esc(p.label)}</span>` : ''}</div>`).join('') : '<span class="muted">—</span>'}${apt.email ? `<div class="muted" style="font-size:11px; direction:ltr; text-align:start"><a href="mailto:${esc(apt.email)}" class="muted">${esc(apt.email)}</a></div>` : ''}</td>
       <td><div style="display:flex; gap:3px">${dotsRow.join('')}</div></td>
       <td class="num">${fmtCurrency(yearExpected)}</td>
       <td class="num text-success">${fmtCurrency(yearPaid)}</td>
@@ -234,7 +352,9 @@ function openApartmentDialog(apt = null) {
       <form id="apt-form" class="form-grid" autocomplete="off">
         <div class="field field--required">
           <label class="field__label">${esc(t('apt.field.number'))}</label>
-          <input class="input" name="number" required value="${esc(apt?.number || '')}" />
+          <input class="input" name="number" type="number" inputmode="numeric" min="1" step="1"
+                 pattern="[0-9]+" required value="${esc(apt?.number || '')}" />
+          <div class="field__hint">${esc(t('apt.field.numberHint'))}</div>
         </div>
         <div class="field">
           <label class="field__label">${esc(t('apt.field.activeFrom'))}</label>
@@ -351,6 +471,13 @@ function openApartmentDialog(apt = null) {
     const f = m.bodyEl.querySelector('#apt-form');
     const data = Object.fromEntries(new FormData(f).entries());
     if (!data.number) { toast(t('apt.numberRequired'), 'warning'); return; }
+    // Apartment number must be a positive integer — the bulk-paid feature,
+    // numeric sorting, and login dropdown all assume it. Reject any non-digit
+    // input here so the constraint is visible to the admin immediately.
+    if (!/^\d+$/.test(String(data.number).trim()) || Number(data.number) < 1) {
+      toast(t('apt.numberMustBeDigits'), 'warning');
+      return;
+    }
     if (!data.ownerId) { toast(t('apt.ownerRequired'), 'warning'); return; }
     const ownerObj = getOwners().find(o => o.id === data.ownerId);
     aptSaveBtn.disabled = true;
@@ -1516,8 +1643,18 @@ function openReplaceResidentDialog(apt) {
 
 // Owner edit dialog — opened when clicking the owner name in the expanded
 // apartments-table sub-row (or from the owners management page).
-export function openOwnerDialog(owner) {
+// onDone runs after a successful save — caller passes the renderer of the
+// view they want refreshed (renderApartments / renderOwners / etc.).
+// Defaults to renderApartments for backwards compat with existing callers.
+export function openOwnerDialog(owner, onDone) {
   if (!requireAdmin()) return;
+  const refresh = onDone || renderApartments;
+  // Seed the dynamic phones list from owner.phones (new) or fall back to the
+  // legacy single owner.phone (so admins can see + edit data created before
+  // the multi-phone feature shipped).
+  const initialPhones = (Array.isArray(owner.phones) && owner.phones.length)
+    ? owner.phones
+    : (owner.phone ? [{ phone: owner.phone, label: '' }] : []);
   const m = openModal({
     title: t('owners.dialog.edit'),
     body: `
@@ -1526,11 +1663,12 @@ export function openOwnerDialog(owner) {
           <label class="field__label">${esc(t('owners.field.name'))}</label>
           <input class="input" name="name" required value="${esc(owner.name || '')}" />
         </div>
-        <div class="field">
-          <label class="field__label">${esc(t('owners.field.phone'))}</label>
-          <input class="input" name="phone" type="tel" value="${esc(owner.phone || '')}" />
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('owners.field.phones'))}</label>
+          <div id="own-phones-list" class="vstack" style="gap:6px"></div>
+          <button type="button" class="btn btn--sm" id="own-phones-add" style="margin-top:6px">+ ${esc(t('owners.field.phones.add'))}</button>
         </div>
-        <div class="field">
+        <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('owners.field.email'))}</label>
           <input class="input" name="email" type="email" value="${esc(owner.email || '')}" />
         </div>
@@ -1555,6 +1693,25 @@ export function openOwnerDialog(owner) {
       <button class="btn btn--primary" data-act="save">${esc(t('common.save'))}</button>
     `,
   });
+  // Wire the dynamic phone list. Each row: [label] [phone] [×]
+  const phonesEl = m.bodyEl.querySelector('#own-phones-list');
+  const renderPhoneRow = (entry) => {
+    const row = document.createElement('div');
+    row.className = 'hstack own-phone-row';
+    row.style.gap = '6px';
+    row.innerHTML = `
+      <input class="input own-phone-label" type="text" placeholder="${esc(t('owners.field.phones.labelPlaceholder'))}" value="${esc(entry.label || '')}" style="flex:0 0 35%" />
+      <input class="input own-phone-num" type="tel" placeholder="${esc(t('owners.field.phones.phonePlaceholder'))}" value="${esc(entry.phone || '')}" style="flex:1" />
+      <button type="button" class="btn btn--sm btn--icon own-phone-del" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+    `;
+    row.querySelector('.own-phone-del').addEventListener('click', () => row.remove());
+    phonesEl.appendChild(row);
+  };
+  if (initialPhones.length) initialPhones.forEach(renderPhoneRow);
+  else renderPhoneRow({ phone: '', label: '' }); // start with one empty row
+  m.bodyEl.querySelector('#own-phones-add').addEventListener('click', () => {
+    renderPhoneRow({ phone: '', label: '' });
+  });
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
   m.footerEl.querySelector('[data-act="manage-pw"]')?.addEventListener('click', () => {
     m.close();
@@ -1571,17 +1728,25 @@ export function openOwnerDialog(owner) {
     const f = m.bodyEl.querySelector('#own-form');
     const data = Object.fromEntries(new FormData(f).entries());
     if (!(data.name || '').trim()) { toast(t('owners.field.nameRequired'), 'warning'); return; }
+    // Collect the multi-phone rows. Empty phones drop (a label without a
+    // number is meaningless), but a phone without a label is fine.
+    const phones = [...phonesEl.querySelectorAll('.own-phone-row')]
+      .map(row => ({
+        label: row.querySelector('.own-phone-label').value.trim(),
+        phone: row.querySelector('.own-phone-num').value.trim(),
+      }))
+      .filter(p => p.phone);
     try {
       await updateOwner(owner.id, {
         name: data.name.trim(),
-        phone: (data.phone || '').trim() || null,
+        phones,
         email: (data.email || '').trim() || null,
         loginEmail: (data.loginEmail || '').trim() || null,
         notes: (data.notes || '').trim() || null,
       });
       toast(t('owners.updated'), 'success');
       m.close();
-      renderApartments();
+      refresh();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
   });
 }
