@@ -21,15 +21,13 @@ export async function renderLogin(onSuccess) {
     return renderResetForm(root, resetToken, resetApt, resetRole, onSuccess);
   }
 
+  // Owners are surfaced via the apartment row's `ownerId` + `hasOwnerAccountPwd`
+  // flags — there's no separate "owner" tab anymore, so we don't need the
+  // `/api/owners-public` list here.
   let apts = [];
-  let owners = [];
   try {
     const r = await fetch('/api/apartments-public', { credentials: 'same-origin' });
     if (r.ok) apts = (await r.json()).apartments || [];
-  } catch { /* ignore */ }
-  try {
-    const r = await fetch('/api/owners-public', { credentials: 'same-origin' });
-    if (r.ok) owners = (await r.json()).owners || [];
   } catch { /* ignore */ }
 
   const lang = getLanguage();
@@ -67,7 +65,6 @@ export async function renderLogin(onSuccess) {
 
           <div class="segmented" style="display:flex; width:100%; margin-bottom:18px">
             <button type="button" class="segmented__opt segmented__opt--active" data-role="tenant" style="flex:1">${esc(t('login.tenant'))}</button>
-            <button type="button" class="segmented__opt" data-role="owner" style="flex:1">${esc(t('login.owner'))}</button>
             <button type="button" class="segmented__opt" data-role="admin" style="flex:1">${esc(t('login.admin'))}</button>
           </div>
 
@@ -113,68 +110,6 @@ export async function renderLogin(onSuccess) {
       setGoogleButtonState(fieldsEl, 'available');
       setTimeout(() => fieldsEl.querySelector('#admin-pass')?.focus(), 30);
       fieldsEl.querySelector('#forgot-pwd-link')?.addEventListener('click', () => openForgotPasswordDialog());
-    } else if (role === 'owner') {
-      // First-class owner login (PR E). Mirrors the renter flow: pick the
-      // owner from a public dropdown, then password (or "Sign in with Google").
-      // The owner's session spans all of their apartments.
-      if (!owners.length) {
-        setHTML(fieldsEl, `<div class="callout callout--warning">${esc(t('login.owner.noOwners'))}</div>`);
-        return;
-      }
-      setHTML(fieldsEl, `
-        ${googleLoginSectionHTML()}
-        <div class="field field--required">
-          <label class="field__label">${esc(t('login.owner.select'))}</label>
-          <select class="select" id="owner-select" required>
-            <option value="">${esc(t('login.owner.choose'))}</option>
-            ${owners.map(o => {
-              // Identify owners by their apartments rather than by name —
-              // the dropdown is visible to anyone on the public login screen.
-              const apts = (o.apartmentNumbers || []).join(', ');
-              const label = apts
-                ? t('login.owner.optionByApts', { apts })
-                : t('login.owner.optionUnlinked');
-              return `<option value="${esc(o.id)}">${esc(label)}</option>`;
-            }).join('')}
-          </select>
-        </div>
-        <div id="owner-pwd-fields"></div>
-      `);
-      wireGoogleLoginButton(fieldsEl);
-      setGoogleButtonState(fieldsEl, 'idle');
-      const ownerSel = fieldsEl.querySelector('#owner-select');
-      const ownerPwdFields = fieldsEl.querySelector('#owner-pwd-fields');
-      const renderOwnerPwd = () => {
-        const owner = owners.find(o => o.id === ownerSel.value);
-        if (!owner) {
-          setHTML(ownerPwdFields, '');
-          setGoogleButtonState(fieldsEl, 'idle');
-          return;
-        }
-        // Enable the Google button only when this owner has a Google email
-        // registered (admin-configured login_email). Otherwise the OAuth
-        // callback would never find a match — disable upfront.
-        setGoogleButtonState(fieldsEl, owner.hasOauth ? 'available' : 'unavailable');
-        if (!owner.hasPassword) {
-          setHTML(ownerPwdFields, `<div class="callout callout--warning">${esc(t('login.askAdminForInitial'))}</div>`);
-          return;
-        }
-        setHTML(ownerPwdFields, `
-          <div class="field field--required">
-            <label class="field__label">${esc(t('login.owner.password'))}</label>
-            <input class="input" id="owner-pass" type="password" autocomplete="current-password" required />
-          </div>
-          <div style="text-align:end; margin-top:-8px; margin-bottom:8px">
-            <button type="button" id="forgot-owner-link" class="btn btn--ghost" style="font-size:12px; padding:4px 8px">${esc(t('login.forgotPassword'))}</button>
-          </div>
-        `);
-        setTimeout(() => ownerPwdFields.querySelector('#owner-pass')?.focus(), 30);
-        ownerPwdFields.querySelector('#forgot-owner-link')?.addEventListener('click', () => {
-          openForgotPasswordDialog({ ownerId: owner.id });
-        });
-      };
-      ownerSel.addEventListener('change', renderOwnerPwd);
-      renderOwnerPwd();
     } else {
       if (!apts.length) {
         setHTML(fieldsEl, `<div class="callout callout--warning">${esc(t('login.noApts'))}</div>`);
@@ -206,16 +141,25 @@ export async function renderLogin(onSuccess) {
           setGoogleButtonState(fieldsEl, 'idle');
           return;
         }
-        // Renter apartments use the tenant's email (apartments.email) for
-        // Google OAuth. Enable the button only if it's set; otherwise the
-        // callback couldn't match this user to an account.
-        setGoogleButtonState(fieldsEl, apt.hasOauth ? 'available' : 'unavailable');
+        // Default role:
+        //   - renter-occupied apartments → 'tenant'
+        //   - owner-occupied apartments → 'owner'
+        // The toggle is shown whenever both options are available so the user
+        // can pick the one they actually have a password for.
+        const hasRenterCreds = !!apt.hasPassword;
+        const hasOwnerCreds = !!apt.ownerId && !!apt.hasOwnerAccountPwd;
+        // Pick the most natural default for the picked apartment.
+        if (apt.occupantType === 'renter') userKind = userKind === 'owner' ? 'owner' : 'tenant';
+        else userKind = hasOwnerCreds ? 'owner' : 'tenant';
 
-        // Renter apartments offer a userKind toggle (Renter / Owner). Owner-
-        // occupied apartments have a single login (the owner is the resident,
-        // so no separate "owner" credentials).
-        const isRenterApt = apt.occupantType === 'renter';
-        if (isRenterApt) {
+        // Show the toggle when at least one of the two roles is selectable
+        // alongside the other (i.e., a meaningful choice exists). Renter-
+        // occupied apartments always show it; owner-occupied apartments show
+        // it only if there's an owner account configured (otherwise there's
+        // no meaningful choice — fall back to the renter/admin password flow).
+        const showToggle = (apt.occupantType === 'renter' && (hasRenterCreds || hasOwnerCreds))
+          || (apt.occupantType === 'owner' && hasOwnerCreds);
+        if (showToggle) {
           setHTML(roleFieldsEl, `
             <div class="field" style="margin-top:6px">
               <div class="segmented" role="radiogroup">
@@ -239,15 +183,20 @@ export async function renderLogin(onSuccess) {
           }));
         } else {
           setHTML(roleFieldsEl, '');
-          userKind = 'tenant';
         }
+
+        // Google-OAuth availability depends on the chosen role. Renter side
+        // looks at apt.hasOauth (apartment_email / apartment_recovery); owner
+        // side looks at hasOwnerOauth (owners.login_email / owner_recovery).
+        const oauthAvailable = userKind === 'owner' ? !!apt.hasOwnerOauth : !!apt.hasOauth;
+        setGoogleButtonState(fieldsEl, oauthAvailable ? 'available' : 'unavailable');
 
         // Whether the chosen credential set has a password yet. With PR F,
         // admins always generate a random initial password when creating an
         // apartment/owner — so this branch should only fire for legacy data
         // where the password was never set. We refuse self-setup and tell
         // the user to ask the admin (the admin can regenerate via Settings).
-        const hasPwd = userKind === 'owner' ? apt.hasOwnerPassword : apt.hasPassword;
+        const hasPwd = userKind === 'owner' ? hasOwnerCreds : hasRenterCreds;
 
         if (!hasPwd) {
           setHTML(pwdFields, `
@@ -266,7 +215,14 @@ export async function renderLogin(onSuccess) {
           setTimeout(() => pwdFields.querySelector('#ap')?.focus(), 30);
           pwdFields.querySelector('#forgot-tenant-link')?.addEventListener('click', () => {
             const apt = apts.find(a => a.id === sel.value);
-            if (apt) openForgotPasswordDialog({ apartment: apt, userKind });
+            if (!apt) return;
+            // For role='owner' the recovery flow is per-owner (not per-
+            // apartment) — route through the first-class owner reset.
+            if (userKind === 'owner' && apt.ownerId) {
+              openForgotPasswordDialog({ ownerId: apt.ownerId });
+            } else {
+              openForgotPasswordDialog({ apartment: apt, userKind: 'tenant' });
+            }
           });
         }
       };
@@ -324,26 +280,29 @@ export async function renderLogin(onSuccess) {
             throw err;
           }
         }
-      } else if (role === 'owner') {
-        // First-class owner — picked from dropdown. Sends ownerId+password.
-        // Mirrors the renter flow's apartmentId+password submission.
-        const ownerId = fieldsEl.querySelector('#owner-select')?.value;
-        if (!ownerId) { toast(t('login.owner.pickRequired'), 'warning'); return; }
-        const pwd = fieldsEl.querySelector('#owner-pass')?.value || '';
-        await api.login({ mode: 'owner', ownerId, password: pwd });
       } else {
         const aptId = fieldsEl.querySelector('#apt-select')?.value;
         if (!aptId) { toast(t('login.selectAptFirst'), 'warning'); return; }
         const apt = apts.find(a => a.id === aptId);
         const userKind = fieldsEl._getUserKind ? fieldsEl._getUserKind() : 'tenant';
-        const hasPwd = userKind === 'owner' ? apt.hasOwnerPassword : apt.hasPassword;
-        if (!hasPwd) {
-          // Admin must generate the initial password — no self-setup path.
-          toast(t('login.askAdminForInitial'), 'warning');
-          return;
+        // Route 'owner' role through the first-class owner login (PR-E),
+        // looking up the owner via apartment_owner_link. Renter role uses
+        // the legacy apartment-based credentials.
+        if (userKind === 'owner') {
+          if (!apt.ownerId || !apt.hasOwnerAccountPwd) {
+            toast(t('login.askAdminForInitial'), 'warning');
+            return;
+          }
+          const pwd = fieldsEl.querySelector('#ap')?.value || '';
+          await api.login({ mode: 'owner', ownerId: apt.ownerId, password: pwd });
+        } else {
+          if (!apt.hasPassword) {
+            toast(t('login.askAdminForInitial'), 'warning');
+            return;
+          }
+          const pwd = fieldsEl.querySelector('#ap')?.value || '';
+          await api.login({ mode: 'tenant', apartmentId: aptId, password: pwd, userKind: 'tenant' });
         }
-        const pwd = fieldsEl.querySelector('#ap')?.value || '';
-        await api.login({ mode: 'tenant', apartmentId: aptId, password: pwd, userKind });
       }
       await refreshSession();
       await refreshAll();
