@@ -1365,9 +1365,9 @@ function exportExpensesPDF(rows) {
 }
 
 // Sub-dialog launched from the expense form's "+ create new contact" button.
-// Mirrors the smallest useful subset of the contacts page: company (required),
-// name, role, phone, email, notes. On successful save it calls onSaved with
-// the freshly-created contact row so the caller can pre-select it.
+// Same fields and multi-phone UX as the full contacts dialog so the admin
+// gets parity in both places. On successful save it calls onSaved with the
+// freshly-created contact row so the caller can pre-select it.
 function openInlineContactDialog(onSaved) {
   const m = openModal({
     title: t('exp.contact.dialog.title'),
@@ -1386,11 +1386,12 @@ function openInlineContactDialog(onSaved) {
           <label class="field__label">${esc(t('contacts.field.role'))}</label>
           <input class="input" name="role" />
         </div>
-        <div class="field">
-          <label class="field__label">${esc(t('contacts.field.phone'))}</label>
-          <input class="input" name="phone" type="tel" />
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('contacts.field.phones'))}</label>
+          <div id="ic-phones-list" class="vstack" style="gap:6px"></div>
+          <button type="button" class="btn btn--sm" id="ic-phones-add" style="margin-top:6px">+ ${esc(t('contacts.field.phones.add'))}</button>
         </div>
-        <div class="field">
+        <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('contacts.field.email'))}</label>
           <input class="input" name="email" type="email" />
         </div>
@@ -1405,17 +1406,58 @@ function openInlineContactDialog(onSaved) {
       <button class="btn btn--primary" data-act="save">${esc(t('common.add'))}</button>
     `,
   });
+  // Wire the dynamic phone list — same pattern as the full contact dialog.
+  // DOM is built with createElement so user-entered values never reach
+  // innerHTML (XSS-safe).
+  const phonesEl = m.bodyEl.querySelector('#ic-phones-list');
+  const addPhoneRow = (entry = { phone: '', label: '' }) => {
+    const row = document.createElement('div');
+    row.className = 'hstack ic-phone-row';
+    row.style.gap = '6px';
+    const labelInput = document.createElement('input');
+    labelInput.className = 'input ic-phone-label';
+    labelInput.type = 'text';
+    labelInput.placeholder = t('contacts.field.phones.labelPlaceholder');
+    labelInput.value = entry.label || '';
+    labelInput.style.flex = '0 0 35%';
+    const numInput = document.createElement('input');
+    numInput.className = 'input ic-phone-num';
+    numInput.type = 'tel';
+    numInput.placeholder = t('contacts.field.phones.phonePlaceholder');
+    numInput.value = entry.phone || '';
+    numInput.style.flex = '1';
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn--sm btn--icon ic-phone-del';
+    delBtn.title = t('common.delete');
+    delBtn.innerHTML = Icon.trash; // static SVG constant — safe
+    delBtn.addEventListener('click', () => row.remove());
+    row.appendChild(labelInput);
+    row.appendChild(numInput);
+    row.appendChild(delBtn);
+    phonesEl.appendChild(row);
+  };
+  addPhoneRow(); // start with one empty row
+  m.bodyEl.querySelector('#ic-phones-add').addEventListener('click', () => addPhoneRow());
+
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
   m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
     const f = m.bodyEl.querySelector('#ic-form');
     const data = Object.fromEntries(new FormData(f).entries());
     if (!(data.company || '').trim()) { toast(t('contacts.companyRequired'), 'warning'); return; }
+    // Collect the multi-phone rows; drop any without a number.
+    const phones = [...phonesEl.querySelectorAll('.ic-phone-row')]
+      .map(row => ({
+        label: row.querySelector('.ic-phone-label').value.trim(),
+        phone: row.querySelector('.ic-phone-num').value.trim(),
+      }))
+      .filter(p => p.phone);
     try {
       const created = await upsertContact({
         company: data.company.trim(),
         name: (data.name || '').trim() || null,
         role: (data.role || '').trim() || null,
-        phone: (data.phone || '').trim() || null,
+        phones,
         email: (data.email || '').trim() || null,
         notes: (data.notes || '').trim() || null,
       });
