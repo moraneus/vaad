@@ -94,6 +94,19 @@ export function renderContacts() {
   }
 }
 
+// Renders the phones cell — multi-phone array if present, otherwise the
+// legacy single phone field. Each entry shows the number as a tel: link with
+// an optional label suffix.
+function renderPhonesCell(c) {
+  const phones = Array.isArray(c.phones) && c.phones.length
+    ? c.phones
+    : (c.phone ? [{ phone: c.phone, label: '' }] : []);
+  if (!phones.length) return '<span class="muted">—</span>';
+  return `<div class="vstack" style="gap:2px">${phones.map(p => `
+    <span><a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>${p.label ? `<span class="muted" style="font-size:11px"> · ${esc(p.label)}</span>` : ''}</span>
+  `).join('')}</div>`;
+}
+
 function renderRow(c, isAdmin, highlightId) {
   const isHighlighted = highlightId && c.id === highlightId;
   return `
@@ -101,7 +114,7 @@ function renderRow(c, isAdmin, highlightId) {
       <td><strong>${esc(c.company || '—')}</strong></td>
       <td>${esc(c.name || '—')}</td>
       <td>${esc(c.role || '—')}</td>
-      <td>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '<span class="muted">—</span>'}</td>
+      <td>${renderPhonesCell(c)}</td>
       <td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '<span class="muted">—</span>'}</td>
       <td class="muted" style="max-width:280px">${esc(c.notes || '')}</td>
       <td class="actions">
@@ -117,6 +130,11 @@ function renderRow(c, isAdmin, highlightId) {
 function openContactDialog(c = null) {
   if (!requireAdmin()) return;
   const isEdit = !!c;
+  // Seed the dynamic phones list from c.phones (new) or fall back to the
+  // legacy single c.phone string. New contacts start with one empty row.
+  const initialPhones = (Array.isArray(c?.phones) && c.phones.length)
+    ? c.phones
+    : (c?.phone ? [{ phone: c.phone, label: '' }] : []);
   const m = openModal({
     title: isEdit ? t('contacts.dialog.edit') : t('contacts.dialog.add'),
     body: `
@@ -133,11 +151,12 @@ function openContactDialog(c = null) {
           <label class="field__label">${esc(t('contacts.field.role'))}</label>
           <input class="input" name="role" value="${esc(c?.role || '')}" placeholder="${esc(t('contacts.field.rolePlaceholder'))}" />
         </div>
-        <div class="field">
-          <label class="field__label">${esc(t('contacts.field.phone'))}</label>
-          <input class="input" name="phone" type="tel" value="${esc(c?.phone || '')}" />
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('contacts.field.phones'))}</label>
+          <div id="c-phones-list" class="vstack" style="gap:6px"></div>
+          <button type="button" class="btn btn--sm" id="c-phones-add" style="margin-top:6px">+ ${esc(t('contacts.field.phones.add'))}</button>
         </div>
-        <div class="field">
+        <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('contacts.field.email'))}</label>
           <input class="input" name="email" type="email" value="${esc(c?.email || '')}" />
         </div>
@@ -152,13 +171,59 @@ function openContactDialog(c = null) {
       <button class="btn btn--primary" data-act="save">${esc(isEdit ? t('common.save') : t('common.add'))}</button>
     `,
   });
+  // Wire the dynamic phone list — same UX as the owner edit dialog. Each
+  // sub-element uses createElement + textContent / setAttribute so user data
+  // never reaches innerHTML (XSS-safe).
+  const phonesEl = m.bodyEl.querySelector('#c-phones-list');
+  const renderPhoneRow = (entry) => {
+    const row = document.createElement('div');
+    row.className = 'hstack c-phone-row';
+    row.style.gap = '6px';
+    const labelInput = document.createElement('input');
+    labelInput.className = 'input c-phone-label';
+    labelInput.type = 'text';
+    labelInput.placeholder = t('contacts.field.phones.labelPlaceholder');
+    labelInput.value = entry.label || '';
+    labelInput.style.flex = '0 0 35%';
+    const numInput = document.createElement('input');
+    numInput.className = 'input c-phone-num';
+    numInput.type = 'tel';
+    numInput.placeholder = t('contacts.field.phones.phonePlaceholder');
+    numInput.value = entry.phone || '';
+    numInput.style.flex = '1';
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn--sm btn--icon c-phone-del';
+    delBtn.title = t('common.delete');
+    // Icon.trash is a static SVG constant from ui.js — safe to inject.
+    delBtn.innerHTML = Icon.trash;
+    delBtn.addEventListener('click', () => row.remove());
+    row.appendChild(labelInput);
+    row.appendChild(numInput);
+    row.appendChild(delBtn);
+    phonesEl.appendChild(row);
+  };
+  if (initialPhones.length) initialPhones.forEach(renderPhoneRow);
+  else renderPhoneRow({ phone: '', label: '' }); // start with one empty row
+  m.bodyEl.querySelector('#c-phones-add').addEventListener('click', () => {
+    renderPhoneRow({ phone: '', label: '' });
+  });
+
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
   m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
     const f = m.bodyEl.querySelector('#c-form');
     const d = Object.fromEntries(new FormData(f).entries());
     if (!d.company) { toast(t('contacts.companyRequired'), 'warning'); return; }
+    // Collect the multi-phone rows. Empty phones drop; a phone without a
+    // label is fine (label is optional).
+    const phones = [...phonesEl.querySelectorAll('.c-phone-row')]
+      .map(row => ({
+        label: row.querySelector('.c-phone-label').value.trim(),
+        phone: row.querySelector('.c-phone-num').value.trim(),
+      }))
+      .filter(p => p.phone);
     try {
-      await upsertContact({ id: c?.id, ...d });
+      await upsertContact({ id: c?.id, ...d, phones });
       toast(isEdit ? t('contacts.updated') : t('contacts.added'), 'success');
       m.close();
       renderContacts();
