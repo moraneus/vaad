@@ -1,11 +1,11 @@
 // Settings — building details, history, passwords, audit log, backup, reset
 
 import {
-  getSession, getSettings, getApartments,
+  getSession, getSettings, getApartments, getOwners,
   updateSettingsBasic,
   addApartmentCountEntry, removeApartmentCountEntry, updateApartmentCountEntry,
   addMonthlyFeeEntry, removeMonthlyFeeEntry, updateMonthlyFeeEntry,
-  changeAdminPassword, changeTenantPassword, adminResetApartmentPassword,
+  changeAdminPassword, changeTenantPassword, adminResetApartmentPassword, adminResetOwnerPassword,
   grantApartmentAdmin, revokeApartmentAdmin,
   loadAuditLog, getAuditLog, clearAuditLog,
   resetAll, exportJSON,
@@ -79,6 +79,26 @@ function drawSettings() {
   const ach = sortHistory(s.apartmentCountHistory || []);
   const fh = sortHistory(s.monthlyFeeHistory || []);
   const apts = [...getApartments()].sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+  // Owner-side password management — list every first-class owner sorted
+  // by their lowest apartment number (matches the Owners tab default sort).
+  const ownerApts = new Map();
+  for (const a of apts) {
+    if (!a.ownerId) continue;
+    const arr = ownerApts.get(a.ownerId) || [];
+    arr.push(String(a.number));
+    ownerApts.set(a.ownerId, arr);
+  }
+  for (const arr of ownerApts.values()) {
+    arr.sort((x, y) => String(x).localeCompare(String(y), undefined, { numeric: true }));
+  }
+  const ownersList = [...getOwners()].sort((a, b) => {
+    const aa = ownerApts.get(a.id) || [];
+    const bb = ownerApts.get(b.id) || [];
+    if (!aa.length && !bb.length) return String(a.name || '').localeCompare(String(b.name || ''), 'he');
+    if (!aa.length) return 1;
+    if (!bb.length) return -1;
+    return String(aa[0]).localeCompare(String(bb[0]), undefined, { numeric: true });
+  });
   const audit = getAuditLog();
 
   // Helper: section header — small caps title + optional hint, with a hairline.
@@ -282,6 +302,58 @@ function drawSettings() {
         `}
       </div>
 
+      <!-- Owners passwords — parallel to the apartment-passwords card above. -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="hstack" style="margin-bottom:6px">
+          <h3 style="margin:0; font-size:15px">${esc(t('settings.ownerPasswords'))}</h3>
+          <div class="spacer"></div>
+          ${ownersList.length > 0 ? `
+            <button class="btn btn--sm" id="bulk-owner-toggle">${esc(t('settings.bulkPwd.toggle'))}</button>
+          ` : ''}
+        </div>
+        <p class="muted" style="font-size:13px; margin-bottom:10px">${esc(t('settings.ownerPasswords.hint'))}</p>
+        <div id="bulk-owner-bar" class="callout" style="display:none; font-size:13px; margin-bottom:10px">
+          <div class="hstack" style="gap:8px; flex-wrap:wrap">
+            <span id="bulk-owner-count">${esc(t('settings.bulkPwd.selected', { n: 0 }))}</span>
+            <div class="spacer"></div>
+            <button class="btn btn--sm" id="bulk-owner-select-all">${esc(t('settings.bulkPwd.selectAll'))}</button>
+            <button class="btn btn--sm" id="bulk-owner-clear">${esc(t('settings.bulkPwd.clear'))}</button>
+            <button class="btn btn--sm btn--primary" id="bulk-owner-set" disabled>${esc(t('settings.bulkPwd.set'))}</button>
+          </div>
+        </div>
+        ${ownersList.length === 0 ? `<p class="muted">${esc(t('settings.ownerPasswords.empty'))}</p>` : `
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr>
+                <th class="bulk-owner-col" style="display:none; width:32px"></th>
+                <th>${esc(t('settings.ownerPasswords.col.name'))}</th>
+                <th>${esc(t('settings.ownerPasswords.col.apartments'))}</th>
+                <th>${esc(t('settings.tenantPasswords.col.status'))}</th>
+                <th>${esc(t('settings.tenantPasswords.col.setAt'))}</th>
+                <th class="actions"></th>
+              </tr></thead>
+              <tbody>
+                ${ownersList.map(o => {
+                  const aptList = (ownerApts.get(o.id) || []).join(', ');
+                  return `
+                    <tr>
+                      <td class="bulk-owner-col" style="display:none"><input type="checkbox" class="bulk-owner-cb" data-id="${esc(o.id)}" /></td>
+                      <td><strong>${esc(o.name || '—')}</strong></td>
+                      <td class="muted">${aptList ? esc(aptList) : `<span class="muted">${esc(t('settings.ownerPasswords.noApts'))}</span>`}</td>
+                      <td>${o.hasPassword ? `<span class="badge badge--success">${esc(t('settings.tenantPasswords.set'))}</span>` : `<span class="badge badge--warning">${esc(t('settings.tenantPasswords.notSet'))}</span>`}</td>
+                      <td class="muted">${o.passwordSetAt ? fmtDate(o.passwordSetAt) : '—'}</td>
+                      <td class="actions">
+                        <button class="btn btn--sm" data-act="reset-own-pwd" data-id="${esc(o.id)}" data-name="${esc(o.name || '')}">${esc(t('settings.tenantPasswords.reset'))}</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
       ${sectionHeader(t('settings.section.integrations'))}
       ${renderDriveCard(driveStatus)}
       ${renderEmailCard()}
@@ -428,8 +500,54 @@ function drawSettings() {
     bulkSetBtn?.addEventListener('click', () => {
       const ids = [...document.querySelectorAll('.bulk-cb:checked')].map(cb => cb.dataset.id);
       const labels = ids.map(id => apts.find(a => a.id === id)?.number).filter(Boolean).join(', ');
-      openBulkPasswordDialog(ids, labels, () => drawSettings());
+      openBulkPasswordDialog({ apartmentIds: ids, ownerIds: [], summaryLabel: labels, onDone: () => drawSettings() });
     });
+
+    // Owners-passwords parallel UI — same pattern as the apartment bulk-set.
+    const bulkOwnerToggle = document.getElementById('bulk-owner-toggle');
+    const bulkOwnerBar = document.getElementById('bulk-owner-bar');
+    const bulkOwnerSetBtn = document.getElementById('bulk-owner-set');
+    const bulkOwnerCount = document.getElementById('bulk-owner-count');
+    const updateBulkOwnerCount = () => {
+      const n = document.querySelectorAll('.bulk-owner-cb:checked').length;
+      if (bulkOwnerCount) bulkOwnerCount.textContent = t('settings.bulkPwd.selected', { n });
+      if (bulkOwnerSetBtn) bulkOwnerSetBtn.disabled = n === 0;
+    };
+    bulkOwnerToggle?.addEventListener('click', () => {
+      const visible = document.querySelector('.bulk-owner-col')?.style.display === '';
+      const next = !visible;
+      document.querySelectorAll('.bulk-owner-col').forEach(td => { td.style.display = next ? '' : 'none'; });
+      if (bulkOwnerBar) bulkOwnerBar.style.display = next ? '' : 'none';
+      if (!next) document.querySelectorAll('.bulk-owner-cb').forEach(cb => { cb.checked = false; });
+      updateBulkOwnerCount();
+    });
+    document.getElementById('bulk-owner-select-all')?.addEventListener('click', () => {
+      document.querySelectorAll('.bulk-owner-cb').forEach(cb => { cb.checked = true; });
+      updateBulkOwnerCount();
+    });
+    document.getElementById('bulk-owner-clear')?.addEventListener('click', () => {
+      document.querySelectorAll('.bulk-owner-cb').forEach(cb => { cb.checked = false; });
+      updateBulkOwnerCount();
+    });
+    document.querySelectorAll('.bulk-owner-cb').forEach(cb => cb.addEventListener('change', updateBulkOwnerCount));
+    bulkOwnerSetBtn?.addEventListener('click', () => {
+      const ids = [...document.querySelectorAll('.bulk-owner-cb:checked')].map(cb => cb.dataset.id);
+      const labels = ids.map(id => ownersList.find(o => o.id === id)?.name).filter(Boolean).join(', ');
+      openBulkPasswordDialog({ apartmentIds: [], ownerIds: ids, summaryLabel: labels, onDone: () => drawSettings() });
+    });
+    document.querySelectorAll('[data-act="reset-own-pwd"]').forEach(b => b.addEventListener('click', () => {
+      const owner = ownersList.find(o => o.id === b.dataset.id);
+      if (!owner) return;
+      openPasswordManagerDialog({
+        kind: 'owner',
+        id: owner.id,
+        label: t('pwMgr.subject.owner', { name: owner.name }),
+        hasPassword: !!owner.hasPassword,
+        passwordSetAt: owner.passwordSetAt,
+        onDone: () => drawSettings(),
+      });
+    }));
+
     document.querySelectorAll('[data-act="reset-apt-pwd"]').forEach(b => b.addEventListener('click', () => {
       const apt = getApartments().find(a => a.id === b.dataset.id);
       if (!apt) return;
@@ -1043,10 +1161,27 @@ async function startIdentityFlow(purpose) {
 // Bulk password set dialog — input one password (with policy validator),
 // applied to the apartments selected via checkboxes. The same password is
 // stashed encrypted per apartment so the admin can re-display it later.
-function openBulkPasswordDialog(apartmentIds, summaryLabel, onDone) {
+function openBulkPasswordDialog(opts) {
+  // Accepts the new options shape { apartmentIds, ownerIds, summaryLabel,
+  // onDone }. Backwards-compatible with the old positional call signature
+  // (apartmentIds, summaryLabel, onDone) — auto-detected when arg #1 is an
+  // array.
+  let apartmentIds, ownerIds, summaryLabel, onDone;
+  if (Array.isArray(opts)) {
+    apartmentIds = opts;
+    summaryLabel = arguments[1];
+    onDone = arguments[2];
+    ownerIds = [];
+  } else {
+    apartmentIds = opts?.apartmentIds || [];
+    ownerIds = opts?.ownerIds || [];
+    summaryLabel = opts?.summaryLabel || '';
+    onDone = opts?.onDone;
+  }
   if (!requireAdmin()) return;
+  const totalCount = apartmentIds.length + ownerIds.length;
   const m = openModal({
-    title: t('settings.bulkPwd.dialog.title', { n: apartmentIds.length }),
+    title: t('settings.bulkPwd.dialog.title', { n: totalCount }),
     size: 'md',
     body: `
       <div class="callout" style="font-size:13px; margin-bottom:12px">
@@ -1080,8 +1215,13 @@ function openBulkPasswordDialog(apartmentIds, summaryLabel, onDone) {
     if (!validatePassword(pwd).ok) { toast(t('pw.policy.failed'), 'warning'); return; }
     saveBtn.disabled = true;
     try {
-      const res = await api.bulkResetApartmentPasswords(apartmentIds, pwd);
-      toast(t('settings.bulkPwd.done', { n: res.count }), 'success');
+      const res = await api.bulkResetApartmentPasswords(apartmentIds, pwd, ownerIds);
+      // The endpoint resets renter passwords AND any first-class owner
+      // passwords (both directly-picked and linked to selected apartments).
+      // Toast mentions both counts so the admin knows both login flows are
+      // usable now.
+      const msgKey = res.ownerCount > 0 ? 'settings.bulkPwd.doneWithOwners' : 'settings.bulkPwd.done';
+      toast(t(msgKey, { n: res.count, owners: res.ownerCount || 0 }), 'success');
       m.close();
       onDone && onDone();
     } catch (err) {

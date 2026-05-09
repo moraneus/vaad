@@ -43,8 +43,8 @@ export const api = {
   // scope: 'apartment-tenant' | 'apartment-owner-legacy' | 'owner'
   revealPassword: (scope, id) =>
     call(`/api/admin/reveal-password?scope=${encodeURIComponent(scope)}&id=${encodeURIComponent(id)}`),
-  bulkResetApartmentPasswords: (apartmentIds, newPassword) =>
-    call('/api/admin/bulk-reset-passwords', opts('POST', { apartmentIds, newPassword })),
+  bulkResetApartmentPasswords: (apartmentIds, newPassword, ownerIds = []) =>
+    call('/api/admin/bulk-reset-passwords', opts('POST', { apartmentIds, ownerIds, newPassword })),
   bulkMarkPaid: (payload) => call('/api/admin/bulk-mark-paid', opts('POST', payload)),
   twoFAStatus: () => call('/api/auth/2fa-status'),
   twoFASetupInit: () => call('/api/auth/2fa-setup-init', opts('POST', {})),
