@@ -124,21 +124,20 @@ export function renderExpenses() {
       <div class="muted">${filtered.length}</div>
     </div>
 
-    <div class="toolbar" style="margin-top:-6px; flex-wrap:wrap; gap:8px">
-      <label class="muted" style="font-size:12px">${esc(t('exp.filter.from'))}</label>
-      <input class="input" id="f-from" type="date" value="${esc(filterFrom || '')}" style="width:160px" />
-      <label class="muted" style="font-size:12px">${esc(t('exp.filter.to'))}</label>
-      <input class="input" id="f-to" type="date" value="${esc(filterTo || '')}" style="width:160px" />
-      <div class="hstack" style="gap:4px">
-        <button class="btn btn--sm" data-preset="thisYear">${esc(t('exp.filter.preset.thisYear'))}</button>
-        <button class="btn btn--sm" data-preset="last3">${esc(t('exp.filter.preset.last3'))}</button>
-        <button class="btn btn--sm" data-preset="lastYear">${esc(t('exp.filter.preset.lastYear'))}</button>
-        <button class="btn btn--sm" data-preset="all">${esc(t('exp.filter.preset.all'))}</button>
-      </div>
+    <div class="toolbar" style="margin-top:-6px; gap:6px; flex-wrap:nowrap; overflow-x:auto">
+      <select class="select" id="f-preset" style="width:auto" title="${esc(t('income.export.preset.title'))}">
+        <option value="custom">${esc(t('income.export.preset.custom'))}</option>
+        <option value="thisYear">${esc(t('exp.filter.preset.thisYear'))}</option>
+        <option value="last3">${esc(t('exp.filter.preset.last3'))}</option>
+        <option value="lastYear">${esc(t('exp.filter.preset.lastYear'))}</option>
+        <option value="all">${esc(t('exp.filter.preset.all'))}</option>
+      </select>
+      <input class="input" id="f-from" type="date" value="${esc(filterFrom || '')}" style="width:140px" title="${esc(t('exp.filter.from'))}" />
+      <input class="input" id="f-to" type="date" value="${esc(filterTo || '')}" style="width:140px" title="${esc(t('exp.filter.to'))}" />
       <div class="spacer"></div>
       ${isAdmin ? `
-        <button class="btn btn--sm" id="exp-export-csv" title="${esc(t('exp.export.csvHint'))}">${Icon.download} ${esc(t('exp.export.csv'))}</button>
-        <button class="btn btn--sm" id="exp-export-pdf" title="${esc(t('exp.export.pdfHint'))}">${Icon.document} ${esc(t('exp.export.pdf'))}</button>
+        <button class="btn btn--sm" id="exp-export-csv" title="${esc(t('exp.export.csvHint'))}" style="white-space:nowrap">${Icon.download} ${esc(t('exp.export.csv'))}</button>
+        <button class="btn btn--sm" id="exp-export-pdf" title="${esc(t('exp.export.pdfHint'))}" style="white-space:nowrap">${Icon.document} ${esc(t('exp.export.pdf'))}</button>
       ` : ''}
     </div>
 
@@ -175,27 +174,32 @@ export function renderExpenses() {
   document.getElementById('f-type').addEventListener('change', (e) => { filterType = e.target.value; renderExpenses(); });
   document.getElementById('f-status').addEventListener('change', (e) => { filterStatus = e.target.value; renderExpenses(); });
   document.getElementById('f-cat').addEventListener('change', (e) => { filterCategory = e.target.value; renderExpenses(); });
-  document.getElementById('f-from')?.addEventListener('change', (e) => { filterFrom = e.target.value || null; renderExpenses(); });
-  document.getElementById('f-to')?.addEventListener('change', (e) => { filterTo = e.target.value || null; renderExpenses(); });
-  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+  // Manual date edits flip the preset back to "custom" so the dropdown
+  // always reflects the actual range in effect.
+  const presetSel = document.getElementById('f-preset');
+  const flipToCustom = () => { if (presetSel) presetSel.value = 'custom'; };
+  document.getElementById('f-from')?.addEventListener('change', (e) => { filterFrom = e.target.value || null; flipToCustom(); renderExpenses(); });
+  document.getElementById('f-to')?.addEventListener('change', (e) => { filterTo = e.target.value || null; flipToCustom(); renderExpenses(); });
+  presetSel?.addEventListener('change', () => {
     const today = new Date();
     const y = today.getFullYear();
-    if (b.dataset.preset === 'thisYear') {
+    const v = presetSel.value;
+    if (v === 'thisYear') {
       filterFrom = `${y}-01-01`; filterTo = `${y}-12-31`;
-    } else if (b.dataset.preset === 'lastYear') {
+    } else if (v === 'lastYear') {
       filterFrom = `${y - 1}-01-01`; filterTo = `${y - 1}-12-31`;
-    } else if (b.dataset.preset === 'last3') {
-      // 3 months back from today, inclusive of the current month.
+    } else if (v === 'last3') {
       const back = new Date(today);
       back.setMonth(today.getMonth() - 2);
       back.setDate(1);
       filterFrom = `${back.getFullYear()}-${String(back.getMonth() + 1).padStart(2, '0')}-01`;
       filterTo = todayISO();
-    } else if (b.dataset.preset === 'all') {
+    } else if (v === 'all') {
       filterFrom = null; filterTo = null;
     }
+    // 'custom' leaves filterFrom/filterTo as-is.
     renderExpenses();
-  }));
+  });
   document.getElementById('exp-export-csv')?.addEventListener('click', () => exportExpensesCSV(filtered));
   document.getElementById('exp-export-pdf')?.addEventListener('click', () => exportExpensesPDF(filtered));
 
