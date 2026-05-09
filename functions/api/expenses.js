@@ -19,7 +19,22 @@ async function loadExpense(db, id) {
   e.autoExtend = !!auto?.on_;
   const dm = await db.prepare('SELECT method FROM expense_default_method WHERE expense_id = ?').bind(id).first();
   e.defaultMethod = dm?.method || null;
+  const cl = await db.prepare('SELECT contact_id FROM expense_contact_link WHERE expense_id = ?').bind(id).first();
+  e.contactId = cl?.contact_id || null;
   return e;
+}
+
+// Upserts (or clears) the contact link for an expense. Falsy contactId
+// removes the row.
+async function writeContactLink(db, expenseId, contactId) {
+  if (contactId) {
+    await db.prepare(
+      'INSERT INTO expense_contact_link (expense_id, contact_id) VALUES (?, ?) ' +
+      'ON CONFLICT(expense_id) DO UPDATE SET contact_id = excluded.contact_id'
+    ).bind(expenseId, contactId).run();
+  } else {
+    await db.prepare('DELETE FROM expense_contact_link WHERE expense_id = ?').bind(expenseId).run();
+  }
 }
 
 // Sets/clears the auto-extend flag for an expense. Pass `flag=true` to enable
@@ -60,6 +75,9 @@ export const onRequestGet = async ({ request, env }) => {
   // Same idea for default-method — fetch once and look up by id.
   const dmRows = (await env.DB.prepare('SELECT expense_id, method FROM expense_default_method').all()).results || [];
   const dmMap = new Map(dmRows.map(r => [r.expense_id, r.method]));
+  // And contact links — single fetch.
+  const clRows = (await env.DB.prepare('SELECT expense_id, contact_id FROM expense_contact_link').all()).results || [];
+  const clMap = new Map(clRows.map(r => [r.expense_id, r.contact_id]));
   // Hydrate rate history + document links per expense
   const out = [];
   for (const e of rows.results) {
@@ -69,6 +87,7 @@ export const onRequestGet = async ({ request, env }) => {
     e.documents = links.results.map(x => x.id);
     e.autoExtend = autoIds.has(e.id);
     e.defaultMethod = dmMap.get(e.id) || null;
+    e.contactId = clMap.get(e.id) || null;
     out.push(e);
   }
   return json({ expenses: out });
@@ -105,6 +124,7 @@ export const onRequestPost = async ({ request, env }) => {
     await writeAutoExtend(env.DB, id, true);
   }
   await writeDefaultMethod(env.DB, id, pickStr(body.defaultMethod, 16));
+  await writeContactLink(env.DB, id, pickStr(body.contactId, 80));
   await logAudit(env.DB, request, { event: 'expense_created', role: 'admin', userLabel: 'מנהל', meta: { name, type, amount }, success: true });
   return json(await loadExpense(env.DB, id), { status: 201 });
 };
@@ -139,6 +159,7 @@ export const onRequestPut = async ({ request, env }) => {
   const wantAuto = type === 'monthly' && !!updEndDate && !!body.autoExtend;
   await writeAutoExtend(env.DB, id, wantAuto);
   await writeDefaultMethod(env.DB, id, pickStr(body.defaultMethod, 16));
+  await writeContactLink(env.DB, id, pickStr(body.contactId, 80));
   await logAudit(env.DB, request, { event: 'expense_updated', role: 'admin', userLabel: 'מנהל', success: true });
   return json(await loadExpense(env.DB, id));
 };

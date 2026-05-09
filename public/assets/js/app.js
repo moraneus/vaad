@@ -47,7 +47,10 @@ let currentRoute = 'dashboard';
 function navigate(route) {
   if (!isRouteAllowed(route)) route = 'dashboard';
   currentRoute = route;
-  if (location.hash !== `#${route}`) location.hash = route;
+  // Compare only the route portion so `#contacts?id=ct-abc` doesn't get
+  // rewritten to `#contacts` (which would strip the query string the
+  // destination view wants to read).
+  if (routeFromHash(location.hash) !== route) location.hash = route;
   renderApp();
 }
 
@@ -55,7 +58,7 @@ async function renderApp() {
   const session = getSession();
   if (!session.loggedIn) {
     await renderLogin(async () => {
-      const initial = (location.hash || '#dashboard').slice(1);
+      const initial = routeFromHash(location.hash) || 'dashboard';
       navigate(initial in ROUTES ? initial : 'dashboard');
       // Show reminders modal after a fresh login as well.
       maybeShowLoginRemindersModal(navigate);
@@ -75,8 +78,15 @@ async function renderApp() {
   document.getElementById('scrim')?.classList.remove('scrim--show');
 }
 
+// A hash like `#contacts?id=ct-abc` is parsed as route="contacts" plus query
+// args that the destination view can read off `location.hash`. The route
+// match must ignore everything after the first `?`.
+function routeFromHash(hash) {
+  return (hash || '').replace(/^#/, '').split('?')[0];
+}
+
 window.addEventListener('hashchange', () => {
-  const route = location.hash.slice(1);
+  const route = routeFromHash(location.hash);
   if (route in ROUTES) navigate(route);
 });
 
@@ -84,7 +94,7 @@ window.addEventListener('hashchange', () => {
 (async () => {
   await refreshSession();
   if (getSession().loggedIn) await refreshAll();
-  const initial = (location.hash || '#dashboard').slice(1);
+  const initial = routeFromHash(location.hash) || 'dashboard';
   currentRoute = isRouteAllowed(initial) ? initial : 'dashboard';
   await renderApp();
   // Show "you have N active reminders" modal once per session, after first render.

@@ -1,6 +1,6 @@
 // Expenses — 3 types: monthly, annual (with rate history), one-off
 
-import { getExpenses, upsertExpense, deleteExpense, addExpenseRate, removeExpenseRate, getDocuments, uploadDocument, attachDocument, detachDocument, deleteDocument, upsertExpensePayment, deleteExpensePayment, getExpensePayments, getReminders, deleteReminder } from '../store.js';
+import { getExpenses, upsertExpense, deleteExpense, addExpenseRate, removeExpenseRate, getDocuments, uploadDocument, attachDocument, detachDocument, deleteDocument, upsertExpensePayment, deleteExpensePayment, getExpensePayments, getReminders, deleteReminder, getContacts, upsertContact } from '../store.js';
 import { api } from '../api.js';
 import { fmtCurrency, esc, fmtDate, formatBytes, todayISO, sortHistory, monthKey, parseMonthKey, isMonthInRange, downloadBlob } from '../utils.js';
 import { t, monthName } from '../i18n.js';
@@ -519,7 +519,16 @@ function renderExpenseRow(e, isAdmin) {
           <strong>${esc(e.name)}</strong>
           ${chevron}
         </div>
-        ${e.notes ? `<div class="muted" style="font-size:12px">${esc(e.notes)}</div>` : ''}
+        ${(() => {
+          // Render the linked contact (clickable → contacts tab with this
+          // contact highlighted) above the free-text notes line.
+          const contact = e.contactId ? getContacts().find(c => c.id === e.contactId) : null;
+          const contactLine = contact
+            ? `<div class="muted" style="font-size:12px"><a href="#contacts?id=${esc(contact.id)}" class="muted" style="text-decoration:underline">${esc(contact.company || contact.name || '—')}${contact.phone ? ` · ${esc(contact.phone)}` : ''}</a></div>`
+            : (e.contactId ? `<div class="muted" style="font-size:12px">${esc(t('exp.contact.deleted'))}</div>` : '');
+          const notesLine = e.notes ? `<div class="muted" style="font-size:12px">${esc(e.notes)}</div>` : '';
+          return contactLine + notesLine;
+        })()}
       </td>
       <td>${esc(e.category || '—')}</td>
       <td>${typeBadge(e.type)}${e.type === 'annual' && e.rateHistory && e.rateHistory.length > 1 ? ` <button class="btn btn--sm btn--ghost" data-act="rates" data-id="${e.id}">${esc(t('exp.rates.count', { n: e.rateHistory.length }))}</button>` : ''}</td>
@@ -705,6 +714,19 @@ function openExpenseDialog(exp = null) {
           </select>
           <div class="field__hint">${esc(t('exp.field.defaultMethod.hint'))}</div>
         </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('exp.field.contact'))}</label>
+          <div class="hstack" style="gap:6px">
+            <select class="select" name="contactId" id="exp-contact-sel" style="flex:1">
+              <option value="" ${!exp?.contactId ? 'selected' : ''}>${esc(t('exp.field.contact.none'))}</option>
+              ${[...getContacts()].sort((a, b) => String(a.company || a.name || '').localeCompare(String(b.company || b.name || ''), 'he')).map(c => `
+                <option value="${esc(c.id)}" ${exp?.contactId === c.id ? 'selected' : ''}>${esc(c.company || '—')}${c.name ? ` · ${esc(c.name)}` : ''}${c.phone ? ` · ${esc(c.phone)}` : ''}</option>
+              `).join('')}
+            </select>
+            <button type="button" class="btn btn--sm" id="exp-new-contact">+ ${esc(t('exp.field.contact.create'))}</button>
+          </div>
+          <div class="field__hint">${esc(t('exp.field.contact.hint'))}</div>
+        </div>
 
         <div class="field field--required" id="field-start">
           <label class="field__label" id="lbl-start">${esc(t('exp.field.startDate'))}</label>
@@ -868,6 +890,28 @@ function openExpenseDialog(exp = null) {
     });
   };
   renderReminderArea();
+
+  // ----- Contact picker: "+ create new contact" path -----
+  // Opens a small sub-dialog. On save, the new contact is created via the
+  // store, the picker reloads from the cache, and the new contact is
+  // pre-selected — admin can save the expense without a second click.
+  // All values pass through esc() before reaching setHTML, so the rebuilt
+  // dropdown is XSS-safe.
+  m.bodyEl.querySelector('#exp-new-contact')?.addEventListener('click', () => {
+    if (!requireAdmin()) return;
+    openInlineContactDialog((created) => {
+      if (!created?.id) return;
+      const sel = m.bodyEl.querySelector('#exp-contact-sel');
+      const sortedNow = [...getContacts()].sort((a, b) =>
+        String(a.company || a.name || '').localeCompare(String(b.company || b.name || ''), 'he'));
+      const html =
+        `<option value="">${esc(t('exp.field.contact.none'))}</option>` +
+        sortedNow.map(c =>
+          `<option value="${esc(c.id)}" ${created.id === c.id ? 'selected' : ''}>${esc(c.company || '—')}${c.name ? ` · ${esc(c.name)}` : ''}${c.phone ? ` · ${esc(c.phone)}` : ''}</option>`
+        ).join('');
+      setHTML(sel, html);
+    });
+  });
 
   const setType = (newType) => {
     m.bodyEl.querySelector('#type-val').value = newType;
@@ -1243,4 +1287,66 @@ function exportExpensesPDF(rows) {
     try { w.focus(); w.print(); } catch (_) { /* user can re-print manually */ }
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, 350);
+}
+
+// Sub-dialog launched from the expense form's "+ create new contact" button.
+// Mirrors the smallest useful subset of the contacts page: company (required),
+// name, role, phone, email, notes. On successful save it calls onSaved with
+// the freshly-created contact row so the caller can pre-select it.
+function openInlineContactDialog(onSaved) {
+  const m = openModal({
+    title: t('exp.contact.dialog.title'),
+    size: 'md',
+    body: `
+      <form id="ic-form" class="form-grid" autocomplete="off">
+        <div class="field field--required" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('contacts.field.company'))}</label>
+          <input class="input" name="company" required />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('contacts.field.name'))}</label>
+          <input class="input" name="name" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('contacts.field.role'))}</label>
+          <input class="input" name="role" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('contacts.field.phone'))}</label>
+          <input class="input" name="phone" type="tel" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('contacts.field.email'))}</label>
+          <input class="input" name="email" type="email" />
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('common.notes'))}</label>
+          <textarea class="textarea" name="notes" rows="2"></textarea>
+        </div>
+      </form>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="save">${esc(t('common.add'))}</button>
+    `,
+  });
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
+    const f = m.bodyEl.querySelector('#ic-form');
+    const data = Object.fromEntries(new FormData(f).entries());
+    if (!(data.company || '').trim()) { toast(t('contacts.companyRequired'), 'warning'); return; }
+    try {
+      const created = await upsertContact({
+        company: data.company.trim(),
+        name: (data.name || '').trim() || null,
+        role: (data.role || '').trim() || null,
+        phone: (data.phone || '').trim() || null,
+        email: (data.email || '').trim() || null,
+        notes: (data.notes || '').trim() || null,
+      });
+      toast(t('contacts.created'), 'success');
+      m.close();
+      onSaved && onSaved(created);
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  });
 }

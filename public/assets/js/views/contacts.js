@@ -8,6 +8,14 @@ import { getSession } from '../store.js';
 
 let searchTerm = '';
 
+// Reads `?id=…` from the current hash (e.g., `#contacts?id=ct-abc`). Used
+// when another view links to a specific contact so we can scroll-to and
+// flash-highlight that row on render.
+function highlightedContactId() {
+  const m = (location.hash || '').match(/[?&]id=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 export function renderContacts() {
   const main = document.getElementById('app-main');
   const session = getSession();
@@ -53,7 +61,7 @@ export function renderContacts() {
               </tr>
             </thead>
             <tbody>
-              ${list.map(c => renderRow(c, isAdmin)).join('')}
+              ${list.map(c => renderRow(c, isAdmin, highlightedContactId())).join('')}
             </tbody>
           </table>
         </div>
@@ -74,11 +82,22 @@ export function renderContacts() {
     const ok = await confirmDialog({ title: t('contacts.delete.title'), message: t('contacts.delete.message', { name: c.company || c.name }), danger: true, confirmText: t('common.delete') });
     if (ok) { try { await deleteContact(c.id); toast(t('contacts.deleted'), 'success'); renderContacts(); } catch (err) { toast(err.message || t('common.error'), 'danger'); } }
   }));
+
+  // Scroll the linked contact into view + fade the highlight after a moment.
+  const hid = highlightedContactId();
+  if (hid) {
+    const row = document.getElementById(`contact-row-${hid}`);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { row.style.background = ''; }, 2200);
+    }
+  }
 }
 
-function renderRow(c, isAdmin) {
+function renderRow(c, isAdmin, highlightId) {
+  const isHighlighted = highlightId && c.id === highlightId;
   return `
-    <tr>
+    <tr id="contact-row-${esc(c.id)}" ${isHighlighted ? 'style="background:var(--c-warning-soft, #fff7e6); transition:background 1.5s"' : ''}>
       <td><strong>${esc(c.company || '—')}</strong></td>
       <td>${esc(c.name || '—')}</td>
       <td>${esc(c.role || '—')}</td>

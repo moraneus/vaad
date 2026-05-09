@@ -319,6 +319,21 @@ CREATE TABLE IF NOT EXISTS expense_default_method (
   method     TEXT NOT NULL
 );
 
+-- Optional link from an expense to a real contact in the contacts table.
+-- Stored separately (rather than as a column on expenses) so the migration
+-- stays additive + idempotent. The link is one-way: an expense has at most
+-- one primary contact, but a contact can be referenced by many expenses.
+-- ON DELETE CASCADE on expense_id cleans up the link when the expense goes
+-- away. We deliberately don't FK-enforce contact_id so that deleting a
+-- contact doesn't cascade-delete the link row — instead the frontend
+-- reconciles by checking whether the contact still exists when rendering.
+CREATE TABLE IF NOT EXISTS expense_contact_link (
+  expense_id TEXT PRIMARY KEY REFERENCES expenses(id) ON DELETE CASCADE,
+  contact_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_expense_contact_link_contact
+  ON expense_contact_link(contact_id);
+
 CREATE TABLE IF NOT EXISTS contacts (
   id TEXT PRIMARY KEY,
   company TEXT NOT NULL,

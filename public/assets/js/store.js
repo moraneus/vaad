@@ -72,9 +72,9 @@ export async function removeExpenseRate(expenseId, rateId) {
 
 // ---- Contacts ----
 export async function upsertContact(c) {
-  if (c.id) await api.updateContact(c.id, c);
-  else await api.createContact(c);
+  const res = c.id ? await api.updateContact(c.id, c) : await api.createContact(c);
   await refreshAll();
+  return res;
 }
 export async function deleteContact(id) {
   await api.deleteContact(id);
