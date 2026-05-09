@@ -86,7 +86,12 @@ Every email includes anti-spam footer and unsubscribe instructions; we record th
 
 ## Automated monthly cron
 
-If you want the monthly report to send automatically on the 1st of each month, deploy a tiny standalone Cloudflare Worker. **Cloudflare Pages Functions don't support scheduled triggers**, so we use a Worker as a thin scheduler that calls the Pages endpoint via a shared secret.
+A standalone Cloudflare Worker fires once a month and runs **two** monthly housekeeping jobs by calling Pages endpoints with a shared secret:
+
+1. **Auto-extend monthly expenses** — for every monthly expense the admin opted into "auto-extend", the Worker pushes its `endDate` forward to the last day of the new month. This way one row stays the source of truth for an ongoing expense and rolls itself over.
+2. **Monthly email report** — generates and emails the PDF report to opted-in residents via Resend.
+
+**Cloudflare Pages Functions don't support scheduled triggers**, so we use a Worker as a thin scheduler. Both jobs share the same `CRON_SECRET`.
 
 ### 1. Create a shared secret
 
@@ -128,21 +133,29 @@ Look for `schedule: 0 8 1 * *` in the deploy output — that's the cron firing o
 
 ### 4. Test manually (optional)
 
+The Worker exposes two manual triggers (both authenticated with the same `x-cron-secret`):
+
 ```bash
-curl -X POST \
-  -H "x-cron-secret: <YOUR_CRON_SECRET>" \
+# /run — fires both jobs (same as the schedule)
+curl -X POST -H "x-cron-secret: <YOUR_CRON_SECRET>" \
   https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run
+
+# /run-extend — fires only the auto-extend job (useful when verifying that flow alone)
+curl -X POST -H "x-cron-secret: <YOUR_CRON_SECRET>" \
+  https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run-extend
 ```
 
 | Response | Meaning |
 |---|---|
-| `{"ok":true,"sent":N,"year":Y,"month":M}` | working — that's how many residents got the email |
+| `{"extend":{"status":200,"body":"..."},"report":{"status":200,"body":"..."}}` | both jobs ran — see each `body` for details |
+| `{"ok":true,"extended":N,"target":"YYYY-MM-DD"}` (from `/run-extend`) | N monthly expenses had their endDate pushed forward to that date |
+| `{"ok":true,"sent":N,"year":Y,"month":M}` | monthly email report sent to N residents |
 | `{"error":"אין דיירים שרשומים לקבלת מיילים"}` | Pipeline OK, no opted-in residents yet |
 | `{"error":"Forbidden"}` | `CRON_SECRET` doesn't match between Pages and the Worker |
 | `{"error":"שירות האימייל לא הוגדר..."}` | `RESEND_API_KEY` / `EMAIL_FROM` aren't set on Pages |
 | `{"error":"Resend batch: 403 — ... domain ... is not verified"}` | `EMAIL_FROM` points to an unverified domain |
 
-> **Without the Cron Worker**, everything still works — you'll just need to click **Send monthly report** manually each month.
+> **Without the Cron Worker**, both jobs are still manual: the admin clicks **Send monthly report** each month from Settings, and they manually edit `endDate` on monthly expenses (or extend it well into the future) instead of relying on auto-extend.
 
 ## Password recovery (master admin AND every apartment / owner)
 

@@ -11,12 +11,32 @@ When you pull a new version of this repo:
 npx wrangler d1 execute <your-d1-name> --remote --file=./schema.sql
 
 # 2. Redeploy the static + functions bundle.
-npx wrangler pages deploy ./public --project-name=<cf-pages-project>
+npx wrangler pages deploy ./public --project-name=<cf-pages-project> --commit-dirty=true
+
+# 3. (Optional) Redeploy the cron Worker if the worker code or schedule changed.
+cd <path-to-cron-worker>
+npx wrangler deploy
 ```
 
 The schema file uses `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS` and `INSERT OR IGNORE` so re-running it on a populated database is safe.
 
-If you only edited `wrangler.toml` (which is gitignored) and your tree is "dirty," add `--commit-dirty=true` to the deploy command to skip Wrangler's uncommitted-changes warning.
+`--commit-dirty=true` skips Wrangler's "uncommitted changes" warning — useful since `wrangler.toml` is gitignored locally.
+
+**The cron Worker (step 3) handles two monthly jobs:**
+- `auto-extend-monthly` — pushes `endDate` forward for opt-in monthly expenses on the 1st of each month
+- `monthly-report` — generates and emails the monthly PDF report
+
+You only need to redeploy step 3 when the worker file (`worker/cron-monthly-report.js`) or its schedule changes. Manual triggers are available for testing:
+
+```bash
+# Run both endpoints (same as the schedule fires)
+curl -X POST -H "x-cron-secret: <YOUR_CRON_SECRET>" \
+  https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run
+
+# Run only the auto-extend endpoint
+curl -X POST -H "x-cron-secret: <YOUR_CRON_SECRET>" \
+  https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run-extend
+```
 
 ## Custom domain
 

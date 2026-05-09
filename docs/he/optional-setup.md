@@ -86,7 +86,12 @@ npx wrangler pages deploy ./public --project-name=<cf-pages-project>
 
 ## Cron חודשי אוטומטי
 
-אם תרצה שהדוח החודשי יישלח אוטומטית ב-1 בכל חודש, פרוס Cloudflare Worker קטן ועצמאי. **Cloudflare Pages Functions לא תומך ב-scheduled triggers**, אז משתמשים ב-Worker כ-scheduler דק שקורא ל-Pages endpoint עם סוד משותף.
+Cloudflare Worker עצמאי שיורה פעם בחודש ומריץ **שתי** משימות תחזוקה ע״י קריאה ל-Pages endpoints עם סוד משותף:
+
+1. **הארכה אוטומטית של הוצאות חודשיות** — לכל הוצאה חודשית שהמנהל סימן בה את ה-opt-in להארכה אוטומטית, ה-Worker דוחף את `endDate` קדימה לסוף החודש החדש. כך שורה אחת נשארת מקור האמת להוצאה רציפה ומתחדשת מאליה.
+2. **דוח חודשי במייל** — מייצר ושולח דוח PDF במייל לדיירים שנרשמו, דרך Resend.
+
+**Cloudflare Pages Functions לא תומך ב-scheduled triggers**, אז משתמשים ב-Worker כ-scheduler דק. שתי המשימות חולקות את אותו `CRON_SECRET`.
 
 ### 1. צור סוד משותף
 
@@ -125,21 +130,29 @@ npx wrangler deploy
 
 ### 4. בדיקה ידנית (אופציונלי)
 
+ל-Worker יש שני triggers ידניים (שניהם מאומתים עם אותו `x-cron-secret`):
+
 ```bash
-curl -X POST \
-  -H "x-cron-secret: <CRON_SECRET_שלך>" \
+# /run — מפעיל את שתי המשימות (כמו הלו"ז המתוזמן)
+curl -X POST -H "x-cron-secret: <CRON_SECRET_שלך>" \
   https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run
+
+# /run-extend — מפעיל רק את משימת ההארכה (לבדיקה ממוקדת)
+curl -X POST -H "x-cron-secret: <CRON_SECRET_שלך>" \
+  https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run-extend
 ```
 
 | תגובה | משמעות |
 |---|---|
-| `{"ok":true,"sent":N,"year":Y,"month":M}` | עובד — N דיירים קיבלו מייל |
+| `{"extend":{"status":200,"body":"..."},"report":{"status":200,"body":"..."}}` | שתי המשימות רצו — ראה body של כל אחת לפרטים |
+| `{"ok":true,"extended":N,"target":"YYYY-MM-DD"}` (מ-`/run-extend`) | endDate הוארך עבור N הוצאות חודשיות עד התאריך הזה |
+| `{"ok":true,"sent":N,"year":Y,"month":M}` | דוח חודשי נשלח ל-N דיירים |
 | `{"error":"אין דיירים שרשומים..."}` | תקין, אין נרשמים עדיין |
 | `{"error":"Forbidden"}` | `CRON_SECRET` לא תואם בין Pages ל-Worker |
 | `{"error":"שירות האימייל לא הוגדר..."}` | `RESEND_API_KEY` / `EMAIL_FROM` לא הוגדרו ב-Pages |
 | `{"error":"Resend batch: 403 — ... domain ... is not verified"}` | `EMAIL_FROM` מצביע ל-domain שלא אימתת |
 
-> **בלי ה-Cron Worker**, הכל עדיין עובד — פשוט לחץ **שלח דוח חודשי** ידנית כל חודש.
+> **בלי ה-Cron Worker**, שתי המשימות נשארות ידניות: המנהל לוחץ **שלח דוח חודשי** מההגדרות, ומאריך את `endDate` של הוצאות חודשיות ידנית (או מציב תאריך עתידי רחוק) במקום להסתמך על הארכה אוטומטית.
 
 ## שחזור סיסמה (מנהל ראשי, דירה, ובעלי דירה)
 

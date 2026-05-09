@@ -11,12 +11,32 @@
 npx wrangler d1 execute <your-d1-name> --remote --file=./schema.sql
 
 # 2. פריסה מחדש של ה-static + functions
-npx wrangler pages deploy ./public --project-name=<cf-pages-project>
+npx wrangler pages deploy ./public --project-name=<cf-pages-project> --commit-dirty=true
+
+# 3. (אופציונלי) פריסה מחדש של ה-Worker אם הקוד או הלו"ז של ה-cron השתנו.
+cd <path-to-cron-worker>
+npx wrangler deploy
 ```
 
 קובץ ה-schema משתמש ב-`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS` ו-`INSERT OR IGNORE` כך שריצה חוזרת על DB מאוכלס בטוחה.
 
-אם רק ערכת את `wrangler.toml` (שמוחרג ב-gitignore) והעץ "מלוכלך", הוסף `--commit-dirty=true` לפקודת ה-deploy כדי לדלג על האזהרה של Wrangler.
+`--commit-dirty=true` מדלג על האזהרה של Wrangler על "uncommitted changes" — שימושי כי `wrangler.toml` מוחרג ב-gitignore.
+
+**ה-cron Worker (שלב 3) מטפל בשתי משימות חודשיות:**
+- `auto-extend-monthly` — דוחף את `endDate` קדימה להוצאות חודשיות עם opt-in בכל 1 בחודש
+- `monthly-report` — מייצר ושולח את דוח ה-PDF החודשי במייל
+
+צריך לפרוס מחדש את שלב 3 רק כשקובץ ה-Worker (`worker/cron-monthly-report.js`) או הלו"ז שלו השתנו. ניתן לפעיל ידנית לבדיקה:
+
+```bash
+# הפעלת שני ה-endpoints (כמו הלו"ז המתוזמן)
+curl -X POST -H "x-cron-secret: <YOUR_CRON_SECRET>" \
+  https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run
+
+# הפעלת רק ה-endpoint של auto-extend
+curl -X POST -H "x-cron-secret: <YOUR_CRON_SECRET>" \
+  https://<cf-cron-worker>.<cf-account-subdomain>.workers.dev/run-extend
+```
 
 ## דומיין מותאם
 
