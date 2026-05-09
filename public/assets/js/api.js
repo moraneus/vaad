@@ -28,14 +28,48 @@ export const api = {
   login: (payload) => call('/api/auth/login', opts('POST', payload)),
   logout: () => call('/api/auth/logout', opts('POST', {})),
   changePassword: (payload) => call('/api/auth/change-password', opts('POST', payload)),
-  resetApartment: (apartmentId) => call('/api/auth/reset-apartment', opts('POST', { apartmentId })),
+  resetApartment: (apartmentId, opts2 = {}) => {
+    // opts2: { userKind?, newPassword? } — when newPassword is omitted the
+    // backend generates a random 8-char alphanumeric and returns it once.
+    const o = typeof opts2 === 'string' ? { userKind: opts2 } : opts2;
+    const body = { apartmentId };
+    if (o.userKind === 'owner') body.userKind = 'owner';
+    if (o.newPassword) body.newPassword = o.newPassword;
+    return call('/api/auth/reset-apartment', opts('POST', body));
+  },
+  resetOwnerPassword: (ownerId, newPassword) =>
+    call('/api/owners-reset-password', opts('POST', newPassword ? { ownerId, newPassword } : { ownerId })),
+  // Reveal an admin-stashed password (encrypted with SESSION_SECRET).
+  // scope: 'apartment-tenant' | 'apartment-owner-legacy' | 'owner'
+  revealPassword: (scope, id) =>
+    call(`/api/admin/reveal-password?scope=${encodeURIComponent(scope)}&id=${encodeURIComponent(id)}`),
+  bulkResetApartmentPasswords: (apartmentIds, newPassword) =>
+    call('/api/admin/bulk-reset-passwords', opts('POST', { apartmentIds, newPassword })),
   twoFAStatus: () => call('/api/auth/2fa-status'),
   twoFASetupInit: () => call('/api/auth/2fa-setup-init', opts('POST', {})),
   twoFASetupVerify: (payload) => call('/api/auth/2fa-setup-verify', opts('POST', payload)),
   twoFADisable: (payload) => call('/api/auth/2fa-disable', opts('POST', payload)),
+  // Anonymous OAuth login — Google. Returns { url } to redirect to.
+  oauthLoginInit: () => call('/api/auth/oauth-login-init', opts('POST', {})),
+
   identityStatus: () => call('/api/auth/identity-status'),
-  identityInit: (purpose) => call('/api/auth/identity-init', opts('POST', { purpose })),
+  identityInit: (purpose, opts2 = {}) => {
+    // Backwards-compat: if opts2 is a string, treat it as apartmentId.
+    const o = typeof opts2 === 'string' ? { apartmentId: opts2 } : opts2;
+    const body = { purpose };
+    if (o.apartmentId) body.apartmentId = o.apartmentId;
+    if (o.userKind === 'owner') body.userKind = 'owner';
+    if (o.ownerId) body.ownerId = o.ownerId;
+    if (o.ownerLoginEmail) body.ownerLoginEmail = o.ownerLoginEmail;
+    return call('/api/auth/identity-init', opts('POST', body));
+  },
   resetPassword: (payload) => call('/api/auth/reset-password', opts('POST', payload)),
+
+  // Owners (PR E)
+  owners: () => call('/api/owners'),
+  createOwner: (payload) => call('/api/owners', opts('POST', payload)),
+  updateOwner: (id, payload) => call(`/api/owners?id=${encodeURIComponent(id)}`, opts('PUT', payload)),
+  deleteOwner: (id) => call(`/api/owners?id=${encodeURIComponent(id)}`, opts('DELETE')),
 
   // Settings
   getSettings: () => call('/api/settings'),
@@ -91,12 +125,15 @@ export const api = {
 
   // Documents
   documents: () => call('/api/documents'),
-  uploadDocument: (file, target) => {
+  uploadDocument: (file, target, displayName) => {
     const fd = new FormData();
     fd.append('file', file);
     if (target) { fd.append('targetType', target.type); fd.append('targetId', target.id); }
+    if (displayName) fd.append('displayName', displayName);
     return call('/api/documents', opts('POST', fd, true));
   },
+  renameDocument: (id, displayName) =>
+    call(`/api/documents/${encodeURIComponent(id)}`, opts('PATCH', { displayName: displayName || '' })),
   deleteDocument: (id) => call(`/api/documents/${encodeURIComponent(id)}`, opts('DELETE')),
   documentURL: (id) => `/api/documents/${encodeURIComponent(id)}`,
   attachDocument: (documentId, type, targetId) => call('/api/document-links', opts('POST', { documentId, targetType: type, targetId })),
@@ -126,6 +163,26 @@ export const api = {
   setFeeOverride: (payload) => call('/api/apartment-fee-overrides', opts('PUT', payload)),
   clearFeeOverride: ({ apartmentId, year, month }) =>
     call(`/api/apartment-fee-overrides?apartmentId=${encodeURIComponent(apartmentId)}&year=${year}&month=${month}`, opts('DELETE')),
+
+  // Infrastructure expenses (capital-style, owner-paid). Three resources.
+  infrastructureExpenses: () => call('/api/infrastructure-expenses'),
+  createInfrastructureExpense: (payload) => call('/api/infrastructure-expenses', opts('POST', payload)),
+  updateInfrastructureExpense: (id, payload) => call(`/api/infrastructure-expenses?id=${encodeURIComponent(id)}`, opts('PUT', payload)),
+  deleteInfrastructureExpense: (id) => call(`/api/infrastructure-expenses?id=${encodeURIComponent(id)}`, opts('DELETE')),
+  infrastructureDemands: ({ expenseId, apartmentId } = {}) => {
+    const params = new URLSearchParams();
+    if (expenseId) params.set('expenseId', expenseId);
+    if (apartmentId) params.set('apartmentId', apartmentId);
+    const qs = params.toString();
+    return call(`/api/infrastructure-demands${qs ? '?' + qs : ''}`);
+  },
+  updateInfrastructureDemand: (id, payload) => call(`/api/infrastructure-demands?id=${encodeURIComponent(id)}`, opts('PUT', payload)),
+  infrastructurePayments: (demandId) => {
+    const qs = demandId ? `?demandId=${encodeURIComponent(demandId)}` : '';
+    return call(`/api/infrastructure-payments${qs}`);
+  },
+  createInfrastructurePayment: (payload) => call('/api/infrastructure-payments', opts('POST', payload)),
+  deleteInfrastructurePayment: (id) => call(`/api/infrastructure-payments?id=${encodeURIComponent(id)}`, opts('DELETE')),
 
   // Payments against a specific charge (apartment adjustment)
   adjustmentPayments: (adjustmentId) => {
@@ -186,6 +243,10 @@ const cache = {
   adjustments: [],
   adjustmentPayments: [],
   feeOverrides: [],
+  owners: [],
+  infrastructureExpenses: [],
+  infrastructureDemands: [],
+  infrastructurePayments: [],
   vaadMembers: [],
 };
 
@@ -203,7 +264,7 @@ export async function refreshSession() {
 
 export async function refreshAll() {
   if (!cache.session?.loggedIn) return;
-  const [settings, apt, pay, exp, expPay, con, docs, rems, adj, adjPay, ov, vm] = await Promise.all([
+  const [settings, apt, pay, exp, expPay, con, docs, rems, adj, adjPay, ov, owners, infE, infD, infP, vm] = await Promise.all([
     api.getSettings().catch(() => null),
     api.apartments().catch(() => ({ apartments: [] })),
     api.payments().catch(() => ({ payments: [] })),
@@ -215,6 +276,10 @@ export async function refreshAll() {
     api.adjustments().catch(() => ({ adjustments: [] })),
     api.adjustmentPayments().catch(() => ({ payments: [] })),
     api.feeOverrides().catch(() => ({ overrides: [] })),
+    api.owners().catch(() => ({ owners: [] })),
+    api.infrastructureExpenses().catch(() => ({ expenses: [] })),
+    api.infrastructureDemands().catch(() => ({ demands: [] })),
+    api.infrastructurePayments().catch(() => ({ payments: [] })),
     api.vaadMembers().catch(() => ({ members: [] })),
   ]);
   cache.settings = settings;
@@ -228,6 +293,10 @@ export async function refreshAll() {
   cache.adjustments = adj.adjustments || [];
   cache.adjustmentPayments = adjPay.payments || [];
   cache.feeOverrides = ov.overrides || [];
+  cache.owners = owners.owners || [];
+  cache.infrastructureExpenses = infE.expenses || [];
+  cache.infrastructureDemands = infD.demands || [];
+  cache.infrastructurePayments = infP.payments || [];
   cache.vaadMembers = vm.members || [];
   notify();
 }
@@ -244,4 +313,8 @@ export const getReminders = () => cache.reminders;
 export const getAdjustments = () => cache.adjustments;
 export const getAdjustmentPayments = () => cache.adjustmentPayments;
 export const getFeeOverrides = () => cache.feeOverrides;
+export const getOwners = () => cache.owners;
+export const getInfrastructureExpenses = () => cache.infrastructureExpenses;
+export const getInfrastructureDemands = () => cache.infrastructureDemands;
+export const getInfrastructurePayments = () => cache.infrastructurePayments;
 export const getVaadMembers = () => cache.vaadMembers;

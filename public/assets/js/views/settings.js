@@ -14,6 +14,8 @@ import { fmtDate, fmtCurrency, esc, todayISO, downloadBlob, sortHistory } from '
 import { t, fmtDateTime } from '../i18n.js';
 import { setHTML, renderPageHeader, openModal, confirmDialog, toast, requireAdmin, Icon } from '../ui.js';
 import { api } from '../api.js';
+import { wireLiveValidator, validatePassword } from '../password.js';
+import { openPasswordManagerDialog } from './apartments.js';
 
 let driveStatus = null;
 let identityStatus = null;
@@ -21,13 +23,18 @@ let identityStatus = null;
 export async function renderSettings() {
   const session = getSession();
   const isAdmin = session.role === 'admin';
+  // Identity status is loaded for everyone (master admin AND apartment users)
+  // since the recovery feature is per-user. The drive + audit calls are admin-only.
+  const promises = [
+    api.identityStatus().then(s => { identityStatus = s; }).catch(() => { identityStatus = null; }),
+  ];
   if (isAdmin) {
-    await Promise.all([
+    promises.push(
       loadAuditLog(100),
       api.driveStatus().then(s => { driveStatus = s; }).catch(() => { driveStatus = null; }),
-      api.identityStatus().then(s => { identityStatus = s; }).catch(() => { identityStatus = null; }),
-    ]);
+    );
   }
+  await Promise.all(promises);
   drawSettings();
 }
 
@@ -36,7 +43,7 @@ function drawSettings() {
   const session = getSession();
   const isAdmin = session.role === 'admin';
 
-  // Tenants get a slim view: change password + manage email opt-in.
+  // Tenants get a slim view: change password + identity recovery + email opt-in.
   if (!isAdmin) {
     setHTML(main, `
       ${renderPageHeader({ title: t('settings.title'), subtitle: t('settings.password.tenantHint') })}
@@ -45,16 +52,26 @@ function drawSettings() {
           <h3 style="margin-top:0">${esc(t('settings.password'))}</h3>
           <p class="muted" style="font-size:13px">${esc(t('settings.password.tenantHint'))}</p>
           <button class="btn btn--primary" id="ch-tenant-pwd">${esc(t('settings.password.changeTenant'))}</button>
+          ${identityStatus?.registered ? `
+            <p class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.password.recoveryNote', { email: identityStatus.email }))}</p>
+          ` : `
+            <p class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.password.recoveryOptional'))}</p>
+          `}
         </div>
-        <div class="card" id="tenant-email-card">
-          <h3 style="margin-top:0">${esc(t('settings.tenantEmail.title'))}</h3>
-          <p class="muted" style="font-size:13px">${esc(t('settings.tenantEmail.hint'))}</p>
-          <div id="tenant-email-state" class="muted" style="font-size:13px">${esc(t('common.loading'))}</div>
-        </div>
+        ${renderIdentityCard(identityStatus)}
+        ${session.emailEnabled ? `
+          <div class="card" id="tenant-email-card">
+            <h3 style="margin-top:0">${esc(t('settings.tenantEmail.title'))}</h3>
+            <p class="muted" style="font-size:13px">${esc(t('settings.tenantEmail.hint'))}</p>
+            <div id="tenant-email-state" class="muted" style="font-size:13px">${esc(t('common.loading'))}</div>
+          </div>
+        ` : ''}
       </div>
     `);
     document.getElementById('ch-tenant-pwd')?.addEventListener('click', () => changeTenantPasswordDialog());
-    refreshTenantEmailCard(session.apartmentId);
+    document.getElementById('id-verify')?.addEventListener('click', () => startIdentityFlow('register'));
+    document.getElementById('id-replace')?.addEventListener('click', () => startIdentityFlow('replace'));
+    if (session.emailEnabled) refreshTenantEmailCard(session.apartmentId);
     return;
   }
 
@@ -165,22 +182,39 @@ function drawSettings() {
 
       ${renderIdentityCard(identityStatus)}
 
-      <div class="card" style="margin-bottom:14px">
-        <h3 style="margin-top:0; font-size:15px">${esc(t('settings.password'))}</h3>
-        <p class="muted" style="font-size:13px">${esc(t('settings.password.adminHint'))}</p>
-        ${identityStatus?.registered ? `
-          <button class="btn btn--primary" id="ch-pwd">${esc(t('settings.password.changeAdmin'))}</button>
-          <p class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.password.recoveryNote', { email: identityStatus.email }))}</p>
-        ` : `
-          <div class="callout callout--warning" style="margin-bottom:10px">
-            <div>${esc(t('settings.password.requiresIdentity'))}</div>
-            <div class="muted" style="font-size:12px; margin-top:6px">↑ ${esc(t('settings.password.requiresIdentity.cta'))}</div>
-          </div>
-          <button class="btn btn--primary" id="ch-pwd" disabled aria-disabled="true">${esc(t('settings.password.changeAdmin'))}</button>
-        `}
-      </div>
+      ${!session.apartmentId ? `
+        <!-- Master admin (no apartmentId): change-password gated on identity registration. -->
+        <div class="card" style="margin-bottom:14px">
+          <h3 style="margin-top:0; font-size:15px">${esc(t('settings.password'))}</h3>
+          <p class="muted" style="font-size:13px">${esc(t('settings.password.adminHint'))}</p>
+          ${identityStatus?.registered ? `
+            <button class="btn btn--primary" id="ch-pwd-admin">${esc(t('settings.password.changeAdmin'))}</button>
+            <p class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.password.recoveryNote', { email: identityStatus.email }))}</p>
+          ` : `
+            <div class="callout callout--warning" style="margin-bottom:10px">
+              <div>${esc(t('settings.password.requiresIdentity'))}</div>
+              <div class="muted" style="font-size:12px; margin-top:6px">↑ ${esc(t('settings.password.requiresIdentity.cta'))}</div>
+            </div>
+            <button class="btn btn--primary" id="ch-pwd-admin" disabled aria-disabled="true">${esc(t('settings.password.changeAdmin'))}</button>
+          `}
+        </div>
+      ` : `
+        <!-- Apartment user (apartment-admin OR tenant with admin grant via this view):
+             change-password is for THEIR apartment, not the master admin. Identity
+             registration is opt-in (recommended but not required). -->
+        <div class="card" style="margin-bottom:14px">
+          <h3 style="margin-top:0; font-size:15px">${esc(t('settings.password.aptTitle'))}</h3>
+          <p class="muted" style="font-size:13px">${esc(t('settings.password.aptHint'))}</p>
+          <button class="btn btn--primary" id="ch-pwd-tenant">${esc(t('settings.password.changeTenant'))}</button>
+          ${identityStatus?.registered ? `
+            <p class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.password.recoveryNote', { email: identityStatus.email }))}</p>
+          ` : `
+            <p class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.password.recoveryOptional'))}</p>
+          `}
+        </div>
+      `}
 
-      ${session.apartmentId ? `
+      ${(session.apartmentId && session.emailEnabled) ? `
         <div class="card" id="apt-admin-email-card" style="margin-bottom:14px">
           <h3 style="margin-top:0; font-size:15px">${esc(t('settings.tenantEmail.title'))}</h3>
           <p class="muted" style="font-size:13px">${esc(t('settings.tenantEmail.hint'))}</p>
@@ -196,12 +230,28 @@ function drawSettings() {
       </div>
 
       <div class="card" style="margin-bottom:14px">
-        <h3 style="margin-top:0; font-size:15px">${esc(t('settings.tenantPasswords'))}</h3>
+        <div class="hstack" style="margin-bottom:6px">
+          <h3 style="margin:0; font-size:15px">${esc(t('settings.tenantPasswords'))}</h3>
+          <div class="spacer"></div>
+          ${apts.length > 0 ? `
+            <button class="btn btn--sm" id="bulk-toggle">${esc(t('settings.bulkPwd.toggle'))}</button>
+          ` : ''}
+        </div>
         <p class="muted" style="font-size:13px; margin-bottom:10px">${esc(t('settings.tenantPasswords.hint'))}</p>
+        <div id="bulk-bar" class="callout" style="display:none; font-size:13px; margin-bottom:10px">
+          <div class="hstack" style="gap:8px; flex-wrap:wrap">
+            <span id="bulk-count">${esc(t('settings.bulkPwd.selected', { n: 0 }))}</span>
+            <div class="spacer"></div>
+            <button class="btn btn--sm" id="bulk-select-all">${esc(t('settings.bulkPwd.selectAll'))}</button>
+            <button class="btn btn--sm" id="bulk-clear">${esc(t('settings.bulkPwd.clear'))}</button>
+            <button class="btn btn--sm btn--primary" id="bulk-set" disabled>${esc(t('settings.bulkPwd.set'))}</button>
+          </div>
+        </div>
         ${apts.length === 0 ? `<p class="muted">${esc(t('settings.tenantPasswords.empty'))}</p>` : `
           <div class="table-wrap">
             <table class="table">
               <thead><tr>
+                <th class="bulk-col" style="display:none; width:32px"></th>
                 <th>${esc(t('settings.tenantPasswords.col.aptName'))}</th>
                 <th>${esc(t('settings.tenantPasswords.col.owner'))}</th>
                 <th>${esc(t('settings.tenantPasswords.col.status'))}</th>
@@ -212,6 +262,7 @@ function drawSettings() {
               <tbody>
                 ${apts.map(a => `
                   <tr>
+                    <td class="bulk-col" style="display:none"><input type="checkbox" class="bulk-cb" data-id="${a.id}" /></td>
                     <td><strong>${esc(String(a.number))}</strong></td>
                     <td class="muted">${esc(a.owner || '—')}</td>
                     <td>${a.hasPassword ? `<span class="badge badge--success">${esc(t('settings.tenantPasswords.set'))}</span>` : `<span class="badge badge--warning">${esc(t('settings.tenantPasswords.notSet'))}</span>`}</td>
@@ -221,7 +272,7 @@ function drawSettings() {
                       ${a.isAdmin
                         ? `<button class="btn btn--sm" data-act="revoke-admin" data-id="${a.id}" data-num="${esc(String(a.number))}">${esc(t('settings.apartmentAdmin.revoke'))}</button>`
                         : `<button class="btn btn--sm" data-act="grant-admin" data-id="${a.id}" data-num="${esc(String(a.number))}" ${!a.hasPassword ? 'disabled title="' + esc(t('settings.apartmentAdmin.needsPassword')) + '"' : ''}>${esc(t('settings.apartmentAdmin.grant'))}</button>`}
-                      ${a.hasPassword ? `<button class="btn btn--sm" data-act="reset-apt-pwd" data-id="${a.id}" data-num="${esc(String(a.number))}">${esc(t('settings.tenantPasswords.reset'))}</button>` : ''}
+                      <button class="btn btn--sm" data-act="reset-apt-pwd" data-id="${a.id}" data-num="${esc(String(a.number))}">${esc(t('settings.tenantPasswords.reset'))}</button>
                     </td>
                   </tr>
                 `).join('')}
@@ -330,11 +381,12 @@ function drawSettings() {
       catch (err) { toast(err.message || t('settings.atLeastOne'), 'warning'); }
     }));
 
-    document.getElementById('ch-pwd')?.addEventListener('click', () => changeAdminPasswordDialog());
+    document.getElementById('ch-pwd-admin')?.addEventListener('click', () => changeAdminPasswordDialog());
+    document.getElementById('ch-pwd-tenant')?.addEventListener('click', () => changeTenantPasswordDialog());
     document.getElementById('id-verify')?.addEventListener('click', () => startIdentityFlow('register'));
     document.getElementById('id-replace')?.addEventListener('click', () => startIdentityFlow('replace'));
     refreshTwoFACard();
-    if (session.apartmentId) {
+    if (session.apartmentId && session.emailEnabled) {
       // Load this card into a custom element id so it doesn't collide with the
       // tenant-only card. Reuses the same email-management UI.
       refreshTenantEmailCard(session.apartmentId, 'apt-admin-email-state');
@@ -342,11 +394,55 @@ function drawSettings() {
     document.getElementById('email-test-btn')?.addEventListener('click', () => openEmailTestDialog());
     document.getElementById('email-broadcast-btn')?.addEventListener('click', () => openBroadcastDialog());
     document.getElementById('email-monthly-btn')?.addEventListener('click', () => openMonthlyReportDialog());
-    document.querySelectorAll('[data-act="reset-apt-pwd"]').forEach(b => b.addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: t('settings.tenantPasswords.reset.title'), message: t('settings.tenantPasswords.reset.message', { number: b.dataset.num }), danger: true, confirmText: t('settings.tenantPasswords.reset') });
-      if (!ok) return;
-      try { await adminResetApartmentPassword(b.dataset.id); toast(t('settings.tenantPasswords.resetDone'), 'success'); drawSettings(); }
-      catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    // Bulk-mode toggle and handlers — admin selects multiple apartments and
+    // sets one common initial password for all of them. Each apartment gets
+    // its own row in user_password_secrets (stash) so admin can re-display
+    // the same value later from any single apartment's password manager.
+    const bulkToggle = document.getElementById('bulk-toggle');
+    const bulkBar = document.getElementById('bulk-bar');
+    const bulkSetBtn = document.getElementById('bulk-set');
+    const bulkCount = document.getElementById('bulk-count');
+    const updateBulkCount = () => {
+      const checked = document.querySelectorAll('.bulk-cb:checked').length;
+      bulkCount.textContent = t('settings.bulkPwd.selected', { n: checked });
+      bulkSetBtn.disabled = checked === 0;
+    };
+    bulkToggle?.addEventListener('click', () => {
+      const visible = document.querySelectorAll('.bulk-col').length > 0
+                   && document.querySelector('.bulk-col')?.style.display === '';
+      const next = !visible;
+      document.querySelectorAll('.bulk-col').forEach(td => { td.style.display = next ? '' : 'none'; });
+      bulkBar.style.display = next ? '' : 'none';
+      if (!next) document.querySelectorAll('.bulk-cb').forEach(cb => { cb.checked = false; });
+      updateBulkCount();
+    });
+    document.getElementById('bulk-select-all')?.addEventListener('click', () => {
+      document.querySelectorAll('.bulk-cb').forEach(cb => { cb.checked = true; });
+      updateBulkCount();
+    });
+    document.getElementById('bulk-clear')?.addEventListener('click', () => {
+      document.querySelectorAll('.bulk-cb').forEach(cb => { cb.checked = false; });
+      updateBulkCount();
+    });
+    document.querySelectorAll('.bulk-cb').forEach(cb => cb.addEventListener('change', updateBulkCount));
+    bulkSetBtn?.addEventListener('click', () => {
+      const ids = [...document.querySelectorAll('.bulk-cb:checked')].map(cb => cb.dataset.id);
+      const labels = ids.map(id => apts.find(a => a.id === id)?.number).filter(Boolean).join(', ');
+      openBulkPasswordDialog(ids, labels, () => drawSettings());
+    });
+    document.querySelectorAll('[data-act="reset-apt-pwd"]').forEach(b => b.addEventListener('click', () => {
+      const apt = getApartments().find(a => a.id === b.dataset.id);
+      if (!apt) return;
+      // Unified password manager — admin picks: regenerate random or set
+      // manually with policy validator. Replaces the old confirm-and-randomize.
+      openPasswordManagerDialog({
+        kind: 'apartment',
+        id: apt.id,
+        label: t('pwMgr.subject.aptRenter', { number: apt.number, name: apt.owner || '' }),
+        hasPassword: !!apt.hasPassword,
+        passwordSetAt: apt.passwordSetAt,
+        onDone: () => drawSettings(),
+      });
     }));
     document.querySelectorAll('[data-act="grant-admin"]').forEach(b => b.addEventListener('click', async () => {
       const ok = await confirmDialog({
@@ -500,26 +596,35 @@ function passwordDialog(title, onSubmit) {
       <form id="pwd-form" class="vstack">
         <div class="field field--required">
           <label class="field__label">${esc(t('settings.password.field.current'))}</label>
-          <input class="input" name="current" type="password" autocomplete="current-password" />
+          <input class="input" id="pwd-current" name="current" type="password" autocomplete="current-password" />
         </div>
         <div class="field field--required">
           <label class="field__label">${esc(t('settings.password.field.next'))}</label>
-          <input class="input" name="next" type="password" autocomplete="new-password" />
+          <input class="input" id="pwd-next" name="next" type="password" autocomplete="new-password" />
+          <div id="pwd-validator"></div>
         </div>
         <div class="field field--required">
           <label class="field__label">${esc(t('settings.password.field.confirm'))}</label>
-          <input class="input" name="confirm" type="password" autocomplete="new-password" />
+          <input class="input" id="pwd-confirm" name="confirm" type="password" autocomplete="new-password" />
         </div>
       </form>
     `,
-    footer: `<button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button><button class="btn btn--primary" data-act="ok">${esc(t('common.save'))}</button>`,
+    footer: `<button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button><button class="btn btn--primary" data-act="ok" disabled>${esc(t('common.save'))}</button>`,
   });
+  // Live policy validator — disables Save until all rules pass.
+  const saveBtn = m.footerEl.querySelector('[data-act="ok"]');
+  wireLiveValidator(
+    m.bodyEl.querySelector('#pwd-next'),
+    m.bodyEl.querySelector('#pwd-validator'),
+    t,
+    (v) => { saveBtn.disabled = !v.ok; },
+  );
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
-  m.footerEl.querySelector('[data-act="ok"]').addEventListener('click', async () => {
+  saveBtn.addEventListener('click', async () => {
     const d = Object.fromEntries(new FormData(m.bodyEl.querySelector('#pwd-form')).entries());
     if (!d.current || !d.next || !d.confirm) { toast(t('settings.fillAll'), 'warning'); return; }
     if (d.next !== d.confirm) { toast(t('login.passwordsDontMatch'), 'warning'); return; }
-    if (d.next.length < 4) { toast(t('login.passwordTooShort'), 'warning'); return; }
+    if (!validatePassword(d.next).ok) { toast(t('pw.policy.failed'), 'warning'); return; }
     try { await onSubmit(d.current, d.next); m.close(); }
     catch (err) { toast(err.message || t('common.error'), 'danger'); }
   });
@@ -934,3 +1039,54 @@ async function startIdentityFlow(purpose) {
 }
 
 
+
+// Bulk password set dialog — input one password (with policy validator),
+// applied to the apartments selected via checkboxes. The same password is
+// stashed encrypted per apartment so the admin can re-display it later.
+function openBulkPasswordDialog(apartmentIds, summaryLabel, onDone) {
+  if (!requireAdmin()) return;
+  const m = openModal({
+    title: t('settings.bulkPwd.dialog.title', { n: apartmentIds.length }),
+    size: 'md',
+    body: `
+      <div class="callout" style="font-size:13px; margin-bottom:12px">
+        ${esc(t('settings.bulkPwd.dialog.intro', { list: summaryLabel }))}
+      </div>
+      <form id="bulk-pwd-form" class="vstack">
+        <div class="field field--required">
+          <label class="field__label">${esc(t('settings.bulkPwd.dialog.field'))}</label>
+          <input class="input" id="bulk-pwd-input" type="text" autocomplete="new-password" placeholder="********" />
+          <div id="bulk-pwd-validator"></div>
+        </div>
+      </form>
+      <div class="muted" style="font-size:12px; margin-top:8px">${esc(t('settings.bulkPwd.dialog.hint'))}</div>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="save" disabled>${esc(t('settings.bulkPwd.dialog.save'))}</button>
+    `,
+  });
+  const saveBtn = m.footerEl.querySelector('[data-act="save"]');
+  wireLiveValidator(
+    m.bodyEl.querySelector('#bulk-pwd-input'),
+    m.bodyEl.querySelector('#bulk-pwd-validator'),
+    t,
+    (v) => { saveBtn.disabled = !v.ok; },
+  );
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  saveBtn.addEventListener('click', async () => {
+    if (saveBtn.disabled) return;
+    const pwd = m.bodyEl.querySelector('#bulk-pwd-input').value || '';
+    if (!validatePassword(pwd).ok) { toast(t('pw.policy.failed'), 'warning'); return; }
+    saveBtn.disabled = true;
+    try {
+      const res = await api.bulkResetApartmentPasswords(apartmentIds, pwd);
+      toast(t('settings.bulkPwd.done', { n: res.count }), 'success');
+      m.close();
+      onDone && onDone();
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+      saveBtn.disabled = false;
+    }
+  });
+}

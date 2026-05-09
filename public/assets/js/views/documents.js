@@ -53,9 +53,18 @@ export function renderDocuments() {
               </tr>
             </thead>
             <tbody>
-              ${docs.map(d => `
+              ${docs.map(d => {
+                // displayName comes from document_meta (server coalesces to filename
+                // when no display_name is set). The original filename is kept as a
+                // tooltip + the download attribute so the file lands with its real name.
+                const display = d.displayName || d.name;
+                const showFilename = display !== d.name;
+                return `
                 <tr>
-                  <td><strong>${esc(d.name)}</strong></td>
+                  <td>
+                    <strong>${esc(display)}</strong>
+                    ${showFilename ? `<div class="muted" style="font-size:11px">${esc(d.name)}</div>` : ''}
+                  </td>
                   <td>${esc(d.mimeType?.split('/')[1] || '—')}</td>
                   <td class="num">${formatBytes(d.size)}</td>
                   <td>${fmtDate(d.uploadedAt)}</td>
@@ -63,10 +72,13 @@ export function renderDocuments() {
                   <td class="actions">
                     <a class="btn btn--sm" href="${api.documentURL(d.id)}" target="_blank" rel="noopener">${esc(t('common.view'))}</a>
                     <a class="btn btn--sm" href="${api.documentURL(d.id)}" download="${esc(d.name)}">${Icon.download}</a>
-                    ${isAdmin ? `<button class="btn btn--sm btn--icon" data-act="del" data-id="${d.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>` : ''}
+                    ${isAdmin ? `
+                      <button class="btn btn--sm btn--icon" data-act="ren" data-id="${d.id}" data-name="${esc(display)}" title="${esc(t('docs.rename'))}">${Icon.edit}</button>
+                      <button class="btn btn--sm btn--icon" data-act="del" data-id="${d.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+                    ` : ''}
                   </td>
-                </tr>
-              `).join('')}
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -74,8 +86,8 @@ export function renderDocuments() {
     `}
   `);
 
-  document.getElementById('upload')?.addEventListener('click', startUpload);
-  document.getElementById('upload-empty')?.addEventListener('click', startUpload);
+  document.getElementById('upload')?.addEventListener('click', openUploadDialog);
+  document.getElementById('upload-empty')?.addEventListener('click', openUploadDialog);
   document.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', async () => {
     if (!requireAdmin()) return;
     const ok = await confirmDialog({ title: t('docs.delete.title'), message: t('docs.delete.message'), danger: true, confirmText: t('common.delete') });
@@ -84,24 +96,102 @@ export function renderDocuments() {
       catch (err) { toast(err.message || t('common.error'), 'danger'); }
     }
   }));
+  document.querySelectorAll('[data-act="ren"]').forEach(b => b.addEventListener('click', () => {
+    if (!requireAdmin()) return;
+    openRenameDialog({ id: b.dataset.id, currentName: b.dataset.name });
+  }));
 }
 
-function startUpload() {
+// Upload dialog — file picker + optional display name. When the admin picks a
+// file, the name field is auto-populated with the filename (sans extension).
+// Multi-file upload uses each file's filename (the name field is hidden then).
+function openUploadDialog() {
   if (!requireAdmin()) return;
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*,application/pdf';
-  input.multiple = true;
-  input.addEventListener('change', async () => {
-    const files = Array.from(input.files || []);
+  const m = openModal({
+    title: t('docs.upload'),
+    body: `
+      <form id="upload-form" class="vstack" autocomplete="off">
+        <div class="field field--required">
+          <label class="field__label">${esc(t('docs.upload.file'))}</label>
+          <input class="input" id="up-file" type="file" accept="image/*,application/pdf" multiple />
+        </div>
+        <div class="field" id="up-name-wrap">
+          <label class="field__label">${esc(t('docs.upload.displayName'))}</label>
+          <input class="input" id="up-name" type="text" maxlength="200" placeholder="${esc(t('docs.upload.displayName.placeholder'))}" />
+          <div class="field__hint">${esc(t('docs.upload.displayName.hint'))}</div>
+        </div>
+      </form>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="save" disabled>${esc(t('docs.upload'))}</button>
+    `,
+  });
+  const fileInput = m.bodyEl.querySelector('#up-file');
+  const nameInput = m.bodyEl.querySelector('#up-name');
+  const nameWrap = m.bodyEl.querySelector('#up-name-wrap');
+  const saveBtn = m.footerEl.querySelector('[data-act="save"]');
+  fileInput.addEventListener('change', () => {
+    const files = Array.from(fileInput.files || []);
+    saveBtn.disabled = files.length === 0;
+    // Multi-file → hide the name field (we'll use each filename).
+    nameWrap.style.display = files.length > 1 ? 'none' : 'block';
+    if (files.length === 1 && !nameInput.value.trim()) {
+      const fn = files[0].name || '';
+      const dot = fn.lastIndexOf('.');
+      nameInput.value = dot > 0 ? fn.slice(0, dot) : fn;
+    }
+  });
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  saveBtn.addEventListener('click', async () => {
+    const files = Array.from(fileInput.files || []);
     if (!files.length) return;
+    saveBtn.disabled = true;
+    const displayName = files.length === 1 ? (nameInput.value || '').trim() : null;
     let added = 0;
     for (const file of files) {
-      try { await uploadDocument(file); added++; }
-      catch (err) { toast(`${file.name}: ${err.message || t('common.error')}`, 'danger'); }
+      try {
+        await uploadDocument(file, null, displayName);
+        added++;
+      } catch (err) {
+        toast(`${file.name}: ${err.message || t('common.error')}`, 'danger');
+      }
     }
     if (added) toast(t('docs.uploaded', { n: added }), 'success');
+    m.close();
     renderDocuments();
   });
-  input.click();
+}
+
+// Rename dialog — sets the document's display_name (or clears it on empty input).
+function openRenameDialog({ id, currentName }) {
+  const m = openModal({
+    title: t('docs.rename'),
+    body: `
+      <form id="rename-form" class="vstack" autocomplete="off">
+        <div class="field field--required">
+          <label class="field__label">${esc(t('docs.upload.displayName'))}</label>
+          <input class="input" id="rn-name" type="text" maxlength="200" value="${esc(currentName)}" autofocus />
+          <div class="field__hint">${esc(t('docs.rename.hint'))}</div>
+        </div>
+      </form>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="save">${esc(t('common.save'))}</button>
+    `,
+  });
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
+    const newName = (m.bodyEl.querySelector('#rn-name').value || '').trim();
+    try {
+      await api.renameDocument(id, newName);
+      toast(t('common.saveDone'), 'success');
+      m.close();
+      // Force a refetch so the new displayName flows back through the cache.
+      const { refreshAll } = await import('../store.js');
+      await refreshAll();
+      renderDocuments();
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  });
 }

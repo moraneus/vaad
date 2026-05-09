@@ -30,6 +30,42 @@ export function randomToken(bytes = 24) {
   return b64.encode(randomBytes(bytes));
 }
 
+// Random password meant for one-time admin-to-user sharing. Uses an
+// unambiguous alphanumeric alphabet (no 0/O/1/I/l) — easy to read aloud or
+// type. NOT meant for long-term use; the user is expected to change it via
+// the policy-enforced change-password flow on first login.
+const PW_ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export function generateRandomPassword(length = 8) {
+  const arr = randomBytes(length);
+  let pw = '';
+  for (let i = 0; i < length; i++) pw += PW_ALPHABET[arr[i] % PW_ALPHABET.length];
+  return pw;
+}
+
+// Password policy validation. Used by the backend to enforce on user-set
+// passwords (change-password) and by the frontend's real-time validator.
+// Returns one boolean per rule plus an `ok` aggregate so the UI can show
+// each rule's pass/fail state.
+//
+// Rules (admin-typed initial passwords get the same checks; the
+// machine-generated random password is exempt because it's a single-use
+// initial value, not a user choice).
+export const PASSWORD_RULES = {
+  minLength: 8,
+};
+export function validatePassword(pw) {
+  const s = String(pw || '');
+  const r = {
+    length: s.length >= PASSWORD_RULES.minLength,
+    upper:  /[A-Z]/.test(s),
+    lower:  /[a-z]/.test(s),
+    digit:  /\d/.test(s),
+    symbol: /[^A-Za-z0-9]/.test(s),
+  };
+  r.ok = r.length && r.upper && r.lower && r.digit && r.symbol;
+  return r;
+}
+
 // Constant-time string compare
 export function safeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;

@@ -13,8 +13,14 @@ const ALLOWED_MIME = [
 
 export const onRequestGet = async ({ request, env }) => {
   const r = await requireRead(env, request); if (r.error) return r.error;
+  // Join document_meta to surface the admin-given display_name (falls back to
+  // the original filename when no display name is set).
   const docs = await env.DB.prepare(
-    'SELECT id, name, mime_type AS mimeType, size, uploaded_at AS uploadedAt, uploaded_by AS uploadedBy FROM documents ORDER BY uploaded_at DESC'
+    `SELECT d.id, d.name, COALESCE(dm.display_name, d.name) AS displayName,
+            d.mime_type AS mimeType, d.size, d.uploaded_at AS uploadedAt, d.uploaded_by AS uploadedBy
+       FROM documents d
+       LEFT JOIN document_meta dm ON dm.document_id = d.id
+      ORDER BY d.uploaded_at DESC`
   ).all();
   const ids = docs.results.map(d => d.id);
   const links = ids.length ? (await env.DB.prepare(
@@ -67,6 +73,16 @@ export const onRequestPost = async ({ request, env }) => {
     'INSERT INTO documents (id, name, mime_type, size, drive_file_id, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, file.name || 'file', file.type, file.size, driveFileId, r.sess.userLabel || null).run();
 
+  // Optional admin-given display name. The form field is `displayName`; when
+  // empty/absent we don't insert a meta row (the GET coalesce falls back to
+  // documents.name).
+  const displayName = (form.get('displayName') || '').toString().trim().slice(0, 200);
+  if (displayName && displayName !== (file.name || '')) {
+    await env.DB.prepare(
+      'INSERT INTO document_meta (document_id, display_name, updated_at) VALUES (?, ?, datetime(\'now\'))'
+    ).bind(id, displayName).run();
+  }
+
   const targetType = form.get('targetType');
   const targetId = form.get('targetId');
   if (targetType && targetId && ['expense', 'payment'].includes(targetType)) {
@@ -74,6 +90,6 @@ export const onRequestPost = async ({ request, env }) => {
       .bind(id, targetType, targetId).run();
   }
 
-  await logAudit(env.DB, request, { event: 'document_uploaded', role: 'admin', userLabel: r.sess.userLabel, meta: { id, name: file.name, size: file.size, driveFileId }, success: true });
-  return json({ id, name: file.name, size: file.size, mimeType: file.type }, { status: 201 });
+  await logAudit(env.DB, request, { event: 'document_uploaded', role: 'admin', userLabel: r.sess.userLabel, meta: { id, name: file.name, displayName: displayName || null, size: file.size, driveFileId }, success: true });
+  return json({ id, name: file.name, displayName: displayName || file.name, size: file.size, mimeType: file.type }, { status: 201 });
 };

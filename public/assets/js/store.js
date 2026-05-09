@@ -2,12 +2,12 @@
 // that views depend on, exposes async mutators that hit the server and refresh
 // the local cache.
 
-import { api, getCache, getSession as _getSession, getSettings as _getSettings, getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getVaadMembers, refreshAll, refreshSession, subscribe } from './api.js';
+import { api, getCache, getSession as _getSession, getSettings as _getSettings, getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getOwners, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getVaadMembers, refreshAll, refreshSession, subscribe } from './api.js';
 
 export { subscribe, refreshAll, refreshSession };
 export const getSession = _getSession;
 export const getSettings = _getSettings;
-export { getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getVaadMembers };
+export { getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getOwners, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getVaadMembers };
 
 // Read-only helpers
 export const getDocument = (id) => getDocuments().find(d => d.id === id);
@@ -18,6 +18,13 @@ export async function upsertApartment(apt) {
   const saved = apt.id ? await api.updateApartment(apt.id, apt) : await api.createApartment(apt);
   await refreshAll();
   return saved;
+}
+// Returns the API response so callers can detect an orphaned owner and
+// optionally offer to delete them.
+export async function deleteApartmentWithResult(id) {
+  const res = await api.deleteApartment(id);
+  await refreshAll();
+  return res;
 }
 export async function deleteApartment(id) {
   await api.deleteApartment(id);
@@ -75,8 +82,8 @@ export async function deleteContact(id) {
 }
 
 // ---- Documents ----
-export async function uploadDocument(file, target = null) {
-  const res = await api.uploadDocument(file, target);
+export async function uploadDocument(file, target = null, displayName = null) {
+  const res = await api.uploadDocument(file, target, displayName);
   await refreshAll();
   return res.id;
 }
@@ -130,9 +137,19 @@ export async function changeAdminPassword(currentPassword, newPassword) {
 export async function changeTenantPassword(currentPassword, newPassword) {
   await api.changePassword({ kind: 'tenant', currentPassword, newPassword });
 }
-export async function adminResetApartmentPassword(apartmentId) {
-  await api.resetApartment(apartmentId);
+// Returns the API response so callers can show the initialPassword once.
+export async function adminResetApartmentPassword(apartmentId, optsOrUserKind = 'tenant') {
+  const opts = typeof optsOrUserKind === 'string' ? { userKind: optsOrUserKind } : optsOrUserKind;
+  const res = await api.resetApartment(apartmentId, opts);
   await refreshAll();
+  return res;
+}
+// Reset (or set custom) password for an owner. Returns the response so the
+// caller can display the new initialPassword.
+export async function adminResetOwnerPassword(ownerId, newPassword = null) {
+  const res = await api.resetOwnerPassword(ownerId, newPassword);
+  await refreshAll();
+  return res;
 }
 export async function grantApartmentAdmin(apartmentId) {
   await api.grantApartmentAdmin(apartmentId);
@@ -184,6 +201,22 @@ export async function deleteAdjustmentPayment(id) {
   await refreshAll();
 }
 
+// ---- Owners (PR E) ----
+export async function createOwner(payload) {
+  const res = await api.createOwner(payload);
+  await refreshAll();
+  return res;
+}
+export async function updateOwner(id, payload) {
+  const res = await api.updateOwner(id, payload);
+  await refreshAll();
+  return res;
+}
+export async function deleteOwner(id) {
+  await api.deleteOwner(id);
+  await refreshAll();
+}
+
 // ---- Per-apartment per-month fee overrides ----
 export async function setFeeOverride({ apartmentId, year, month, amount, notes }) {
   const res = await api.setFeeOverride({ apartmentId, year, month, amount, notes });
@@ -192,6 +225,36 @@ export async function setFeeOverride({ apartmentId, year, month, amount, notes }
 }
 export async function clearFeeOverride({ apartmentId, year, month }) {
   await api.clearFeeOverride({ apartmentId, year, month });
+  await refreshAll();
+}
+
+// ---- Infrastructure expenses (capital-style) ----
+export async function createInfrastructureExpense(payload) {
+  const res = await api.createInfrastructureExpense(payload);
+  await refreshAll();
+  return res;
+}
+export async function updateInfrastructureExpense(id, payload) {
+  const res = await api.updateInfrastructureExpense(id, payload);
+  await refreshAll();
+  return res;
+}
+export async function deleteInfrastructureExpense(id) {
+  await api.deleteInfrastructureExpense(id);
+  await refreshAll();
+}
+export async function updateInfrastructureDemand(id, payload) {
+  const res = await api.updateInfrastructureDemand(id, payload);
+  await refreshAll();
+  return res;
+}
+export async function createInfrastructurePayment(payload) {
+  const res = await api.createInfrastructurePayment(payload);
+  await refreshAll();
+  return res;
+}
+export async function deleteInfrastructurePayment(id) {
+  await api.deleteInfrastructurePayment(id);
   await refreshAll();
 }
 

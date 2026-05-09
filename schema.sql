@@ -61,6 +61,172 @@ CREATE TABLE IF NOT EXISTS apartments (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_apartments_number ON apartments(number);
 
+-- Property owners — first-class entity, independent of apartments. One owner
+-- can hold multiple apartments; one apartment has exactly one owner. Login
+-- credentials live here (an owner has a single account that spans all of
+-- their apartments). Renter-occupant contact info still lives in `apartments`
+-- + `apartment_occupancy`; this table is for the property owner only.
+CREATE TABLE IF NOT EXISTS owners (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,                    -- general contact email (display)
+  login_email TEXT,              -- email used for login (lowercased; UNIQUE below)
+  password_hash TEXT,
+  password_salt TEXT,
+  iterations INTEGER,
+  password_set_at TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_login_email
+  ON owners(login_email) WHERE login_email IS NOT NULL;
+
+-- Apartment ↔ Owner link. PK on apartment_id enforces "one apartment, one
+-- owner". Many apartments can map to the same owner_id (multi-apartment owner).
+-- ON DELETE RESTRICT on owner_id prevents deleting an owner who still holds
+-- apartments (admin must reassign first).
+CREATE TABLE IF NOT EXISTS apartment_owner_link (
+  apartment_id TEXT PRIMARY KEY REFERENCES apartments(id) ON DELETE CASCADE,
+  owner_id     TEXT NOT NULL    REFERENCES owners(id)     ON DELETE RESTRICT,
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_apt_owner_link_owner ON apartment_owner_link(owner_id);
+
+-- Owner recovery identity (mirror of admin_recovery / apartment_recovery).
+CREATE TABLE IF NOT EXISTS owner_recovery (
+  owner_id TEXT PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+  email TEXT,
+  verified_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Owner password reset tokens (mirror of password_reset_tokens for owners).
+CREATE TABLE IF NOT EXISTS owner_password_reset_tokens (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  ip TEXT,
+  user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_owner_pwr_token_hash ON owner_password_reset_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_owner_pwr_expires ON owner_password_reset_tokens(expires_at);
+
+-- Per-session owner pointer for owner-mode logins (mode='owner'). loadSession
+-- LEFT JOINs this so consumers see sess.ownerId. Cascades on session deletion.
+CREATE TABLE IF NOT EXISTS session_owner (
+  session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+  owner_id TEXT NOT NULL REFERENCES owners(id) ON DELETE CASCADE
+);
+
+-- Plaintext passwords (AES-GCM encrypted) stashed for admin-driven creates
+-- and resets. Lets the admin re-display the password on demand instead of
+-- once-only. Encrypted with SESSION_SECRET — same key + algorithm used for
+-- the Drive refresh token. The hash in the user table remains the
+-- authoritative authentication artefact; this stash is admin-visibility only.
+-- Wiped when the user self-changes their password (via change-password).
+--
+-- scope: 'apartment-tenant' / 'apartment-owner-legacy' / 'owner'
+-- scope_id: apartments.id or owners.id (or apartments.id for the legacy owner-per-apt flow)
+CREATE TABLE IF NOT EXISTS user_password_secrets (
+  scope TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  ciphertext TEXT NOT NULL,
+  iv TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (scope, scope_id)
+);
+
+-- One-time idempotent migration. For every apartment without an existing
+-- owner link, create an owners row from the legacy fields and link it.
+-- Re-running is a no-op (NOT EXISTS guards everything).
+INSERT INTO owners (id, name, phone, email, password_hash, password_salt, iterations, password_set_at)
+SELECT 'own-' || a.id,
+       COALESCE(NULLIF(occ.owner_name, ''), NULLIF(a.owner, ''), 'בעלים דירה ' || a.number),
+       COALESCE(NULLIF(occ.owner_phone, ''), NULLIF(a.phone, '')),
+       NULLIF(occ.owner_email, ''),
+       aoa.password_hash, aoa.password_salt, aoa.iterations, aoa.password_set_at
+  FROM apartments a
+  LEFT JOIN apartment_occupancy   occ ON occ.apartment_id = a.id
+  LEFT JOIN apartment_owner_auth  aoa ON aoa.apartment_id = a.id
+ WHERE NOT EXISTS (SELECT 1 FROM apartment_owner_link l WHERE l.apartment_id = a.id)
+   AND NOT EXISTS (SELECT 1 FROM owners o WHERE o.id = 'own-' || a.id);
+
+INSERT INTO apartment_owner_link (apartment_id, owner_id)
+SELECT a.id, 'own-' || a.id
+  FROM apartments a
+ WHERE NOT EXISTS (SELECT 1 FROM apartment_owner_link l WHERE l.apartment_id = a.id)
+   AND EXISTS (SELECT 1 FROM owners o WHERE o.id = 'own-' || a.id);
+
+-- Apartment occupancy metadata. Singleton-per-apartment. Stored separately
+-- from `apartments` so adding the columns is idempotent (D1 doesn't support
+-- conditional ALTER). When no row exists for an apartment, the apartment is
+-- treated as owner-occupied (default).
+--   occupant_type='owner'  → the resident in apartments.owner IS the property
+--                            owner. owner_name/phone/email are unused.
+--   occupant_type='renter' → the resident is a renter. owner_name/phone/email
+--                            hold the contact info for the property owner who
+--                            lives elsewhere.
+CREATE TABLE IF NOT EXISTS apartment_occupancy (
+  apartment_id TEXT PRIMARY KEY REFERENCES apartments(id) ON DELETE CASCADE,
+  occupant_type TEXT NOT NULL DEFAULT 'owner' CHECK (occupant_type IN ('owner', 'renter')),
+  owner_name TEXT,
+  owner_phone TEXT,
+  owner_email TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Owner credentials — only meaningful when occupant_type='renter' (since the
+-- owner of an owner-occupied apartment uses the regular apartment login).
+-- Lets the property owner sign in independently of the renter, for view-only
+-- access to the same apartment data.
+CREATE TABLE IF NOT EXISTS apartment_owner_auth (
+  apartment_id TEXT PRIMARY KEY REFERENCES apartments(id) ON DELETE CASCADE,
+  password_hash TEXT,
+  password_salt TEXT,
+  iterations INTEGER,
+  password_set_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Owner recovery identity. Parallel to apartment_recovery but for the owner
+-- credential set. The Google account verified here is used by the owner's
+-- "forgot password" flow.
+CREATE TABLE IF NOT EXISTS apartment_owner_recovery (
+  apartment_id TEXT PRIMARY KEY REFERENCES apartments(id) ON DELETE CASCADE,
+  email TEXT,
+  verified_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Owner password reset tokens. Parallel to apartment_password_reset_tokens.
+-- Same shape, scoped to the owner credential set.
+CREATE TABLE IF NOT EXISTS apartment_owner_password_reset_tokens (
+  id TEXT PRIMARY KEY,
+  apartment_id TEXT NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  ip TEXT,
+  user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_apo_token_hash ON apartment_owner_password_reset_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_apo_expires ON apartment_owner_password_reset_tokens(expires_at);
+
+-- Per-session user-kind tag. Sessions without a row here are treated as
+-- 'tenant' (or 'admin' when sess.role='admin' && !apartmentId). A row with
+-- user_kind='owner' marks the session as the apartment owner's, so the system
+-- knows which credential set is in use for change-password / identity flows.
+CREATE TABLE IF NOT EXISTS session_user_kind (
+  session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+  user_kind TEXT NOT NULL DEFAULT 'tenant' CHECK (user_kind IN ('tenant', 'owner'))
+);
+
 CREATE TABLE IF NOT EXISTS payments (
   id TEXT PRIMARY KEY,
   apartment_id TEXT NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
@@ -137,6 +303,16 @@ CREATE TABLE IF NOT EXISTS documents (
   uploaded_by TEXT
 );
 
+-- Document display metadata. The filename in `documents.name` is preserved
+-- (so the file in Drive keeps its original identity), but admins can give
+-- documents a friendlier display name shown throughout the UI. Falls back
+-- to documents.name when no display_name is set.
+CREATE TABLE IF NOT EXISTS document_meta (
+  document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  display_name TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Google Drive connection (singleton row). Refresh token stored encrypted.
 CREATE TABLE IF NOT EXISTS drive_config (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -191,6 +367,51 @@ CREATE TABLE IF NOT EXISTS adjustment_payments (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_adjustment_payments_adj ON adjustment_payments(adjustment_id);
+
+-- Infrastructure expenses ("הוצאות תשתיתיות") — capital-style expenses paid
+-- by the property owners (water heater replacement, structural repairs, etc.)
+-- Conceptually distinct from monthly fees (regular operating expenses split
+-- across renters too) and from one-off apartment_adjustments (which are
+-- per-apartment by design). Each infrastructure expense splits its total
+-- equally among all apartments by default; the admin can then edit each
+-- apartment's share individually.
+CREATE TABLE IF NOT EXISTS infrastructure_expenses (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  total_amount REAL NOT NULL,
+  expense_date TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Per-apartment payment demand for an infrastructure expense. One row per
+-- (expense, apartment). amount is initially total/count but the admin can
+-- override per-apartment.
+CREATE TABLE IF NOT EXISTS infrastructure_demands (
+  id TEXT PRIMARY KEY,
+  expense_id TEXT NOT NULL REFERENCES infrastructure_expenses(id) ON DELETE CASCADE,
+  apartment_id TEXT NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
+  amount REAL NOT NULL,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(expense_id, apartment_id)
+);
+CREATE INDEX IF NOT EXISTS idx_infra_demand_apt ON infrastructure_demands(apartment_id);
+CREATE INDEX IF NOT EXISTS idx_infra_demand_expense ON infrastructure_demands(expense_id);
+
+-- Payments toward a specific infrastructure demand. Mirrors adjustment_payments.
+CREATE TABLE IF NOT EXISTS infrastructure_payments (
+  id TEXT PRIMARY KEY,
+  demand_id TEXT NOT NULL REFERENCES infrastructure_demands(id) ON DELETE CASCADE,
+  amount REAL NOT NULL,
+  paid_on TEXT NOT NULL,
+  method TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_infra_pay_demand ON infrastructure_payments(demand_id);
 
 -- Building committee (Vaad) members. Displayed publicly to tenants in the
 -- "About" tab so they know who to contact and where to transfer payments.
@@ -250,11 +471,10 @@ CREATE INDEX IF NOT EXISTS idx_pwr_token_hash ON password_reset_tokens(token_has
 CREATE INDEX IF NOT EXISTS idx_pwr_expires ON password_reset_tokens(expires_at);
 
 -- Admin recovery identity. Singleton row. Holds the Google email Google has
--- verified for the master admin. The "forgot password" flow re-runs Google
--- OAuth and grants reset only if the user signs in with this exact address.
--- This decouples identity verification from the Drive integration so:
---   * Drive can be connected with a different Google account (or skipped).
---   * No transactional-email service (Resend) is needed for password recovery.
+-- verified for the MASTER admin only (not apartment-admins — those are
+-- regular apartment users with admin grants and have their own recovery row
+-- in apartment_recovery). The "forgot password" flow re-runs Google OAuth
+-- and grants reset only if the user signs in with this exact address.
 CREATE TABLE IF NOT EXISTS admin_recovery (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   email TEXT,
@@ -262,12 +482,47 @@ CREATE TABLE IF NOT EXISTS admin_recovery (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Per-apartment recovery identity. Each apartment can register its own Google
+-- account that powers its "forgot password" flow. Independent of the
+-- apartment's admin status — apartment-admins are simply apartments with an
+-- admin grant; their identity is still per-apartment, NOT shared with the
+-- master admin. The address can be the same as the apartment's general email
+-- (apartment_email) but is verified separately via Google OAuth.
+CREATE TABLE IF NOT EXISTS apartment_recovery (
+  apartment_id TEXT PRIMARY KEY REFERENCES apartments(id) ON DELETE CASCADE,
+  email TEXT,
+  verified_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Per-apartment password reset tokens. Separate from password_reset_tokens
+-- (which is admin-only, and whose CHECK constraint can't be loosened
+-- idempotently). Same shape, plus apartment_id to scope the reset.
+CREATE TABLE IF NOT EXISTS apartment_password_reset_tokens (
+  id TEXT PRIMARY KEY,
+  apartment_id TEXT NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  ip TEXT,
+  user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_apr_token_hash ON apartment_password_reset_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_apr_expires ON apartment_password_reset_tokens(expires_at);
+
 -- OAuth state nonces for the identity flow. Distinct from `oauth_state` (Drive)
--- because the purpose is encoded here: register (first verify), replace
--- (admin-session change to a new email), reset (anonymous forgot-password).
+-- because purpose + scope are encoded here:
+--   purpose: register (first verify), replace (logged-in change), reset (anonymous forgot-password)
+--   scope:   'master' for master admin, 'apartment:<id>' for a specific apartment
+--
+-- Data here is ephemeral (30-minute TTL) so DROP+CREATE on each deploy is a
+-- safe idempotent migration: in-flight OAuth flows simply need to be retried.
+DROP TABLE IF EXISTS identity_oauth_state;
 CREATE TABLE IF NOT EXISTS identity_oauth_state (
   state TEXT PRIMARY KEY,
-  purpose TEXT NOT NULL CHECK (purpose IN ('register', 'replace', 'reset')),
+  purpose TEXT NOT NULL CHECK (purpose IN ('register', 'replace', 'reset', 'login')),
+  scope TEXT NOT NULL DEFAULT 'master',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_identity_state_created ON identity_oauth_state(created_at);

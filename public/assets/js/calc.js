@@ -8,7 +8,7 @@
 //   Expected expenses = computed from expense definitions + their date ranges
 //   Actual expenses   = sum of recorded expense_payments in that month
 
-import { getApartments, getPayments, getExpenses, getExpensePayments, getSettings, getAdjustments, getAdjustmentPayments, getFeeOverrides, getReminders } from './store.js';
+import { getApartments, getPayments, getExpenses, getExpensePayments, getSettings, getAdjustments, getAdjustmentPayments, getFeeOverrides, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getReminders } from './store.js';
 import { isMonthInRange, valueAtMonth, monthKey, todayISO } from './utils.js';
 
 // Resolve the expected fee for a single (apartment, year, month) cell.
@@ -486,7 +486,40 @@ export function apartmentOutstanding(apartmentId, year, month) {
     .filter(p => chargeIds.has(p.adjustmentId))
     .reduce((s, p) => s + Number(p.amount || 0), 0);
 
-  return totalExpected + totalCharges - totalPaid - totalCredits - totalAdjustmentPaid;
+  // Infrastructure demands for this apartment. Each demand is anchored to its
+  // parent expense's expense_date (the date the admin recorded the expense).
+  // Only demands whose expense_date is on/after the management start date AND
+  // on/before the cut-off month are counted. Their payments are summed and
+  // subtracted as well.
+  const expensesById = new Map(getInfrastructureExpenses().map(e => [e.id, e]));
+  const infraDemands = getInfrastructureDemands().filter(d => {
+    if (d.apartmentId !== apartmentId) return false;
+    const exp = expensesById.get(d.expenseId);
+    if (!exp || !exp.expenseDate) return false;
+    if (exp.expenseDate > endISO) return false;
+    if (open && exp.expenseDate < open) return false;
+    return true;
+  });
+  const totalInfraCharged = infraDemands.reduce((s, d) => s + Number(d.amount || 0), 0);
+  const infraDemandIds = new Set(infraDemands.map(d => d.id));
+  const totalInfraPaid = getInfrastructurePayments()
+    .filter(p => infraDemandIds.has(p.demandId))
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  return totalExpected + totalCharges + totalInfraCharged
+       - totalPaid - totalCredits - totalAdjustmentPaid - totalInfraPaid;
+}
+
+// Per-demand payment summary for an infrastructure demand. Returns paid /
+// remaining / status, plus the underlying payment list.
+export function infrastructureDemandStatus(demandId) {
+  const demand = getInfrastructureDemands().find(d => d.id === demandId);
+  if (!demand) return { paid: 0, remaining: 0, status: 'none', payments: [] };
+  const payments = getInfrastructurePayments().filter(p => p.demandId === demandId);
+  const paid = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const remaining = Math.max(0, Number(demand.amount || 0) - paid);
+  const status = paid <= 0 ? 'unpaid' : (remaining <= 0.001 ? 'paid' : 'partial');
+  return { paid, remaining, status, payments, demand };
 }
 
 // For year totals: returns the last month (1..12) to count for a given year.

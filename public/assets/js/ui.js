@@ -160,16 +160,18 @@ export function renderShell(currentRoute) {
   // document library and reminders stay admin-only. They can still see
   // documents *linked to* expenses/payments through the detail dialogs.
   const allNavItems = [
-    { id: 'dashboard',  icon: Icon.dashboard,  tenant: true  },
-    { id: 'apartments', icon: Icon.apartments, tenant: false },
-    { id: 'income',     icon: Icon.income,     tenant: true  },
-    { id: 'expenses',   icon: Icon.expenses,   tenant: true  },
-    { id: 'contacts',   icon: Icon.contacts,   tenant: false },
-    { id: 'documents',  icon: Icon.documents,  tenant: false },
-    { id: 'reminders',  icon: Icon.reminders,  tenant: false },
-    { id: 'reports',    icon: Icon.reports,    tenant: true  },
-    { id: 'about',      icon: Icon.about,      tenant: true  },
-    { id: 'settings',   icon: Icon.settings,   tenant: true  },
+    { id: 'dashboard',     icon: Icon.dashboard,  tenant: true  },
+    { id: 'apartments',    icon: Icon.apartments, tenant: false },
+    { id: 'owners',        icon: Icon.contacts,   tenant: false },
+    { id: 'income',        icon: Icon.income,     tenant: true  },
+    { id: 'expenses',      icon: Icon.expenses,   tenant: true  },
+    { id: 'infrastructure', icon: Icon.expenses,  tenant: true  },
+    { id: 'contacts',      icon: Icon.contacts,   tenant: false },
+    { id: 'documents',     icon: Icon.documents,  tenant: false },
+    { id: 'reminders',     icon: Icon.reminders,  tenant: false },
+    { id: 'reports',       icon: Icon.reports,    tenant: true  },
+    { id: 'about',         icon: Icon.about,      tenant: true  },
+    { id: 'settings',      icon: Icon.settings,   tenant: true  },
   ];
   const navItems = allNavItems.filter(it => isAdmin || it.tenant);
 

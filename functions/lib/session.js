@@ -48,12 +48,21 @@ async function ensureSecret(env) {
   return 'dev-only-secret-change-me-in-production-please-1234567890';
 }
 
-export async function createSession(db, { role, apartmentId = null, userLabel }, env, request) {
+export async function createSession(db, { role, apartmentId = null, userLabel, userKind = 'tenant', ownerId = null }, env, request) {
   const id = uid('s-');
   const expiresAt = new Date(Date.now() + ttlMs(env)).toISOString();
   await db.prepare(
     'INSERT INTO sessions (id, role, apartment_id, user_label, expires_at, last_seen_ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).bind(id, role, apartmentId, userLabel, expiresAt, clientIP(request), userAgent(request)).run();
+  // Tag owner sessions in the parallel session_user_kind table. Tenant/admin
+  // sessions don't need a row (default behavior on read = 'tenant').
+  if (userKind === 'owner') {
+    await db.prepare('INSERT INTO session_user_kind (session_id, user_kind) VALUES (?, ?)').bind(id, 'owner').run();
+  }
+  // First-class owner sessions (PR E) also point to the owners.id row.
+  if (ownerId) {
+    await db.prepare('INSERT INTO session_owner (session_id, owner_id) VALUES (?, ?)').bind(id, ownerId).run();
+  }
   const secret = await ensureSecret(env);
   const token = await signToken(JSON.stringify({ sid: id, exp: expiresAt }), secret);
   return { id, token, expiresAt };
@@ -65,8 +74,41 @@ export async function loadSession(db, request, env) {
   const secret = await ensureSecret(env);
   const payload = await verifyToken(cookie, secret);
   if (!payload || !payload.sid) return null;
+  // Re-derive the effective role on every request so admin grants/revokes
+  // take effect for live sessions without forcing a re-login.
+  //   - Apartment sessions (renter or legacy PR-B owner): role=admin if the
+  //     apartment is in apartment_admins.
+  //   - First-class owner sessions (PR-E, apartment_id IS NULL, owner_id set):
+  //     role=admin if ANY of the owner's linked apartments are in
+  //     apartment_admins.
+  //   - Master-admin (apartment_id IS NULL, owner_id IS NULL): keep stored role.
   const row = await db.prepare(
-    'SELECT id, role, apartment_id AS apartmentId, user_label AS userLabel, expires_at AS expiresAt FROM sessions WHERE id = ?'
+    `SELECT s.id,
+            CASE
+              WHEN s.apartment_id IS NOT NULL THEN
+                CASE
+                  WHEN EXISTS(SELECT 1 FROM apartment_admins WHERE apartment_id = s.apartment_id) THEN 'admin'
+                  ELSE 'tenant'
+                END
+              WHEN so.owner_id IS NOT NULL THEN
+                CASE
+                  WHEN EXISTS(
+                    SELECT 1 FROM apartment_owner_link l
+                    JOIN apartment_admins aa ON aa.apartment_id = l.apartment_id
+                    WHERE l.owner_id = so.owner_id
+                  ) THEN 'admin'
+                  ELSE 'tenant'
+                END
+              ELSE s.role
+            END AS role,
+            s.apartment_id AS apartmentId, s.user_label AS userLabel,
+            s.expires_at AS expiresAt,
+            COALESCE(suk.user_kind, 'tenant') AS userKind,
+            so.owner_id AS ownerId
+       FROM sessions s
+       LEFT JOIN session_user_kind suk ON suk.session_id = s.id
+       LEFT JOIN session_owner so ON so.session_id = s.id
+      WHERE s.id = ?`
   ).bind(payload.sid).first();
   if (!row) return null;
   if (new Date(row.expiresAt).getTime() < Date.now()) {

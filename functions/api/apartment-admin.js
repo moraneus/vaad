@@ -26,9 +26,21 @@ export const onRequestDelete = async ({ request, env }) => {
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return error('id חסר', 400);
   await env.DB.prepare('DELETE FROM apartment_admins WHERE apartment_id = ?').bind(id).run();
-  // Revoke any active sessions for this apartment so the role downgrade takes
-  // effect immediately (otherwise they'd keep admin access until next login).
+  // Revoke any active sessions tied to this apartment so the role downgrade
+  // takes effect immediately. Two paths:
+  //   1) Apartment-bound sessions (renter / legacy PR-B owner): apartment_id matches.
+  //   2) First-class owner sessions (PR-E): apartment_id IS NULL but session_owner
+  //      points to an owner whose apartment_owner_link row is THIS apartment.
   await env.DB.prepare('DELETE FROM sessions WHERE apartment_id = ?').bind(id).run();
+  await env.DB.prepare(
+    `DELETE FROM sessions
+      WHERE id IN (
+        SELECT so.session_id
+          FROM session_owner so
+          JOIN apartment_owner_link l ON l.owner_id = so.owner_id
+         WHERE l.apartment_id = ?
+      )`
+  ).bind(id).run();
   await logAudit(env.DB, request, { event: 'apartment_admin_revoked', role: 'admin', userLabel: r.sess.userLabel, apartmentId: id, success: true });
   return json({ ok: true });
 };

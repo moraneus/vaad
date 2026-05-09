@@ -1,6 +1,7 @@
 // Apartments management + per-apartment ledger
 
-import { getApartments, getPayments, getSettings, upsertApartment, deleteApartment, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride } from '../store.js';
+import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword } from '../store.js';
+import { wireLiveValidator, validatePassword } from '../password.js';
 import { api } from '../api.js';
 import { fmtCurrency, esc, fmtDate, valueAtMonth, todayISO, monthKey, parseMonthKey } from '../utils.js';
 import { t, monthName } from '../i18n.js';
@@ -85,7 +86,58 @@ export function renderApartments() {
       message: t('apt.delete.message', { number: apt.number }),
       confirmText: t('common.delete'), danger: true,
     });
-    if (ok) { try { await deleteApartment(apt.id); toast(t('apt.deleted'), 'success'); renderApartments(); } catch (err) { toast(err.message || t('common.error'), 'danger'); } }
+    if (!ok) return;
+    try {
+      const res = await deleteApartmentWithResult(apt.id);
+      toast(t('apt.deleted'), 'success');
+      // If deleting this apartment left its owner with no other apartments,
+      // offer to delete the orphaned owner too.
+      if (res?.orphanedOwner?.id) {
+        const drop = await confirmDialog({
+          title: t('apt.delete.orphanedOwner.title'),
+          message: t('apt.delete.orphanedOwner.message', { name: res.orphanedOwner.name }),
+          confirmText: t('common.delete'), danger: true,
+        });
+        if (drop) {
+          try { await deleteOwner(res.orphanedOwner.id); toast(t('owners.deleted'), 'success'); }
+          catch (err) { toast(err.message || t('common.error'), 'danger'); }
+        }
+      }
+      renderApartments();
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  }));
+  document.querySelectorAll('[data-act="replace-apt"]').forEach(b => b.addEventListener('click', () => {
+    if (!requireAdmin()) return;
+    const apt = getApartments().find(a => a.id === b.dataset.id);
+    if (apt) openReplaceResidentDialog(apt);
+  }));
+  document.querySelectorAll('[data-act="pw-apt"]').forEach(b => b.addEventListener('click', () => {
+    if (!requireAdmin()) return;
+    const apt = getApartments().find(a => a.id === b.dataset.id);
+    if (!apt) return;
+    openPasswordManagerDialog({
+      kind: 'apartment',
+      id: apt.id,
+      label: t('pwMgr.subject.aptRenter', { number: apt.number, name: apt.owner || '' }),
+      hasPassword: !!apt.hasPassword,
+      passwordSetAt: apt.passwordSetAt,
+      onDone: () => renderApartments(),
+    });
+  }));
+  // Expand renter rows to reveal the owner-of-record sub-row.
+  document.querySelectorAll('[data-act="expand-apt"]').forEach(b => b.addEventListener('click', () => {
+    const aptId = b.dataset.id;
+    const sub = document.querySelector(`tr.apt-owner-row[data-apt="${aptId}"]`);
+    if (!sub) return;
+    const opening = sub.style.display === 'none';
+    sub.style.display = opening ? '' : 'none';
+    b.textContent = opening ? '▴' : '▾';
+    b.setAttribute('aria-expanded', String(opening));
+  }));
+  // Click owner name in the sub-row → open the owner edit dialog.
+  document.querySelectorAll('[data-act="open-owner"]').forEach(b => b.addEventListener('click', () => {
+    const owner = getOwners().find(o => o.id === b.dataset.oid);
+    if (owner) openOwnerDialog(owner);
   }));
   document.querySelectorAll('[data-act="view-apt"]').forEach(b => b.addEventListener('click', () => {
     const apt = getApartments().find(a => a.id === b.dataset.id);
@@ -109,10 +161,42 @@ function renderAptRow(apt, year, isAdmin) {
                 'background:var(--c-border-strong)';
     dotsRow.push(`<span title="${monthName(m)}: ${fmtCurrency(st.paid)} / ${fmtCurrency(st.expected)}" style="width:10px;height:10px;border-radius:3px;display:inline-block;${cls}"></span>`);
   }
+  // Resident column shows the resident's name + a label indicating whether
+  // they're the property owner ("בעלים") or a renter ("שוכר"). Renter rows
+  // get an expand chevron — when clicked, the row reveals a sub-row with the
+  // property owner's name (clickable → opens the owner edit dialog).
+  const isRenter = apt.occupantType === 'renter';
+  const labelClass = isRenter ? 'badge--warning' : 'badge--success';
+  const labelText = isRenter ? t('apt.badge.renter') : t('apt.badge.owner');
+  const expandBtn = isRenter
+    ? `<button class="btn btn--sm btn--icon" data-act="expand-apt" data-id="${apt.id}" title="${esc(t('apt.row.expand.show'))}" aria-expanded="false" style="padding:2px 6px">▾</button>`
+    : '';
+  const residentCell = `
+    <div class="hstack" style="gap:6px; align-items:baseline">
+      <span>${esc(apt.owner || '—')}</span>
+      <span class="badge ${labelClass}" style="font-size:10px; padding:1px 6px">${esc(labelText)}</span>
+      ${expandBtn}
+    </div>
+  `;
+  // Hidden sub-row, shown when the chevron is clicked. Owner name is a link
+  // that opens the owner edit form.
+  const ownerSubRow = isRenter ? `
+    <tr class="apt-owner-row" data-apt="${apt.id}" style="display:none; background:var(--c-surface-2)">
+      <td></td>
+      <td colspan="7" style="font-size:13px">
+        <div class="hstack" style="gap:8px; padding:6px 0">
+          <span class="muted">${esc(t('apt.row.ownerOfRecord.label'))}:</span>
+          ${apt.ownerId ? `<button type="button" class="btn btn--ghost btn--sm" data-act="open-owner" data-oid="${esc(apt.ownerId)}" style="padding:2px 8px">${esc(apt.ownerName || '—')}</button>` : `<span>${esc(apt.ownerName || '—')}</span>`}
+          ${apt.ownerPhone ? `<span class="muted">· <a href="tel:${esc(apt.ownerPhone)}" class="muted">${esc(apt.ownerPhone)}</a></span>` : ''}
+          ${apt.ownerEmail ? `<span class="muted">· <a href="mailto:${esc(apt.ownerEmail)}" class="muted" style="direction:ltr">${esc(apt.ownerEmail)}</a></span>` : ''}
+        </div>
+      </td>
+    </tr>
+  ` : '';
   return `
     <tr>
       <td><strong>${esc(String(apt.number))}</strong></td>
-      <td>${esc(apt.owner || '—')}</td>
+      <td>${residentCell}</td>
       <td>${apt.phone ? `<a href="tel:${esc(apt.phone)}" class="muted">${esc(apt.phone)}</a>` : '<span class="muted">—</span>'}${apt.email ? `<div class="muted" style="font-size:11px; direction:ltr; text-align:start"><a href="mailto:${esc(apt.email)}" class="muted">${esc(apt.email)}</a></div>` : ''}</td>
       <td><div style="display:flex; gap:3px">${dotsRow.join('')}</div></td>
       <td class="num">${fmtCurrency(yearExpected)}</td>
@@ -127,16 +211,23 @@ function renderAptRow(apt, year, isAdmin) {
         <button class="btn btn--sm" data-act="view-apt" data-id="${apt.id}">${esc(t('apt.row.detail'))}</button>
         ${isAdmin ? `
           <button class="btn btn--sm btn--icon" data-act="edit-apt" data-id="${apt.id}" title="${esc(t('common.edit'))}">${Icon.edit}</button>
+          ${isRenter ? `<button class="btn btn--sm btn--icon" data-act="pw-apt" data-id="${apt.id}" title="${esc(t('pwMgr.tooltip'))}">🔑</button>` : ''}
+          <button class="btn btn--sm btn--icon" data-act="replace-apt" data-id="${apt.id}" title="${esc(t('apt.replace.title'))}">↻</button>
           <button class="btn btn--sm btn--icon" data-act="del-apt" data-id="${apt.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
         ` : ''}
       </td>
     </tr>
+    ${ownerSubRow}
   `;
 }
 
 function openApartmentDialog(apt = null) {
   if (!requireAdmin()) return;
   const isEdit = !!apt;
+  const occupantType = apt?.occupantType || 'owner';
+  const owners = [...getOwners()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
+  const currentOwnerId = apt?.ownerId || '';
+
   const m = openModal({
     title: isEdit ? t('apt.dialog.edit') : t('apt.dialog.add'),
     body: `
@@ -146,23 +237,67 @@ function openApartmentDialog(apt = null) {
           <input class="input" name="number" required value="${esc(apt?.number || '')}" />
         </div>
         <div class="field">
-          <label class="field__label">${esc(t('apt.field.owner'))}</label>
-          <input class="input" name="owner" value="${esc(apt?.owner || '')}" />
-        </div>
-        <div class="field">
-          <label class="field__label">${esc(t('apt.field.phone'))}</label>
-          <input class="input" name="phone" type="tel" value="${esc(apt?.phone || '')}" />
-        </div>
-        <div class="field">
           <label class="field__label">${esc(t('apt.field.activeFrom'))}</label>
           <input class="input" name="activeFrom" type="date" value="${esc(apt?.activeFrom || todayISO())}" />
           <div class="field__hint">${esc(t('apt.field.activeFromHint'))}</div>
         </div>
-        <div class="field" style="grid-column:1/-1">
-          <label class="field__label">${esc(t('apt.field.email'))}</label>
-          <input class="input" name="email" type="email" value="${esc(apt?.email || '')}" placeholder="resident@example.com" />
-          <div class="field__hint">${esc(t('apt.field.emailHint'))}</div>
+
+        <!-- Owner picker — first decision before anything else. -->
+        <div class="field field--required" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('apt.field.ownerPicker'))}</label>
+          <div class="hstack" style="gap:6px">
+            <select class="select" name="ownerId" id="owner-picker" required style="flex:1">
+              <option value="">${esc(t('apt.field.ownerPicker.placeholder'))}</option>
+              ${owners.map(o => `<option value="${esc(o.id)}" ${o.id === currentOwnerId ? 'selected' : ''}>${esc(o.name)}${o.phone ? ` · ${esc(o.phone)}` : ''}</option>`).join('')}
+            </select>
+            <button type="button" class="btn btn--sm" id="new-owner-btn">${Icon.plus} ${esc(t('apt.field.ownerPicker.create'))}</button>
+          </div>
+          <div class="field__hint">${esc(t('apt.field.ownerPicker.hint'))}</div>
         </div>
+
+        <!-- Occupant type chooser. When 'renter', the renter contact subsection is shown. -->
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('apt.field.occupantType'))}</label>
+          <div class="segmented" role="radiogroup">
+            <label class="segmented__opt ${occupantType === 'owner' ? 'segmented__opt--active' : ''}" data-occ="owner">
+              <input type="radio" name="occupantType" value="owner" ${occupantType === 'owner' ? 'checked' : ''} style="display:none" />
+              ${esc(t('apt.field.occupantType.owner'))}
+            </label>
+            <label class="segmented__opt ${occupantType === 'renter' ? 'segmented__opt--active' : ''}" data-occ="renter">
+              <input type="radio" name="occupantType" value="renter" ${occupantType === 'renter' ? 'checked' : ''} style="display:none" />
+              ${esc(t('apt.field.occupantType.renter'))}
+            </label>
+          </div>
+        </div>
+
+        <!-- Helper note for owner-occupied apartments — admin should know
+             that no separate tenant login is created. -->
+        <div id="owner-occupied-note" class="callout" style="grid-column:1/-1; font-size:12px; display:${occupantType === 'owner' ? 'block' : 'none'}">
+          ${esc(t('apt.dialog.ownerOccupied.note'))}
+        </div>
+
+        <!-- Renter contact section — visible only when occupant_type='renter'.
+             For owner-occupied apartments, the resident IS the owner; we mirror
+             the owner's name/phone into apartments.owner/phone at submit time. -->
+        <div id="renter-info-section" style="grid-column:1/-1; display:${occupantType === 'renter' ? 'block' : 'none'}">
+          <div class="muted" style="font-size:13px; margin-bottom:10px">${esc(t('apt.field.renterInfo.heading'))}</div>
+          <div class="form-grid">
+            <div class="field">
+              <label class="field__label">${esc(t('apt.field.renterName'))}</label>
+              <input class="input" name="renterName" value="${esc(apt?.owner || '')}" />
+            </div>
+            <div class="field">
+              <label class="field__label">${esc(t('apt.field.renterPhone'))}</label>
+              <input class="input" name="renterPhone" type="tel" value="${esc(apt?.phone || '')}" />
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label class="field__label">${esc(t('apt.field.renterEmail'))}</label>
+              <input class="input" name="renterEmail" type="email" value="${esc(apt?.email || '')}" placeholder="renter@example.com" />
+              <div class="field__hint">${esc(t('apt.field.emailHint'))}</div>
+            </div>
+          </div>
+        </div>
+
         <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('common.notes'))}</label>
           <textarea class="textarea" name="notes" rows="2">${esc(apt?.notes || '')}</textarea>
@@ -173,32 +308,363 @@ function openApartmentDialog(apt = null) {
       <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
       <button class="btn btn--primary" data-act="save">${esc(isEdit ? t('common.save') : t('common.add'))}</button>
     `,
+    size: 'md',
   });
+
+  const segments = m.bodyEl.querySelectorAll('.segmented__opt[data-occ]');
+  const renterSection = m.bodyEl.querySelector('#renter-info-section');
+  const ownerNote = m.bodyEl.querySelector('#owner-occupied-note');
+  const updateOccupantUI = (type) => {
+    renterSection.style.display = type === 'renter' ? 'block' : 'none';
+    if (ownerNote) ownerNote.style.display = type === 'owner' ? 'block' : 'none';
+    segments.forEach(seg => seg.classList.toggle('segmented__opt--active', seg.dataset.occ === type));
+  };
+  segments.forEach(seg => seg.addEventListener('click', () => {
+    seg.querySelector('input').checked = true;
+    updateOccupantUI(seg.dataset.occ);
+  }));
+  updateOccupantUI(occupantType);
+
+  // "Create new owner" sub-dialog: opens a small form, on save selects the
+  // newly-created owner in the picker.
+  m.bodyEl.querySelector('#new-owner-btn').addEventListener('click', () => {
+    openCreateOwnerDialog((newOwner) => {
+      const picker = m.bodyEl.querySelector('#owner-picker');
+      const opt = document.createElement('option');
+      opt.value = newOwner.id;
+      opt.textContent = `${newOwner.name}${newOwner.phone ? ' · ' + newOwner.phone : ''}`;
+      picker.appendChild(opt);
+      // Explicitly set the select's value (appending a `selected` option does
+      // NOT reliably update the select's `.value` in all browsers — without
+      // this line, FormData sends ownerId='' and the backend fallback would
+      // silently create a SECOND owner row from the resident name).
+      picker.value = newOwner.id;
+    });
+  });
+
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
-  m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
+  const aptSaveBtn = m.footerEl.querySelector('[data-act="save"]');
+  aptSaveBtn.addEventListener('click', async () => {
+    // Defensive — block double-click; otherwise the apartment POST runs
+    // twice and both responses each invoke showInitialPasswordDialog.
+    if (aptSaveBtn.disabled) return;
     const f = m.bodyEl.querySelector('#apt-form');
     const data = Object.fromEntries(new FormData(f).entries());
     if (!data.number) { toast(t('apt.numberRequired'), 'warning'); return; }
-    const newEmail = (data.email || '').trim().toLowerCase();
+    if (!data.ownerId) { toast(t('apt.ownerRequired'), 'warning'); return; }
+    const ownerObj = getOwners().find(o => o.id === data.ownerId);
+    aptSaveBtn.disabled = true;
+
+    // Map the form to the apartment record. apartments.owner/phone hold the
+    // RESIDENT's contact (renter when 'renter', owner when 'owner').
+    let residentName, residentPhone, residentEmail;
+    if (data.occupantType === 'renter') {
+      residentName = (data.renterName || '').trim() || (ownerObj?.name || '');
+      residentPhone = (data.renterPhone || '').trim();
+      residentEmail = (data.renterEmail || '').trim().toLowerCase();
+    } else {
+      residentName = ownerObj?.name || '';
+      residentPhone = ownerObj?.phone || '';
+      residentEmail = (ownerObj?.email || '').trim().toLowerCase();
+    }
     const oldEmail = (apt?.email || '').trim().toLowerCase();
-    // Save the apartment first, then sync email separately.
+
     try {
-      const saved = await upsertApartment({ id: apt?.id, ...data });
+      const saved = await upsertApartment({
+        id: apt?.id,
+        number: data.number,
+        activeFrom: data.activeFrom,
+        notes: data.notes,
+        owner: residentName,
+        phone: residentPhone,
+        email: residentEmail,
+        ownerId: data.ownerId,
+        occupantType: data.occupantType,
+      });
       const aptId = apt?.id || saved?.id;
-      // Sync email opt-in if it changed
-      if (aptId && newEmail !== oldEmail) {
+      if (aptId && residentEmail !== oldEmail) {
         try {
-          if (newEmail) await api.setApartmentEmail(aptId, newEmail);
+          if (residentEmail) await api.setApartmentEmail(aptId, residentEmail);
           else await api.removeApartmentEmail(aptId);
         } catch (err) {
-          // Email sync failure shouldn't fail the whole save
           toast(t('apt.emailSyncFailed') + ': ' + (err.message || ''), 'warning');
         }
       }
       toast(isEdit ? t('apt.updated') : t('apt.added'), 'success');
       m.close();
+      // For brand-new RENTER-occupied apartments, the backend generated an
+      // initial password for the renter — show it once. Owner-occupied
+      // apartments have no separate tenant login (the owner uses the Owner
+      // tab), so initialPassword is null and we skip the dialog.
+      if (!isEdit && saved?.initialPassword) {
+        showInitialPasswordDialog({
+          subjectLabel: t('pw.initial.subject.aptRenter', { number: data.number }),
+          password: saved.initialPassword,
+        });
+      }
       renderApartments();
-    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+      aptSaveBtn.disabled = false;
+    }
+  });
+}
+
+// Quick "create new owner" sub-dialog used inline from the apartment dialog
+// AND from the owners management page.
+export function openCreateOwnerDialog(onCreated) {
+  const m = openModal({
+    title: t('owners.create.title'),
+    body: `
+      <form id="new-owner-form" class="form-grid" autocomplete="off">
+        <div class="field field--required" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('owners.field.name'))}</label>
+          <input class="input" name="name" required />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('owners.field.phone'))}</label>
+          <input class="input" name="phone" type="tel" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('owners.field.email'))}</label>
+          <input class="input" name="email" type="email" placeholder="contact@example.com" />
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('owners.field.loginEmail'))}</label>
+          <input class="input" name="loginEmail" type="email" placeholder="login@example.com" />
+          <div class="field__hint">${esc(t('owners.field.loginEmail.hint'))}</div>
+        </div>
+      </form>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="save">${esc(t('common.add'))}</button>
+    `,
+  });
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  const saveBtn = m.footerEl.querySelector('[data-act="save"]');
+  saveBtn.addEventListener('click', async () => {
+    // Defensive — disable immediately so a double-click doesn't fire two
+    // POSTs that both create an owner row.
+    if (saveBtn.disabled) return;
+    const f = m.bodyEl.querySelector('#new-owner-form');
+    const data = Object.fromEntries(new FormData(f).entries());
+    if (!(data.name || '').trim()) { toast(t('owners.field.nameRequired'), 'warning'); return; }
+    saveBtn.disabled = true;
+    try {
+      const owner = await createOwner({
+        name: data.name.trim(),
+        phone: (data.phone || '').trim() || null,
+        email: (data.email || '').trim() || null,
+        loginEmail: (data.loginEmail || '').trim() || null,
+      });
+      toast(t('owners.created'), 'success');
+      m.close();
+      // Show the auto-generated initial password ONCE for the admin to share.
+      if (owner?.initialPassword) {
+        showInitialPasswordDialog({
+          subjectLabel: t('owners.initialPassword.subject', { name: owner.name }),
+          password: owner.initialPassword,
+        });
+      }
+      onCreated && onCreated(owner);
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+      saveBtn.disabled = false;
+    }
+  });
+}
+
+// Shows the just-generated initial password to the admin in a one-time
+// dialog. Has a copy-to-clipboard button + a clear warning that this is the
+// only time the system will display it. Plaintext is never persisted.
+export function showInitialPasswordDialog({ subjectLabel, password }) {
+  const m = openModal({
+    title: t('pw.initial.title'),
+    body: `
+      <p style="margin-top:0; font-size:13px">${esc(t('pw.initial.intro', { subject: subjectLabel }))}</p>
+      <div class="card" style="background:var(--c-surface-2); padding:14px; text-align:center; margin:10px 0">
+        <div style="font-family:monospace; font-size:22px; letter-spacing:2px; user-select:all" id="initpw-text">${esc(password)}</div>
+      </div>
+      <button type="button" class="btn btn--sm" id="initpw-copy" style="margin-bottom:10px">${esc(t('pw.initial.copy'))}</button>
+      <div class="callout callout--warning" style="font-size:12px">${esc(t('pw.initial.warning'))}</div>
+    `,
+    footer: `<button class="btn btn--primary" data-act="ok">${esc(t('pw.initial.ack'))}</button>`,
+  });
+  m.bodyEl.querySelector('#initpw-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      toast(t('pw.initial.copied'), 'success');
+    } catch { toast(t('pw.initial.copyFailed'), 'warning'); }
+  });
+  m.footerEl.querySelector('[data-act="ok"]').addEventListener('click', () => m.close());
+}
+
+// Unified password manager — works for any "user" (apartment renter or
+// first-class owner). Two flows: generate random (one click → API call →
+// initial password dialog) or set manually (input with real-time policy
+// validator → API call). Cancel does nothing.
+//
+// kind     : 'apartment' | 'owner'
+// id       : apartmentId or ownerId
+// label    : human-readable subject (e.g. "דירה 5 — פילים")
+// hasPassword / passwordSetAt — current status (rendered for context)
+// userKind : for kind='apartment', 'tenant' (default) — kept for legacy PR-B
+//            'owner' callers; not used for new owners (which are kind='owner').
+export function openPasswordManagerDialog({ kind, id, label, hasPassword, passwordSetAt, userKind = 'tenant', onDone }) {
+  if (!requireAdmin()) return;
+  const m = openModal({
+    title: t('pwMgr.title', { subject: label }),
+    size: 'md',
+    body: `
+      <div class="callout" style="font-size:13px; margin-bottom:12px">
+        ${esc(t('pwMgr.intro'))}
+      </div>
+      <div class="muted" style="font-size:12px; margin-bottom:14px">
+        ${hasPassword
+          ? esc(t('pwMgr.status.set', { date: passwordSetAt ? new Date(passwordSetAt).toLocaleDateString() : '—' }))
+          : esc(t('pwMgr.status.notSet'))}
+      </div>
+
+      <!-- View current admin-stashed password -->
+      <div class="card" style="padding:14px; margin-bottom:12px">
+        <h4 style="margin:0 0 6px; font-size:14px">${esc(t('pwMgr.view.title'))}</h4>
+        <p class="muted" style="font-size:12px; margin:0 0 10px">${esc(t('pwMgr.view.hint'))}</p>
+        <button type="button" class="btn btn--sm" data-act="view">${esc(t('pwMgr.view.go'))}</button>
+        <div id="pwMgr-revealed" style="margin-top:10px; min-height:0"></div>
+      </div>
+
+      <!-- Random generate -->
+      <div class="card" style="padding:14px; margin-bottom:12px">
+        <h4 style="margin:0 0 6px; font-size:14px">${esc(t('pwMgr.random.title'))}</h4>
+        <p class="muted" style="font-size:12px; margin:0 0 10px">${esc(t('pwMgr.random.hint'))}</p>
+        <button type="button" class="btn btn--primary btn--sm" data-act="random">${esc(t('pwMgr.random.go'))}</button>
+      </div>
+
+      <!-- Manual entry -->
+      <div class="card" style="padding:14px">
+        <h4 style="margin:0 0 6px; font-size:14px">${esc(t('pwMgr.manual.title'))}</h4>
+        <p class="muted" style="font-size:12px; margin:0 0 10px">${esc(t('pwMgr.manual.hint'))}</p>
+        <div class="field field--required">
+          <label class="field__label">${esc(t('pwMgr.manual.field'))}</label>
+          <input class="input" id="pwMgr-input" type="text" autocomplete="new-password" placeholder="********" />
+          <div id="pwMgr-validator"></div>
+        </div>
+        <button type="button" class="btn btn--primary btn--sm" data-act="manual" disabled>${esc(t('pwMgr.manual.go'))}</button>
+      </div>
+    `,
+    footer: `<button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>`,
+  });
+
+  // Live validator wires the manual button — disabled until policy passes.
+  const manualBtn = m.bodyEl.querySelector('[data-act="manual"]');
+  wireLiveValidator(
+    m.bodyEl.querySelector('#pwMgr-input'),
+    m.bodyEl.querySelector('#pwMgr-validator'),
+    t,
+    (v) => { manualBtn.disabled = !v.ok; },
+  );
+
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+
+  // "View current password" — fetches the admin-stashed plaintext (decrypted
+  // via SESSION_SECRET on the server). Shows it in-place under the button.
+  // If the user has self-changed their password since the last admin set,
+  // there's no stash and we explain that the admin must reset.
+  const viewBtn = m.bodyEl.querySelector('[data-act="view"]');
+  const viewTarget = m.bodyEl.querySelector('#pwMgr-revealed');
+  const stashScope = kind === 'owner' ? 'owner' : (userKind === 'owner' ? 'apartment-owner-legacy' : 'apartment-tenant');
+  viewBtn.addEventListener('click', async () => {
+    if (viewBtn.disabled) return;
+    viewBtn.disabled = true;
+    try {
+      const res = await api.revealPassword(stashScope, id);
+      // Build the reveal panel via DOM API (no innerHTML with user data).
+      while (viewTarget.firstChild) viewTarget.removeChild(viewTarget.firstChild);
+      if (res?.plaintext) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cssText = 'background:var(--c-surface-2); padding:10px 14px; text-align:center';
+        const code = document.createElement('div');
+        code.style.cssText = 'font-family:monospace; font-size:18px; letter-spacing:2px; user-select:all';
+        code.textContent = res.plaintext;
+        card.appendChild(code);
+        viewTarget.appendChild(card);
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'btn btn--sm';
+        copyBtn.style.marginTop = '6px';
+        copyBtn.textContent = t('pw.initial.copy');
+        copyBtn.addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(res.plaintext); toast(t('pw.initial.copied'), 'success'); }
+          catch { toast(t('pw.initial.copyFailed'), 'warning'); }
+        });
+        viewTarget.appendChild(copyBtn);
+      } else {
+        const note = document.createElement('div');
+        note.className = 'muted';
+        note.style.fontSize = '12px';
+        note.textContent = t('pwMgr.view.unavailable');
+        viewTarget.appendChild(note);
+      }
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+    } finally {
+      viewBtn.disabled = false;
+    }
+  });
+
+  // Common path after a successful reset — shows the new password to the
+  // admin once and closes the dialog.
+  const handleResetResult = (res) => {
+    m.close();
+    if (res?.initialPassword) {
+      showInitialPasswordDialog({
+        subjectLabel: label,
+        password: res.initialPassword,
+      });
+    }
+    onDone && onDone(res);
+  };
+
+  const randomBtn = m.bodyEl.querySelector('[data-act="random"]');
+  randomBtn.addEventListener('click', async () => {
+    if (randomBtn.disabled) return;
+    randomBtn.disabled = true;
+    manualBtn.disabled = true;
+    try {
+      let res;
+      if (kind === 'owner') {
+        res = await adminResetOwnerPassword(id);
+      } else {
+        res = await adminResetApartmentPassword(id, { userKind });
+      }
+      handleResetResult(res);
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+      randomBtn.disabled = false;
+    }
+  });
+
+  manualBtn.addEventListener('click', async () => {
+    if (manualBtn.disabled) return;
+    const newPassword = m.bodyEl.querySelector('#pwMgr-input').value || '';
+    if (!validatePassword(newPassword).ok) { toast(t('pw.policy.failed'), 'warning'); return; }
+    randomBtn.disabled = true;
+    manualBtn.disabled = true;
+    try {
+      let res;
+      if (kind === 'owner') {
+        res = await adminResetOwnerPassword(id, newPassword);
+      } else {
+        res = await adminResetApartmentPassword(id, { userKind, newPassword });
+      }
+      handleResetResult(res);
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+      randomBtn.disabled = false;
+      manualBtn.disabled = false;
+    }
   });
 }
 
@@ -899,3 +1365,223 @@ function openCellEditor({ apt, year, month, onDone }) {
   });
 }
 
+// ---------- Replace resident (renter or owner) ----------
+// Wipes credentials + recovery for the chosen role so the new person sets a
+// fresh password on first login. ALL payments / debts / infrastructure
+// demands stay attached to the apartment — they're owned by the apartment,
+// not by the resident.
+//
+// For renter apartments, the dialog offers both options ("Replace renter" /
+// "Replace owner"). For owner-occupied apartments, only "replace renter"
+// (which is really "replace the owner-resident") makes sense — there's no
+// separate owner credential set to reset.
+function openReplaceResidentDialog(apt) {
+  if (!requireAdmin()) return;
+  const isRenterApt = apt.occupantType === 'renter';
+  const owners = [...getOwners()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
+  const m = openModal({
+    title: t('apt.replace.title.with', { number: apt.number }),
+    size: 'md',
+    body: `
+      <div class="callout" style="font-size:13px; margin-bottom:10px">
+        <div><strong>${esc(t('apt.replace.intro'))}</strong></div>
+        <div class="muted" style="margin-top:6px">${esc(t('apt.replace.preserved'))}</div>
+      </div>
+      <form id="replace-form" class="vstack">
+        <div class="field field--required">
+          <label class="field__label">${esc(t('apt.replace.whichRole'))}</label>
+          <div class="vstack" style="gap:6px">
+            <label class="checkbox">
+              <input type="radio" name="kind" value="renter" checked />
+              <span>${esc(t(isRenterApt ? 'apt.replace.role.renter' : 'apt.replace.role.resident'))}</span>
+            </label>
+            <label class="checkbox">
+              <input type="radio" name="kind" value="owner" />
+              <span>${esc(t('apt.replace.role.owner'))}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Owner-replacement section: pick a different existing owner OR
+             create a new one. The apartment_owner_link is updated atomically. -->
+        <div id="replace-owner-section" style="display:none; padding-top:12px; border-top:1px solid var(--c-border)">
+          <div class="muted" style="font-size:12px; margin-bottom:8px">${esc(t('apt.replace.owner.hint'))}</div>
+          <div class="hstack" style="gap:6px">
+            <select class="select" id="replace-owner-picker" style="flex:1">
+              <option value="">${esc(t('apt.field.ownerPicker.placeholder'))}</option>
+              ${owners.map(o => `<option value="${esc(o.id)}" ${o.id === apt.ownerId ? 'disabled' : ''}>${esc(o.name)}${o.phone ? ` · ${esc(o.phone)}` : ''}${o.id === apt.ownerId ? ` (${esc(t('apt.replace.owner.current'))})` : ''}</option>`).join('')}
+            </select>
+            <button type="button" class="btn btn--sm" id="replace-new-owner-btn">${Icon.plus} ${esc(t('apt.field.ownerPicker.create'))}</button>
+          </div>
+        </div>
+      </form>
+      <p class="muted" style="font-size:12px; margin-top:10px">${esc(t('apt.replace.editHint'))}</p>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="confirm">${esc(t('apt.replace.confirm'))}</button>
+    `,
+  });
+
+  // Toggle the owner-picker section based on the selected kind.
+  const ownerSection = m.bodyEl.querySelector('#replace-owner-section');
+  const updateSection = () => {
+    const kind = m.bodyEl.querySelector('input[name="kind"]:checked')?.value || 'renter';
+    ownerSection.style.display = kind === 'owner' ? 'block' : 'none';
+  };
+  m.bodyEl.querySelectorAll('input[name="kind"]').forEach(r => r.addEventListener('change', updateSection));
+  updateSection();
+
+  // Inline "create new owner" + auto-select.
+  m.bodyEl.querySelector('#replace-new-owner-btn').addEventListener('click', () => {
+    openCreateOwnerDialog((newOwner) => {
+      const picker = m.bodyEl.querySelector('#replace-owner-picker');
+      const opt = document.createElement('option');
+      opt.value = newOwner.id;
+      opt.textContent = `${newOwner.name}${newOwner.phone ? ' · ' + newOwner.phone : ''}`;
+      picker.appendChild(opt);
+      picker.value = newOwner.id;
+    });
+  });
+
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  m.footerEl.querySelector('[data-act="confirm"]').addEventListener('click', async () => {
+    const kind = m.bodyEl.querySelector('input[name="kind"]:checked')?.value || 'renter';
+
+    if (kind === 'owner') {
+      // Owner replacement: re-link the apartment to a different owner.
+      const newOwnerId = m.bodyEl.querySelector('#replace-owner-picker').value;
+      if (!newOwnerId) { toast(t('apt.replace.owner.pickRequired'), 'warning'); return; }
+      if (newOwnerId === apt.ownerId) { toast(t('apt.replace.owner.sameOwner'), 'warning'); return; }
+      const ok = await confirmDialog({
+        title: t('apt.replace.owner.confirm.title'),
+        message: t('apt.replace.owner.confirm.message', { number: apt.number }),
+        confirmText: t('apt.replace.confirm'),
+      });
+      if (!ok) return;
+      try {
+        // Re-save the apartment with the new ownerId. Existing payment history
+        // stays attached (apartment_id is unchanged).
+        await upsertApartment({ id: apt.id, number: apt.number, activeFrom: apt.activeFrom, notes: apt.notes, owner: apt.owner, phone: apt.phone, email: apt.email, occupantType: apt.occupantType, ownerId: newOwnerId });
+        toast(t('apt.replace.owner.done'), 'success');
+        m.close();
+        // Offer to clean up the previous owner if they're now orphaned.
+        if (apt.ownerId) {
+          const prevOwners = getApartments().filter(a => a.ownerId === apt.ownerId && a.id !== apt.id);
+          if (prevOwners.length === 0) {
+            const prev = getOwners().find(o => o.id === apt.ownerId);
+            if (prev) {
+              const drop = await confirmDialog({
+                title: t('apt.delete.orphanedOwner.title'),
+                message: t('apt.delete.orphanedOwner.message', { name: prev.name }),
+                confirmText: t('common.delete'), danger: true,
+              });
+              if (drop) {
+                try { await deleteOwner(prev.id); toast(t('owners.deleted'), 'success'); }
+                catch (err) { toast(err.message || t('common.error'), 'danger'); }
+              }
+            }
+          }
+        }
+        renderApartments();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+      return;
+    }
+
+    // Renter replacement: existing flow — generate fresh credentials, wipe
+    // recovery + email, then open the apartment edit dialog to update contact
+    // details. The new initial password is shown to the admin once.
+    const ok = await confirmDialog({
+      title: t('apt.replace.confirm.title'),
+      message: t('apt.replace.confirm.message', { number: apt.number, role: t(isRenterApt ? 'apt.replace.role.renter' : 'apt.replace.role.resident') }),
+      confirmText: t('apt.replace.confirm'), danger: true,
+    });
+    if (!ok) return;
+    try {
+      const res = await adminResetApartmentPassword(apt.id, { userKind: 'tenant' });
+      toast(t('apt.replace.done'), 'success');
+      m.close();
+      if (res?.initialPassword) {
+        showInitialPasswordDialog({
+          subjectLabel: t('pw.initial.subject.apt', { number: apt.number }),
+          password: res.initialPassword,
+        });
+      }
+      openApartmentDialog(apt);
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  });
+}
+
+
+
+// Owner edit dialog — opened when clicking the owner name in the expanded
+// apartments-table sub-row (or from the owners management page).
+export function openOwnerDialog(owner) {
+  if (!requireAdmin()) return;
+  const m = openModal({
+    title: t('owners.dialog.edit'),
+    body: `
+      <form id="own-form" class="form-grid" autocomplete="off">
+        <div class="field field--required" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('owners.field.name'))}</label>
+          <input class="input" name="name" required value="${esc(owner.name || '')}" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('owners.field.phone'))}</label>
+          <input class="input" name="phone" type="tel" value="${esc(owner.phone || '')}" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('owners.field.email'))}</label>
+          <input class="input" name="email" type="email" value="${esc(owner.email || '')}" />
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('owners.field.loginEmail'))}</label>
+          <input class="input" name="loginEmail" type="email" value="${esc(owner.loginEmail || '')}" placeholder="login@example.com" />
+          <div class="field__hint">${esc(t('owners.field.loginEmail.hint'))}</div>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('common.notes'))}</label>
+          <textarea class="textarea" name="notes" rows="2">${esc(owner.notes || '')}</textarea>
+        </div>
+        <div class="muted" style="grid-column:1/-1; font-size:12px">
+          ${esc(t('owners.dialog.aptCount', { n: owner.apartmentCount || 0 }))}
+          ${owner.hasPassword ? ` · ${esc(t('owners.dialog.hasPassword'))}` : ''}
+        </div>
+      </form>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      ${owner.id ? `<button class="btn" data-act="manage-pw">🔑 ${esc(t('pwMgr.button'))}</button>` : ''}
+      <button class="btn btn--primary" data-act="save">${esc(t('common.save'))}</button>
+    `,
+  });
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  m.footerEl.querySelector('[data-act="manage-pw"]')?.addEventListener('click', () => {
+    m.close();
+    openPasswordManagerDialog({
+      kind: 'owner',
+      id: owner.id,
+      label: t('pwMgr.subject.owner', { name: owner.name }),
+      hasPassword: !!owner.hasPassword,
+      passwordSetAt: owner.passwordSetAt,
+      onDone: () => renderApartments(),
+    });
+  });
+  m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
+    const f = m.bodyEl.querySelector('#own-form');
+    const data = Object.fromEntries(new FormData(f).entries());
+    if (!(data.name || '').trim()) { toast(t('owners.field.nameRequired'), 'warning'); return; }
+    try {
+      await updateOwner(owner.id, {
+        name: data.name.trim(),
+        phone: (data.phone || '').trim() || null,
+        email: (data.email || '').trim() || null,
+        loginEmail: (data.loginEmail || '').trim() || null,
+        notes: (data.notes || '').trim() || null,
+      });
+      toast(t('owners.updated'), 'success');
+      m.close();
+      renderApartments();
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  });
+}

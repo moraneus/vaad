@@ -41,12 +41,17 @@ Runs on **Cloudflare** (Pages + Functions + D1) with documents stored in the adm
 - **Income tracking** — apartment × month grid with paid / partial / unpaid status; per-payment ledger; charge payments included as income. Both the **expected** and **paid** amounts are inline-editable per cell — overriding the expected amount for a single (apartment, month) cell flows automatically into all projection totals; a per-row delta badge shows debt or credit when the paid amount differs from the expected.
 - **Expenses** — three types (monthly recurring, annual, one-off) with rate history, attachments, and per-period derived status (`In progress` / `Done`).
 - **Per-apartment charges & credits** — manual debit/credit entries (e.g., past dues, refunds) that affect the outstanding balance independently of monthly fees, with their own payment ledger.
+- **Infrastructure expenses** — capital-style expenses paid by the property owners (e.g. boiler replacement, structural repairs). Recording an infrastructure expense automatically distributes the total equally across all apartments as payment demands; each per-apartment amount can be edited individually. Payments and outstanding balances flow into the apartment's overall outstanding alongside monthly-fee debt.
+- **Owner / renter occupancy** — each apartment is marked as owner-occupied or rented. When marked as rented, the apartment record carries the renter's contact details *and* a separate set of property-owner contact details (name, phone, email).
+- **Independent owner login** — for renter apartments, the property owner can sign in with their own credentials (separate from the renter's), with their own password and their own Google recovery account. Both owner and renter sessions have identical view-only permissions.
+- **Sign in with Google** — residents (renters and owners) can choose to sign in with their Google account instead of a password. Admin sets the user's Google email when creating them; the user then clicks "Sign in with Google" on the login screen and lands directly inside. Reuses the same OAuth client used for password recovery — no extra setup.
+- **Replace renter / replace owner** — when the resident or property owner of an apartment changes, the admin runs a per-role "Replace" action that wipes only the credentials + recovery account for that role. The apartment's full financial history (payments, debts, infrastructure demands) stays intact and is inherited by the incoming resident. There's no need to delete and recreate the apartment.
+- **Document storage** — uploads streamed through Pages Functions to Google Drive; the browser never sees the OAuth token. Each document gets an admin-given **display name** (independent of the original filename, which is preserved in Drive).
 - **Receipts** — printable receipts (saved as PDF via the browser print dialog) with a stable, globally-running serial number. Same apartment + same month always returns the same receipt.
 - **Reminders** — persistent reminders with lead time. Show up in a header bell, in a login modal, or attached to specific expenses (contract renewals etc.).
 - **About tab** — bank details for transfers + committee members + free-form notes. Visible to tenants for quick reference.
 - **Reports** — monthly / yearly · cash-flow vs accounting view · CSV export · print to PDF.
 - **Audit log** — every login, mutation, password change, and reset is logged with real client IP.
-- **Document storage** — uploads streamed through Pages Functions to Google Drive; the browser never sees the OAuth token.
 - **Two-factor auth (2FA)** — optional TOTP for the master admin (Google Authenticator / Authy / 1Password). Includes single-use backup codes.
 - **Email notifications** — opt-in per apartment. Admin can broadcast a custom message to all subscribed residents, or send the monthly report. Powered by Resend (free tier, 3,000 emails / month).
 - **Automated monthly reports** — optional standalone Cloudflare Worker triggers the email report on the 1st of each month.
@@ -646,36 +651,49 @@ curl -X POST \
 
 > **Without the Cron Worker**, everything still works — you'll just need to click **Send monthly report** manually each month.
 
-### Admin password recovery
+### Password recovery (master admin AND every apartment)
 
-If the master admin forgets their password, recovery is done via **Google OAuth** — the user signs in to the Google account that was registered as the recovery account in Step 8.5, and on a successful match they land directly on a page where they can choose a new password. **No email is ever sent.**
+The recovery system is **per-user**, not shared:
 
-**Requirements** — recovery works as long as:
-- A recovery Google account has been registered (Settings → Security → Identity verification).
+- The **master admin** registers their own Google account.
+- **Each apartment** (regular tenant *or* apartment-admin) registers its own — a different Google account from the master admin's, and different from any other apartment's.
+- Apartment-admins are not "the same user" as the master admin. They're regular apartment users with an admin grant; their identity is the apartment, and their recovery is per-apartment.
+
+Recovery is done via **Google OAuth** — the user signs in to the Google account they registered, and on a successful match they land directly on a page to choose a new password. **No email is ever sent.**
+
+**Requirements** — recovery works for any account that has registered a recovery email:
+- The master admin or apartment user already verified a Google account in Settings → Security → Identity verification.
 - The Google OAuth client is configured (which it already is from Step 6).
 
-**That's it.** No Resend. No verified domain. No outgoing-email plumbing. The flow runs end-to-end on a fresh deploy that never touched email at all.
+**That's it.** No Resend. No verified domain. No outgoing-email plumbing.
 
-**Flow:**
-1. On the login screen, switch to the **Admin** tab.
+**Flow — master admin:**
+1. On the login screen, **Admin** tab.
 2. Click **"Forgot password?"** under the password field.
-3. A small modal explains the flow. Click **"Sign in with Google"**.
-4. Google's account chooser opens. Sign in with the recovery account from Step 8.5.
-5. Google redirects back. If the email matches, you land immediately on the new-password form. If it doesn't match (someone else's Google account), you get a polite error.
+3. Click **"Sign in with Google"** in the modal.
+4. Sign in with the recovery account from Step 8.5.
+5. On a match → land on the new-password form. On a mismatch → polite error.
 6. Choose a new password and save.
 
-**Side effects on successful reset:**
-- All active admin sessions are killed (any open tab gets logged out).
-- **Two-factor auth is disabled** if it was on. Rationale: someone who lost their password has often lost their authenticator too — disabling 2FA prevents permanent lockout. The admin can re-enable 2FA from Settings after signing in.
+**Flow — apartment (regular tenant or apartment-admin):**
+1. On the login screen, **Tenant** tab.
+2. Pick the apartment from the dropdown and enter the password field area — a "**Forgot password?**" link appears below it.
+3. Click it, then **"Sign in with Google"**.
+4. Sign in with the Google account that was registered for this apartment (Settings → Security → Identity verification while logged in as that apartment).
+5. On a match → land on the new-password form for **this apartment only**. On a mismatch → polite error.
 
-**Replacing the recovery account:**
-Settings → Security → "Change recovery account" runs the same OAuth flow with `purpose=replace`. The current recovery email is replaced **only after the new Google account is successfully verified**. Available only while logged in as admin.
+**Side effects on successful reset:**
+- Master admin reset: all active master-admin sessions are killed; **two-factor auth is disabled** (rationale: someone who lost their password has often lost their authenticator too — disabling 2FA prevents permanent lockout; can be re-enabled later).
+- Apartment reset: only that apartment's sessions are killed. Other users (master admin, other apartments) are untouched.
+
+**Replacing a recovery account:**
+Settings → Security → "Change recovery account" runs OAuth with `purpose=replace`. The current recovery account is replaced **only after the new Google account is successfully verified**. Available while logged in as the user being changed (so apartment-admins replace their own apartment's recovery, not the master admin's).
 
 **Anti-abuse:**
-The "Forgot password" endpoint is rate-limited per IP (5 requests / 5 min). A mismatched Google account is logged in the audit log under `identity_reset_mismatch` so you can see attempts.
+The reset endpoint is rate-limited per IP (5 requests / 5 min). A mismatched Google account is logged in the audit log under `identity_reset_mismatch` so attempts are visible. The same generic error is returned whether the apartment exists, has a recovery account, or matched — to avoid leaking which apartments are recoverable.
 
-**If recovery is unavailable:**
-You only get into this state if you cleared the recovery account (or never registered one). Fallback: reset the admin password directly in D1:
+**If recovery is unavailable for the master admin:**
+You only get into this state if you cleared the recovery account (or never registered one). Fallback: reset the master admin password directly in D1:
 
 ```bash
 # Wipe the existing hash so the next login goes through the "first install"
@@ -685,6 +703,18 @@ npx wrangler d1 execute <your-d1-name> --remote --command \
 ```
 
 After running this, log in with `1234`, re-verify a recovery account in Settings, and then change the password.
+
+**If a tenant can't recover their apartment password:**
+The master admin can reset any apartment's password from the Apartments management page — the apartment then re-enters the "first-time setup" flow on next login.
+
+### Why apartment-admins are NOT "the same user" as the master admin
+
+This needed to be explicit because earlier versions of the system blurred the line. Today:
+
+- The **master admin** has its own login (the global Admin tab) backed by a singleton `admin_auth` row.
+- **Apartment-admins** are simply apartment users (Tenant tab login) whose apartment has been granted admin privileges via the `apartment_admins` table. They have admin powers in the UI, but their **identity is the apartment**: their password lives in `apartments.password_hash`, their recovery email is in `apartment_recovery`, and their session has `apartmentId` set.
+- An apartment-admin **cannot** rotate the master admin password (the `change-password` endpoint enforces this — `kind=admin` requires a session with no `apartmentId`).
+- The master admin **can** reset any apartment's password via the Apartments management page (intentionally — they own the building's account hierarchy).
 
 ### Without email (Resend)
 

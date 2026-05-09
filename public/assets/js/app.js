@@ -5,8 +5,10 @@ import { renderShell, attachShellHandlers, toast, maybeShowLoginRemindersModal }
 import { renderLogin } from './views/login.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderApartments } from './views/apartments.js';
+import { renderOwners } from './views/owners.js';
 import { renderIncome } from './views/income.js';
 import { renderExpenses } from './views/expenses.js';
+import { renderInfrastructure } from './views/infrastructure.js';
 import { renderContacts } from './views/contacts.js';
 import { renderDocuments } from './views/documents.js';
 import { renderReminders } from './views/reminders.js';
@@ -17,8 +19,10 @@ import { renderSettings } from './views/settings.js';
 const ROUTES = {
   dashboard: renderDashboard,
   apartments: renderApartments,
+  owners: renderOwners,
   income: renderIncome,
   expenses: renderExpenses,
+  infrastructure: renderInfrastructure,
   contacts: renderContacts,
   documents: renderDocuments,
   reminders: renderReminders,
@@ -29,7 +33,7 @@ const ROUTES = {
 
 // Routes that a tenant (non-admin) is allowed to open. Anything else routes
 // back to the dashboard, even if the user pasted an admin-only URL hash.
-const TENANT_ROUTES = new Set(['dashboard', 'income', 'expenses', 'reports', 'about', 'settings']);
+const TENANT_ROUTES = new Set(['dashboard', 'income', 'expenses', 'infrastructure', 'reports', 'about', 'settings']);
 
 function isRouteAllowed(route) {
   if (!ROUTES[route]) return false;
