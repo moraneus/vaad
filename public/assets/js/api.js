@@ -87,6 +87,8 @@ export const api = {
   deleteApartment: (id) => call(`/api/apartments?id=${encodeURIComponent(id)}`, opts('DELETE')),
   grantApartmentAdmin: (id) => call(`/api/apartment-admin?id=${encodeURIComponent(id)}`, opts('POST', {})),
   revokeApartmentAdmin: (id) => call(`/api/apartment-admin?id=${encodeURIComponent(id)}`, opts('DELETE')),
+  grantOwnerAdmin: (id) => call(`/api/owner-admin?id=${encodeURIComponent(id)}`, opts('POST', {})),
+  revokeOwnerAdmin: (id) => call(`/api/owner-admin?id=${encodeURIComponent(id)}`, opts('DELETE')),
 
   // Payments
   payments: ({ apartmentId, year } = {}) => {

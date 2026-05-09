@@ -557,6 +557,17 @@ CREATE TABLE IF NOT EXISTS apartment_admins (
   granted_by TEXT
 );
 
+-- Owner-level admin grants. An owner with a row here gets the admin role on
+-- their first-class session, regardless of whether any of their apartments
+-- are in apartment_admins. Mirrors apartment_admins shape so the session
+-- role-derivation query stays simple. The two are independent: granting
+-- owner-admin doesn't elevate any of the apartments' renter sessions.
+CREATE TABLE IF NOT EXISTS owner_admins (
+  owner_id TEXT PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+  granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+  granted_by TEXT
+);
+
 -- 2FA (TOTP, RFC 6238) for the master admin. Singleton row.
 -- The TOTP secret is stored AES-GCM encrypted with SESSION_SECRET, so a
 -- leaked DB backup alone doesn't expose the OTP seed.

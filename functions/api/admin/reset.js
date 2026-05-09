@@ -25,6 +25,7 @@ export const onRequestPost = async ({ request, env }) => {
   await db.batch([
     db.prepare('DELETE FROM document_links'),
     db.prepare('DELETE FROM documents'),
+    db.prepare('DELETE FROM owner_admins'),
     db.prepare('DELETE FROM expense_payments'),
     db.prepare('DELETE FROM expense_auto_extend'),
     db.prepare('DELETE FROM expense_default_method'),

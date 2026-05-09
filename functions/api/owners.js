@@ -13,7 +13,8 @@ const SAFE_FIELDS = `o.id, o.name, o.phone, o.email, o.login_email AS loginEmail
   o.notes, o.created_at AS createdAt, o.updated_at AS updatedAt,
   CASE WHEN o.password_hash IS NULL THEN 0 ELSE 1 END AS hasPassword,
   o.password_set_at AS passwordSetAt,
-  (SELECT COUNT(*) FROM apartment_owner_link l WHERE l.owner_id = o.id) AS apartmentCount`;
+  (SELECT COUNT(*) FROM apartment_owner_link l WHERE l.owner_id = o.id) AS apartmentCount,
+  CASE WHEN EXISTS(SELECT 1 FROM owner_admins WHERE owner_id = o.id) THEN 1 ELSE 0 END AS isAdmin`;
 
 // Reads the multi-phone rows for one or many owners. Returns a Map keyed by
 // owner_id whose value is an ordered array of { id, label, phone }.

@@ -159,6 +159,14 @@ export async function revokeApartmentAdmin(apartmentId) {
   await api.revokeApartmentAdmin(apartmentId);
   await refreshAll();
 }
+export async function grantOwnerAdmin(ownerId) {
+  await api.grantOwnerAdmin(ownerId);
+  await refreshAll();
+}
+export async function revokeOwnerAdmin(ownerId) {
+  await api.revokeOwnerAdmin(ownerId);
+  await refreshAll();
+}
 
 // ---- Reminders ----
 export async function upsertReminder(r) {

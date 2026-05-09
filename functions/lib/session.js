@@ -79,8 +79,8 @@ export async function loadSession(db, request, env) {
   //   - Apartment sessions (renter or legacy PR-B owner): role=admin if the
   //     apartment is in apartment_admins.
   //   - First-class owner sessions (PR-E, apartment_id IS NULL, owner_id set):
-  //     role=admin if ANY of the owner's linked apartments are in
-  //     apartment_admins.
+  //     role=admin if either the owner is in owner_admins (independent grant)
+  //     OR any of the owner's linked apartments are in apartment_admins.
   //   - Master-admin (apartment_id IS NULL, owner_id IS NULL): keep stored role.
   const row = await db.prepare(
     `SELECT s.id,
@@ -92,6 +92,7 @@ export async function loadSession(db, request, env) {
                 END
               WHEN so.owner_id IS NOT NULL THEN
                 CASE
+                  WHEN EXISTS(SELECT 1 FROM owner_admins WHERE owner_id = so.owner_id) THEN 'admin'
                   WHEN EXISTS(
                     SELECT 1 FROM apartment_owner_link l
                     JOIN apartment_admins aa ON aa.apartment_id = l.apartment_id

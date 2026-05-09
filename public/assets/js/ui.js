@@ -191,7 +191,10 @@ export function renderShell(currentRoute) {
         <div class="app-header__actions">
           ${langToggleHTML(lang)}
           ${isAdmin ? reminderBellHTML() : ''}
-          <span class="role-pill ${isAdmin ? 'role-pill--admin' : ''}">${esc(isAdmin ? t('role.admin') : t('role.tenant'))}</span>
+          <div class="hstack" style="gap:6px; align-items:center" title="${esc(t('app.loggedInAs', { label: session.userLabel || '' }))}">
+            <span class="role-pill ${isAdmin ? 'role-pill--admin' : ''}">${esc(isAdmin ? t('role.admin') : t('role.tenant'))}</span>
+            ${session.userLabel ? `<span class="muted" style="font-size:13px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(session.userLabel)}</span>` : ''}
+          </div>
           <button class="btn btn--sm btn--ghost" id="logout-btn" title="${esc(t('logout'))}">${esc(t('logout'))}</button>
         </div>
       </header>

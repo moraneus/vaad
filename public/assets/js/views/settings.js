@@ -6,7 +6,7 @@ import {
   addApartmentCountEntry, removeApartmentCountEntry, updateApartmentCountEntry,
   addMonthlyFeeEntry, removeMonthlyFeeEntry, updateMonthlyFeeEntry,
   changeAdminPassword, changeTenantPassword, adminResetApartmentPassword, adminResetOwnerPassword,
-  grantApartmentAdmin, revokeApartmentAdmin,
+  grantApartmentAdmin, revokeApartmentAdmin, grantOwnerAdmin, revokeOwnerAdmin,
   loadAuditLog, getAuditLog, clearAuditLog,
   resetAll, exportJSON,
 } from '../store.js';
@@ -284,6 +284,12 @@ function drawSettings() {
             .sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
           const aptCount = ownerApartments.length;
           const aptList = ownerApartments.map(a => String(a.number)).join(', ');
+          const ownerAdminCell = o.isAdmin
+            ? `<span class="badge badge--accent">${esc(t('settings.apartmentAdmin.yes'))}</span>`
+            : `<span class="muted" style="font-size:12px">${esc(t('settings.apartmentAdmin.no'))}</span>`;
+          const ownerAdminBtn = o.isAdmin
+            ? `<button class="btn btn--sm" data-act="revoke-own-admin" data-id="${esc(o.id)}" data-name="${esc(o.name || '')}">${esc(t('settings.apartmentAdmin.revoke'))}</button>`
+            : `<button class="btn btn--sm" data-act="grant-own-admin" data-id="${esc(o.id)}" data-name="${esc(o.name || '')}" ${!o.hasPassword ? `disabled title="${esc(t('settings.apartmentAdmin.needsPassword'))}"` : ''}>${esc(t('settings.apartmentAdmin.grant'))}</button>`;
           const aptHeader = `
             <tr class="users-owner-row" data-owner-id="${esc(o.id)}">
               <td class="users-bulk-col" style="display:none"><input type="checkbox" class="users-cb" data-kind="owner" data-id="${esc(o.id)}" /></td>
@@ -293,9 +299,10 @@ function drawSettings() {
                 <span class="muted" style="font-size:12px; margin-inline-start:6px">${esc(t('settings.users.ownerSubtitle', { n: aptCount, list: aptList || t('settings.ownerPasswords.noApts') }))}</span>
               </td>
               <td>${pwdBadge(!!o.hasPassword)}</td>
-              <td class="muted" style="font-size:12px">${esc(t('settings.users.kind.owner'))}</td>
+              <td>${ownerAdminCell}</td>
               <td class="muted">${o.passwordSetAt ? fmtDate(o.passwordSetAt) : '—'}</td>
               <td class="actions">
+                ${ownerAdminBtn}
                 <button class="btn btn--sm" data-act="reset-own-pwd" data-id="${esc(o.id)}" data-name="${esc(o.name || '')}">${esc(t('settings.tenantPasswords.reset'))}</button>
               </td>
             </tr>
@@ -324,8 +331,9 @@ function drawSettings() {
                 <td class="users-bulk-col" style="display:none">
                   ${showRenterPwd ? `<input type="checkbox" class="users-cb" data-kind="apartment" data-id="${esc(a.id)}" />` : ''}
                 </td>
-                <td style="padding-inline-start:36px">
-                  <span class="muted" style="font-size:12px">└─</span> <strong>${esc(t('settings.users.aptLabel', { number: a.number }))}</strong>
+                <td style="padding-inline-start:32px">
+                  <span style="display:inline-block; width:14px; border-inline-start:2px solid var(--c-border); height:1.1em; vertical-align:middle; margin-inline-end:8px"></span>
+                  <strong>${esc(t('settings.users.aptLabel', { number: a.number }))}</strong>
                 </td>
                 <td class="muted" style="font-size:12px">${esc(residentLabel)}</td>
                 <td>${showRenterPwd ? pwdBadge(!!a.hasPassword) : '<span class="muted">—</span>'}</td>
@@ -617,6 +625,29 @@ function drawSettings() {
       });
       if (!ok) return;
       try { await revokeApartmentAdmin(b.dataset.id); toast(t('settings.apartmentAdmin.revoked'), 'success'); drawSettings(); }
+      catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    }));
+    // Owner-admin grant / revoke — independent from apartment-admin. The
+    // session derivation in functions/lib/session.js OR's both signals, so
+    // an owner gets admin role if either flag is set.
+    document.querySelectorAll('[data-act="grant-own-admin"]').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: t('settings.ownerAdmin.grant.title'),
+        message: t('settings.ownerAdmin.grant.message', { name: b.dataset.name }),
+        confirmText: t('settings.apartmentAdmin.grant'),
+      });
+      if (!ok) return;
+      try { await grantOwnerAdmin(b.dataset.id); toast(t('settings.apartmentAdmin.granted'), 'success'); drawSettings(); }
+      catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    }));
+    document.querySelectorAll('[data-act="revoke-own-admin"]').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: t('settings.ownerAdmin.revoke.title'),
+        message: t('settings.ownerAdmin.revoke.message', { name: b.dataset.name }),
+        danger: true, confirmText: t('settings.apartmentAdmin.revoke'),
+      });
+      if (!ok) return;
+      try { await revokeOwnerAdmin(b.dataset.id); toast(t('settings.apartmentAdmin.revoked'), 'success'); drawSettings(); }
       catch (err) { toast(err.message || t('common.error'), 'danger'); }
     }));
     // Drive card handlers
