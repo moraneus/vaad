@@ -15,12 +15,51 @@ async function loadExpense(db, id) {
   e.rateHistory = rates.results;
   const links = await db.prepare("SELECT document_id AS id FROM document_links WHERE target_type = 'expense' AND target_id = ?").bind(id).all();
   e.documents = links.results.map(x => x.id);
+  const auto = await db.prepare('SELECT 1 AS on_ FROM expense_auto_extend WHERE expense_id = ?').bind(id).first();
+  e.autoExtend = !!auto?.on_;
+  const dm = await db.prepare('SELECT method FROM expense_default_method WHERE expense_id = ?').bind(id).first();
+  e.defaultMethod = dm?.method || null;
   return e;
+}
+
+// Sets/clears the auto-extend flag for an expense. Pass `flag=true` to enable
+// (the cron worker will push end_date forward each month), `false` to delete.
+async function writeAutoExtend(db, expenseId, flag) {
+  if (flag) {
+    await db.prepare(
+      'INSERT INTO expense_auto_extend (expense_id, last_extended_at) VALUES (?, NULL) ' +
+      'ON CONFLICT(expense_id) DO NOTHING'
+    ).bind(expenseId).run();
+  } else {
+    await db.prepare('DELETE FROM expense_auto_extend WHERE expense_id = ?').bind(expenseId).run();
+  }
+}
+
+// Upserts (or clears) the default payment method for an expense. Falsy method
+// removes the row.
+async function writeDefaultMethod(db, expenseId, method) {
+  const allowed = new Set(['bank', 'bit', 'check', 'cash', 'other']);
+  if (method && allowed.has(method)) {
+    await db.prepare(
+      'INSERT INTO expense_default_method (expense_id, method) VALUES (?, ?) ' +
+      'ON CONFLICT(expense_id) DO UPDATE SET method = excluded.method'
+    ).bind(expenseId, method).run();
+  } else {
+    await db.prepare('DELETE FROM expense_default_method WHERE expense_id = ?').bind(expenseId).run();
+  }
 }
 
 export const onRequestGet = async ({ request, env }) => {
   const r = await requireRead(env, request); if (r.error) return r.error;
   const rows = await env.DB.prepare(`SELECT ${SAFE_FIELDS} FROM expenses ORDER BY created_at DESC`).all();
+  // Cache the auto-extend flag for all expenses in one query.
+  const autoIds = new Set(
+    (await env.DB.prepare('SELECT expense_id FROM expense_auto_extend').all())
+      .results.map(r => r.expense_id)
+  );
+  // Same idea for default-method — fetch once and look up by id.
+  const dmRows = (await env.DB.prepare('SELECT expense_id, method FROM expense_default_method').all()).results || [];
+  const dmMap = new Map(dmRows.map(r => [r.expense_id, r.method]));
   // Hydrate rate history + document links per expense
   const out = [];
   for (const e of rows.results) {
@@ -28,6 +67,8 @@ export const onRequestGet = async ({ request, env }) => {
     e.rateHistory = rates.results;
     const links = await env.DB.prepare("SELECT document_id AS id FROM document_links WHERE target_type = 'expense' AND target_id = ?").bind(e.id).all();
     e.documents = links.results.map(x => x.id);
+    e.autoExtend = autoIds.has(e.id);
+    e.defaultMethod = dmMap.get(e.id) || null;
     out.push(e);
   }
   return json({ expenses: out });
@@ -59,6 +100,11 @@ export const onRequestPost = async ({ request, env }) => {
     await env.DB.prepare('INSERT INTO expense_rates (id, expense_id, effective_from, amount) VALUES (?, ?, ?, ?)')
       .bind(uid('rate-'), id, startDate, amount).run();
   }
+  // Auto-extend only makes sense on monthly expenses with a bounded endDate.
+  if (type === 'monthly' && endDate && body.autoExtend) {
+    await writeAutoExtend(env.DB, id, true);
+  }
+  await writeDefaultMethod(env.DB, id, pickStr(body.defaultMethod, 16));
   await logAudit(env.DB, request, { event: 'expense_created', role: 'admin', userLabel: 'מנהל', meta: { name, type, amount }, success: true });
   return json(await loadExpense(env.DB, id), { status: 201 });
 };
@@ -72,6 +118,7 @@ export const onRequestPut = async ({ request, env }) => {
   const type = pickStr(body.type, 16);
   const amount = pickNum(body.amount);
   if (!name || !type || amount == null) return error('שדות חובה חסרים', 400);
+  const updEndDate = isISODate(body.endDate) ? body.endDate : null;
   await env.DB.prepare(`UPDATE expenses SET name = ?, category = ?, type = ?, amount = ?, start_date = ?, end_date = ?, bill_date = ?, one_off_date = ?, notes = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
     .bind(
       name,
@@ -79,13 +126,19 @@ export const onRequestPut = async ({ request, env }) => {
       type,
       amount,
       isISODate(body.startDate) ? body.startDate : null,
-      isISODate(body.endDate) ? body.endDate : null,
+      updEndDate,
       isISODate(body.billDate) ? body.billDate : null,
       isISODate(body.oneOffDate) ? body.oneOffDate : null,
       pickStr(body.notes, 1000) || null,
       pickStr(body.status, 20) || 'active',
       id,
     ).run();
+  // The auto-extend flag is only meaningful for monthly+bounded expenses.
+  // Anything else: clear the flag (a paused/closed/non-monthly row shouldn't
+  // be auto-extended even if it carried the flag from before).
+  const wantAuto = type === 'monthly' && !!updEndDate && !!body.autoExtend;
+  await writeAutoExtend(env.DB, id, wantAuto);
+  await writeDefaultMethod(env.DB, id, pickStr(body.defaultMethod, 16));
   await logAudit(env.DB, request, { event: 'expense_updated', role: 'admin', userLabel: 'מנהל', success: true });
   return json(await loadExpense(env.DB, id));
 };

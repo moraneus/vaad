@@ -2,7 +2,7 @@
 
 import { getExpenses, upsertExpense, deleteExpense, addExpenseRate, removeExpenseRate, getDocuments, uploadDocument, attachDocument, detachDocument, deleteDocument, upsertExpensePayment, deleteExpensePayment, getExpensePayments, getReminders, deleteReminder } from '../store.js';
 import { api } from '../api.js';
-import { fmtCurrency, esc, fmtDate, formatBytes, todayISO, sortHistory, monthKey, parseMonthKey } from '../utils.js';
+import { fmtCurrency, esc, fmtDate, formatBytes, todayISO, sortHistory, monthKey, parseMonthKey, isMonthInRange, downloadBlob } from '../utils.js';
 import { t, monthName } from '../i18n.js';
 import { knownCategories, expenseStatusForMonth, availableYears, expenseDerivedStatus } from '../calc.js';
 import { setHTML, renderPageHeader, renderEmpty, openModal, confirmDialog, toast, requireAdmin, Icon, refreshBell } from '../ui.js';
@@ -13,6 +13,11 @@ let filterType = 'all';
 let filterStatus = 'all';
 let filterCategory = 'all';
 let searchTerm = '';
+// Date-range filter — admin picks a [from..to] window and the list shows
+// only expenses with an obligation inside that window. Defaults to the
+// current calendar year on first load (computed lazily below).
+let filterFrom = null;
+let filterTo = null;
 
 export function renderExpenses() {
   const main = document.getElementById('app-main');
@@ -20,10 +25,71 @@ export function renderExpenses() {
   const isAdmin = session.role === 'admin';
   const all = getExpenses();
   const cats = ['all', ...knownCategories()];
+  // First-time initialization: default the range to the current calendar
+  // year (Jan 1 → Dec 31). The admin can narrow this with the date pickers
+  // or quick-preset buttons.
+  if (filterFrom === null && filterTo === null) {
+    const y = new Date().getFullYear();
+    filterFrom = `${y}-01-01`;
+    filterTo = `${y}-12-31`;
+  }
+
+  // An expense matches the date range if it has at least one obligation
+  // inside [from..to]:
+  //   - monthly: any month in the range falls within [startDate..endDate]
+  //   - annual:  the range covers the (year+billMonth) of any year in
+  //              [startDate..endDate]
+  //   - oneoff:  oneOffDate is inside the range
+  const fromTime = filterFrom ? new Date(filterFrom).getTime() : null;
+  const toTime = filterTo ? new Date(filterTo + 'T23:59:59').getTime() : null;
+  const inRange = (iso) => {
+    if (!iso) return false;
+    const t = new Date(iso).getTime();
+    return (fromTime === null || t >= fromTime) && (toTime === null || t <= toTime);
+  };
+  const dateMatches = (e) => {
+    if (!fromTime && !toTime) return true;
+    if (e.type === 'oneoff') return inRange(e.oneOffDate);
+    if (e.type === 'monthly') {
+      // Range overlap: expense range [startDate..endDate or +inf] vs filter
+      // range [from..to]. They overlap iff startDate <= to AND (endDate is
+      // null OR endDate >= from).
+      const sT = e.startDate ? new Date(e.startDate).getTime() : -Infinity;
+      const eT = e.endDate ? new Date(e.endDate + 'T23:59:59').getTime() : Infinity;
+      const f = fromTime ?? -Infinity;
+      const tt = toTime ?? Infinity;
+      return sT <= tt && eT >= f;
+    }
+    if (e.type === 'annual') {
+      // Walk each year between startDate and endDate (or filter range), check
+      // whether the bill date in that year falls inside [from..to].
+      const sT = e.startDate ? new Date(e.startDate).getTime() : null;
+      const eT = e.endDate ? new Date(e.endDate + 'T23:59:59').getTime() : null;
+      if (!e.billDate) {
+        // No bill date — fall back to range-overlap like monthly.
+        const f = fromTime ?? -Infinity;
+        const tt = toTime ?? Infinity;
+        return (sT ?? -Infinity) <= tt && (eT ?? Infinity) >= f;
+      }
+      const billMonth = new Date(e.billDate).getMonth();
+      const billDay = new Date(e.billDate).getDate();
+      const fromYear = new Date(filterFrom || e.startDate || `${new Date().getFullYear()}-01-01`).getFullYear();
+      const toYear = new Date(filterTo || e.endDate || `${new Date().getFullYear()}-12-31`).getFullYear();
+      for (let y = fromYear; y <= toYear; y++) {
+        const t = new Date(y, billMonth, billDay).getTime();
+        if (sT && t < sT) continue;
+        if (eT && t > eT) continue;
+        if (inRange(`${y}-${String(billMonth + 1).padStart(2, '0')}-${String(billDay).padStart(2, '0')}`)) return true;
+      }
+      return false;
+    }
+    return true;
+  };
   const filtered = all.filter(e => {
     if (filterType !== 'all' && e.type !== filterType) return false;
     if (filterStatus !== 'all' && expenseDerivedStatus(e) !== filterStatus) return false;
     if (filterCategory !== 'all' && (e.category || '') !== filterCategory) return false;
+    if (!dateMatches(e)) return false;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       if (!(e.name || '').toLowerCase().includes(q) && !(e.notes || '').toLowerCase().includes(q)) return false;
@@ -56,6 +122,24 @@ export function renderExpenses() {
       </select>
       <div class="spacer"></div>
       <div class="muted">${filtered.length}</div>
+    </div>
+
+    <div class="toolbar" style="margin-top:-6px; flex-wrap:wrap; gap:8px">
+      <label class="muted" style="font-size:12px">${esc(t('exp.filter.from'))}</label>
+      <input class="input" id="f-from" type="date" value="${esc(filterFrom || '')}" style="width:160px" />
+      <label class="muted" style="font-size:12px">${esc(t('exp.filter.to'))}</label>
+      <input class="input" id="f-to" type="date" value="${esc(filterTo || '')}" style="width:160px" />
+      <div class="hstack" style="gap:4px">
+        <button class="btn btn--sm" data-preset="thisYear">${esc(t('exp.filter.preset.thisYear'))}</button>
+        <button class="btn btn--sm" data-preset="last3">${esc(t('exp.filter.preset.last3'))}</button>
+        <button class="btn btn--sm" data-preset="lastYear">${esc(t('exp.filter.preset.lastYear'))}</button>
+        <button class="btn btn--sm" data-preset="all">${esc(t('exp.filter.preset.all'))}</button>
+      </div>
+      <div class="spacer"></div>
+      ${isAdmin ? `
+        <button class="btn btn--sm" id="exp-export-csv" title="${esc(t('exp.export.csvHint'))}">${Icon.download} ${esc(t('exp.export.csv'))}</button>
+        <button class="btn btn--sm" id="exp-export-pdf" title="${esc(t('exp.export.pdfHint'))}">${Icon.document} ${esc(t('exp.export.pdf'))}</button>
+      ` : ''}
     </div>
 
     ${filtered.length === 0 ? renderEmpty({
@@ -91,6 +175,29 @@ export function renderExpenses() {
   document.getElementById('f-type').addEventListener('change', (e) => { filterType = e.target.value; renderExpenses(); });
   document.getElementById('f-status').addEventListener('change', (e) => { filterStatus = e.target.value; renderExpenses(); });
   document.getElementById('f-cat').addEventListener('change', (e) => { filterCategory = e.target.value; renderExpenses(); });
+  document.getElementById('f-from')?.addEventListener('change', (e) => { filterFrom = e.target.value || null; renderExpenses(); });
+  document.getElementById('f-to')?.addEventListener('change', (e) => { filterTo = e.target.value || null; renderExpenses(); });
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    if (b.dataset.preset === 'thisYear') {
+      filterFrom = `${y}-01-01`; filterTo = `${y}-12-31`;
+    } else if (b.dataset.preset === 'lastYear') {
+      filterFrom = `${y - 1}-01-01`; filterTo = `${y - 1}-12-31`;
+    } else if (b.dataset.preset === 'last3') {
+      // 3 months back from today, inclusive of the current month.
+      const back = new Date(today);
+      back.setMonth(today.getMonth() - 2);
+      back.setDate(1);
+      filterFrom = `${back.getFullYear()}-${String(back.getMonth() + 1).padStart(2, '0')}-01`;
+      filterTo = todayISO();
+    } else if (b.dataset.preset === 'all') {
+      filterFrom = null; filterTo = null;
+    }
+    renderExpenses();
+  }));
+  document.getElementById('exp-export-csv')?.addEventListener('click', () => exportExpensesCSV(filtered));
+  document.getElementById('exp-export-pdf')?.addEventListener('click', () => exportExpensesPDF(filtered));
 
   document.getElementById('add-exp')?.addEventListener('click', () => openExpenseDialog());
   document.getElementById('add-exp-empty')?.addEventListener('click', () => openExpenseDialog());
@@ -116,6 +223,56 @@ export function renderExpenses() {
   document.querySelectorAll('[data-act="ledger"]').forEach(b => b.addEventListener('click', () => {
     const e = getExpenses().find(x => x.id === b.dataset.id);
     openExpenseLedger(e);
+  }));
+
+  // ----- Inline expand row for monthly expenses -----
+  // Refreshes only the inline payments block, not the whole page, so the
+  // expand state of other rows is preserved when a CRUD action completes.
+  const refreshInlinePayments = (expenseId) => {
+    const exp = getExpenses().find(x => x.id === expenseId);
+    if (!exp) return;
+    const host = document.querySelector(`[data-exp-payments-content="${expenseId}"]`);
+    if (host) setHTML(host, renderExpensePaymentsBlock(exp, isAdmin));
+    rewireInlinePaymentHandlers(host, exp, isAdmin, refreshInlinePayments);
+  };
+  document.querySelectorAll('[data-act="exp-expand"]').forEach(b => b.addEventListener('click', () => {
+    const sub = document.querySelector(`tr.exp-payments-row[data-exp="${b.dataset.id}"]`);
+    if (!sub) return;
+    const opening = sub.style.display === 'none';
+    sub.style.display = opening ? '' : 'none';
+    b.textContent = opening ? '▴' : '▾';
+    b.setAttribute('aria-expanded', String(opening));
+  }));
+  // Wire payment-CRUD handlers for any sub-rows that may have been rendered.
+  document.querySelectorAll('[data-exp-payments-content]').forEach(host => {
+    const expId = host.dataset.expPaymentsContent;
+    const exp = getExpenses().find(x => x.id === expId);
+    if (exp) rewireInlinePaymentHandlers(host, exp, isAdmin, refreshInlinePayments);
+  });
+}
+
+// Wires the add/edit/delete buttons in the inline payments block. Called once
+// at initial render and again after any CRUD that re-renders the block.
+function rewireInlinePaymentHandlers(host, exp, isAdmin, refresh) {
+  if (!host || !isAdmin) return;
+  host.querySelectorAll('[data-act="exp-add-pay"]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.id !== exp.id) return;
+    openExpensePaymentDialog(exp, () => refresh(exp.id));
+  }));
+  host.querySelectorAll('[data-act="exp-edit-pay"]').forEach(b => b.addEventListener('click', () => {
+    const pid = b.dataset.pid;
+    const payment = getExpensePayments().find(p => p.id === pid);
+    if (!payment) return;
+    openExpensePaymentDialog(exp, () => refresh(exp.id), undefined, payment);
+  }));
+  host.querySelectorAll('[data-act="exp-del-pay"]').forEach(b => b.addEventListener('click', async () => {
+    const ok = await confirmDialog({ title: t('exp.payment.delete.title'), message: t('exp.payment.delete.message'), danger: true, confirmText: t('common.delete') });
+    if (!ok) return;
+    try {
+      await deleteExpensePayment(b.dataset.pid);
+      toast(t('exp.payment.deleted'), 'success');
+      refresh(exp.id);
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
   }));
 }
 
@@ -216,7 +373,7 @@ function openExpenseLedger(exp) {
       const month = Number(b.dataset.m);
       const amount = Number(b.dataset.amt);
       try {
-        await upsertExpensePayment({ expenseId: exp.id, year, month, amount, paidOn: todayISO(), method: 'bank' });
+        await upsertExpensePayment({ expenseId: exp.id, year, month, amount, paidOn: todayISO(), method: exp.defaultMethod || 'bank' });
         toast(t('exp.ledger.quickPay.recorded', { amount: fmtCurrency(amount) }), 'success');
         refresh();
         renderExpenses();
@@ -233,23 +390,33 @@ function openExpenseLedger(exp) {
   });
 }
 
-function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFullYear()) {
+function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFullYear(), editing = null) {
   if (!requireAdmin()) return;
+  const isEdit = !!editing;
   const now = new Date();
-  const defaultMonth = monthKey(defaultYear, now.getFullYear() === defaultYear ? now.getMonth() + 1 : 1);
+  const initialMonthKey = isEdit
+    ? monthKey(editing.year, editing.month)
+    : monthKey(defaultYear, now.getFullYear() === defaultYear ? now.getMonth() + 1 : 1);
   const monthsOptions = [];
   for (const y of availableYears()) {
     for (let mo = 1; mo <= 12; mo++) {
       const k = monthKey(y, mo);
-      monthsOptions.push(`<option ${k === defaultMonth ? 'selected' : ''} value="${k}">${monthName(mo)} ${y}</option>`);
+      monthsOptions.push(`<option ${k === initialMonthKey ? 'selected' : ''} value="${k}">${monthName(mo)} ${y}</option>`);
     }
   }
-  // Suggest the expected amount as default (helpful when user pays the exact amount)
-  const { year: dy, month: dm } = parseMonthKey(defaultMonth);
-  const suggested = expenseStatusForMonth(exp.id, dy, dm).expected || exp.amount || '';
+  // Default amount: when editing → existing payment amount; otherwise the
+  // expected amount for the picked month (so a one-shot pay-the-bill takes
+  // a single keystroke).
+  let suggested;
+  if (isEdit) {
+    suggested = editing.amount ?? '';
+  } else {
+    const { year: dy, month: dm } = parseMonthKey(initialMonthKey);
+    suggested = expenseStatusForMonth(exp.id, dy, dm).expected || exp.amount || '';
+  }
 
   const m = openModal({
-    title: t('exp.payment.dialog.add', { name: exp.name }),
+    title: isEdit ? t('exp.payment.dialog.edit', { name: exp.name }) : t('exp.payment.dialog.add', { name: exp.name }),
     body: `
       <form id="epay-form" class="form-grid">
         <div class="field field--required">
@@ -262,21 +429,32 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
         </div>
         <div class="field">
           <label class="field__label">${esc(t('exp.payment.field.date'))}</label>
-          <input class="input" name="paidOn" type="date" value="${todayISO()}" />
+          <input class="input" name="paidOn" type="date" value="${esc(isEdit ? (editing.paidOn || todayISO()) : todayISO())}" />
         </div>
         <div class="field">
           <label class="field__label">${esc(t('pay.field.method'))}</label>
           <select class="select" name="method">
-            <option value="bank">${esc(t('pay.method.bank'))}</option>
-            <option value="bit">${esc(t('pay.method.bit'))}</option>
-            <option value="check">${esc(t('pay.method.check'))}</option>
-            <option value="cash">${esc(t('pay.method.cash'))}</option>
-            <option value="other">${esc(t('pay.method.other'))}</option>
+            ${(() => {
+              // For new payments inherit the parent expense's default method;
+              // for edits show the value already saved on the row. Falls
+              // through to 'bank' if neither is set (matches prior behavior).
+              const seedMethod = isEdit ? editing.method : (exp?.defaultMethod || 'bank');
+              const opts = [
+                ['bank', t('pay.method.bank')],
+                ['bit', t('pay.method.bit')],
+                ['check', t('pay.method.check')],
+                ['cash', t('pay.method.cash')],
+                ['other', t('pay.method.other')],
+              ];
+              return opts.map(([v, lbl]) =>
+                `<option value="${esc(v)}" ${seedMethod === v ? 'selected' : ''}>${esc(lbl)}</option>`
+              ).join('');
+            })()}
           </select>
         </div>
         <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('common.notes'))}</label>
-          <textarea class="textarea" name="notes" rows="2"></textarea>
+          <textarea class="textarea" name="notes" rows="2">${esc(isEdit ? (editing.notes || '') : '')}</textarea>
         </div>
       </form>
     `,
@@ -293,6 +471,7 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
     if (!data.amount) { toast(t('pay.amountRequired'), 'warning'); return; }
     try {
       await upsertExpensePayment({
+        id: isEdit ? editing.id : undefined,
         expenseId: exp.id,
         year, month,
         amount: Number(data.amount),
@@ -300,7 +479,7 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
         method: data.method,
         notes: data.notes,
       });
-      toast(t('exp.payment.recorded'), 'success');
+      toast(isEdit ? t('exp.payment.updated') : t('exp.payment.recorded'), 'success');
       m.close();
       onSaved && onSaved();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
@@ -315,6 +494,7 @@ function renderExpenseRow(e, isAdmin) {
   let period = '';
   if (e.type === 'monthly') {
     period = `${fmtDate(e.startDate)}${e.endDate ? ` → ${fmtDate(e.endDate)}` : ''}`;
+    if (e.autoExtend) period += ` <span class="badge badge--info" style="font-size:10px; padding:1px 6px">${esc(t('exp.row.autoExtendBadge'))}</span>`;
   } else if (e.type === 'annual') {
     period = `${fmtDate(e.startDate)}${e.endDate ? ` → ${fmtDate(e.endDate)}` : ''}`;
     if (e.billDate) period += ` · ${fmtDate(e.billDate)}`;
@@ -322,9 +502,21 @@ function renderExpenseRow(e, isAdmin) {
     period = fmtDate(e.oneOffDate);
   }
   const docCount = (e.documents || []).length;
+  // Only monthly expenses get the inline expand-row affordance — that's where
+  // "show all monthly payments" makes sense. Annual/oneoff stay click-to-modal.
+  const isMonthly = e.type === 'monthly';
+  const chevron = isMonthly
+    ? `<button class="btn btn--sm btn--icon" data-act="exp-expand" data-id="${e.id}" aria-expanded="false" title="${esc(t('exp.row.expand.show'))}" style="padding:2px 6px">▾</button>`
+    : '';
   return `
     <tr>
-      <td><strong>${esc(e.name)}</strong>${e.notes ? `<div class="muted" style="font-size:12px">${esc(e.notes)}</div>` : ''}</td>
+      <td>
+        <div class="hstack" style="gap:6px; align-items:baseline">
+          <strong>${esc(e.name)}</strong>
+          ${chevron}
+        </div>
+        ${e.notes ? `<div class="muted" style="font-size:12px">${esc(e.notes)}</div>` : ''}
+      </td>
       <td>${esc(e.category || '—')}</td>
       <td>${typeBadge(e.type)}${e.type === 'annual' && e.rateHistory && e.rateHistory.length > 1 ? ` <button class="btn btn--sm btn--ghost" data-act="rates" data-id="${e.id}">${esc(t('exp.rates.count', { n: e.rateHistory.length }))}</button>` : ''}</td>
       <td class="num">${fmtCurrency(e.amount)}${e.type === 'monthly' ? `<div class="muted" style="font-size:11px">${esc(t('exp.row.perMonth'))}</div>` : e.type === 'annual' ? `<div class="muted" style="font-size:11px">${esc(t('exp.row.perYear'))}</div>` : ''}</td>
@@ -340,6 +532,82 @@ function renderExpenseRow(e, isAdmin) {
         ${isAdmin ? `<button class="btn btn--sm btn--icon" data-act="del-exp" data-id="${e.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>` : ''}
       </td>
     </tr>
+    ${isMonthly ? `
+      <tr class="exp-payments-row" data-exp="${e.id}" style="display:none; background:var(--c-surface-2)">
+        <td colspan="8" style="padding:10px 16px">
+          <div data-exp-payments-content="${e.id}">${renderExpensePaymentsBlock(e, isAdmin)}</div>
+        </td>
+      </tr>
+    ` : ''}
+  `;
+}
+
+// Localized label for a payment-method key. Falls back to the raw key for
+// any value not in the static set, so legacy rows with custom strings still
+// display something readable.
+function paymentMethodLabel(method) {
+  const known = new Set(['bank', 'bit', 'check', 'cash', 'other']);
+  if (!method) return '—';
+  return known.has(method) ? t(`pay.method.${method}`) : method;
+}
+
+// Inline payments list for a monthly expense — shown when its row is
+// expanded. Lists all recorded expense_payments rows newest-first with
+// edit/delete + an "Add payment" button. Re-renders independently after CRUD
+// (no full page redraw needed).
+function renderExpensePaymentsBlock(e, isAdmin) {
+  const all = getExpensePayments();
+  const rows = all
+    .filter(p => p.expenseId === e.id)
+    .sort((a, b) => {
+      // newest first by year+month, then by paid_on
+      if (a.year !== b.year) return b.year - a.year;
+      if (a.month !== b.month) return b.month - a.month;
+      return String(b.paidOn || '').localeCompare(String(a.paidOn || ''));
+    });
+  const total = rows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  return `
+    <div class="hstack" style="gap:10px; align-items:baseline; margin-bottom:8px">
+      <strong>${esc(t('exp.payments.title'))}</strong>
+      <span class="muted" style="font-size:12px">${esc(t('exp.payments.total'))}: <strong class="text-success">${fmtCurrency(total)}</strong></span>
+      <div class="spacer"></div>
+      ${isAdmin ? `<button class="btn btn--sm btn--primary" data-act="exp-add-pay" data-id="${e.id}">${Icon.plus} ${esc(t('exp.payments.add'))}</button>` : ''}
+    </div>
+    ${rows.length === 0 ? `
+      <div class="muted" style="font-size:13px; padding:8px 0">${esc(t('exp.payments.empty'))}</div>
+    ` : `
+      <div class="table-wrap">
+        <table class="table" style="font-size:13px">
+          <thead>
+            <tr>
+              <th>${esc(t('exp.payments.col.month'))}</th>
+              <th class="num">${esc(t('exp.payments.col.amount'))}</th>
+              <th>${esc(t('exp.payments.col.paidOn'))}</th>
+              <th>${esc(t('exp.payments.col.method'))}</th>
+              <th>${esc(t('common.notes'))}</th>
+              ${isAdmin ? `<th class="actions">${esc(t('common.actions'))}</th>` : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(p => `
+              <tr>
+                <td>${esc(monthName(p.month))} ${p.year}</td>
+                <td class="num text-success">${fmtCurrency(p.amount)}</td>
+                <td>${p.paidOn ? fmtDate(p.paidOn) : '—'}</td>
+                <td>${esc(paymentMethodLabel(p.method))}</td>
+                <td class="muted">${esc(p.notes || '—')}</td>
+                ${isAdmin ? `
+                  <td class="actions">
+                    <button class="btn btn--sm btn--icon" data-act="exp-edit-pay" data-pid="${p.id}" data-eid="${e.id}" title="${esc(t('common.edit'))}">${Icon.edit}</button>
+                    <button class="btn btn--sm btn--icon" data-act="exp-del-pay" data-pid="${p.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+                  </td>
+                ` : ''}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `}
   `;
 }
 
@@ -349,11 +617,34 @@ function typeBadge(typ) {
          `<span class="badge">${esc(t('exp.type.oneoff'))}</span>`;
 }
 
+// Returns ISO yyyy-mm-dd for the first / last day of the month containing
+// the given ISO date (or today if none).
+function firstOfMonthISO(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+function lastOfMonthISO(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  // Day 0 of next month = last day of current month.
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+}
+
 function openExpenseDialog(exp = null) {
   if (!requireAdmin()) return;
   const isEdit = !!exp;
   const ty = exp?.type || 'monthly';
   const cats = knownCategories();
+  // For NEW monthly expenses, default the date range to the current month so
+  // the row covers exactly that month out of the box. The admin can extend
+  // endDate (or clear it for an open-ended ongoing expense) before saving.
+  // For other types or when editing, fall back to the existing values.
+  const defaultStart = isEdit
+    ? (exp?.startDate || todayISO())
+    : (ty === 'monthly' ? firstOfMonthISO() : todayISO());
+  const defaultEnd = isEdit
+    ? (exp?.endDate || '')
+    : (ty === 'monthly' ? lastOfMonthISO() : '');
 
   // Build a list of known payee names from previous expenses (most recent wins on duplicates)
   const allExpenses = getExpenses();
@@ -398,14 +689,36 @@ function openExpenseDialog(exp = null) {
           <input class="input" name="amount" type="number" step="0.01" required value="${exp?.amount ?? ''}" />
           <div class="field__hint" id="hint-amount"></div>
         </div>
+        <div class="field">
+          <label class="field__label">${esc(t('exp.field.defaultMethod'))}</label>
+          <select class="select" name="defaultMethod">
+            <option value="" ${!exp?.defaultMethod ? 'selected' : ''}>${esc(t('exp.field.defaultMethod.none'))}</option>
+            <option value="bank"  ${exp?.defaultMethod === 'bank'  ? 'selected' : ''}>${esc(t('pay.method.bank'))}</option>
+            <option value="bit"   ${exp?.defaultMethod === 'bit'   ? 'selected' : ''}>${esc(t('pay.method.bit'))}</option>
+            <option value="check" ${exp?.defaultMethod === 'check' ? 'selected' : ''}>${esc(t('pay.method.check'))}</option>
+            <option value="cash"  ${exp?.defaultMethod === 'cash'  ? 'selected' : ''}>${esc(t('pay.method.cash'))}</option>
+            <option value="other" ${exp?.defaultMethod === 'other' ? 'selected' : ''}>${esc(t('pay.method.other'))}</option>
+          </select>
+          <div class="field__hint">${esc(t('exp.field.defaultMethod.hint'))}</div>
+        </div>
 
         <div class="field field--required" id="field-start">
           <label class="field__label" id="lbl-start">${esc(t('exp.field.startDate'))}</label>
-          <input class="input" name="startDate" type="date" value="${esc(exp?.startDate || todayISO())}" />
+          <input class="input" name="startDate" type="date" value="${esc(defaultStart)}" />
         </div>
         <div class="field" id="field-end">
           <label class="field__label">${esc(t('exp.field.endDate'))}</label>
-          <input class="input" name="endDate" type="date" value="${esc(exp?.endDate || '')}" />
+          <input class="input" name="endDate" type="date" value="${esc(defaultEnd)}" />
+          <div class="field__hint" id="hint-end" style="display:${ty === 'monthly' ? 'block' : 'none'}">${esc(t('exp.field.endDateMonthlyHint'))}</div>
+        </div>
+        <div class="field" id="field-autoextend" style="display:${ty === 'monthly' ? 'flex' : 'none'}; grid-column:1/-1">
+          <label class="checkbox" style="display:flex; gap:8px; align-items:flex-start; cursor:pointer">
+            <input type="checkbox" name="autoExtend" id="autoExtend-cb" ${(isEdit ? exp?.autoExtend : true) ? 'checked' : ''} />
+            <span>
+              <span style="font-weight:500">${esc(t('exp.field.autoExtend'))}</span>
+              <div class="field__hint" style="margin-top:2px">${esc(t('exp.field.autoExtend.hint'))}</div>
+            </span>
+          </label>
         </div>
         <div class="field" id="field-bill" style="display:${ty==='annual'?'flex':'none'}">
           <label class="field__label">${esc(t('exp.field.billDate'))}</label>
@@ -561,11 +874,45 @@ function openExpenseDialog(exp = null) {
     m.bodyEl.querySelector('#field-end').style.display = newType === 'oneoff' ? 'none' : 'flex';
     const lbl = m.bodyEl.querySelector('#lbl-amount');
     const hint = m.bodyEl.querySelector('#hint-amount');
+    const hintEnd = m.bodyEl.querySelector('#hint-end');
     lbl.textContent = newType === 'monthly' ? t('exp.field.amountMonthly') : newType === 'annual' ? t('exp.field.amountAnnual') : t('exp.field.amountOneoff');
     hint.textContent = newType === 'annual' ? t('exp.annualHint') : '';
+    if (hintEnd) hintEnd.style.display = newType === 'monthly' ? 'block' : 'none';
+    const autoExtendField = m.bodyEl.querySelector('#field-autoextend');
+    if (autoExtendField) autoExtendField.style.display = newType === 'monthly' ? 'flex' : 'none';
+    // For NEW expenses, switching INTO 'monthly' snaps both dates to the
+    // current month range so the entry covers exactly that month by default.
+    // Don't overwrite anything in edit mode.
+    if (!isEdit && newType === 'monthly') {
+      const startEl = m.bodyEl.querySelector('input[name="startDate"]');
+      const endEl = m.bodyEl.querySelector('input[name="endDate"]');
+      const ref = startEl.value || todayISO();
+      startEl.value = firstOfMonthISO(ref);
+      endEl.value = lastOfMonthISO(ref);
+    }
   };
   setType(ty);
   m.bodyEl.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => setType(b.dataset.type)));
+
+  // For monthly expenses, when admin picks a startDate, snap it to the 1st
+  // of that month and (if endDate hasn't been touched away from auto-default)
+  // sync endDate to the last day of the same month — so picking April 17
+  // becomes "Apr 1 → Apr 30" automatically.
+  const startEl = m.bodyEl.querySelector('input[name="startDate"]');
+  const endEl = m.bodyEl.querySelector('input[name="endDate"]');
+  startEl.addEventListener('change', () => {
+    if (m.bodyEl.querySelector('#type-val').value !== 'monthly') return;
+    if (!startEl.value) return;
+    const expectedEndForOldStart = lastOfMonthISO(startEl.dataset.lastSnapped || startEl.defaultValue || startEl.value);
+    const snappedStart = firstOfMonthISO(startEl.value);
+    startEl.value = snappedStart;
+    startEl.dataset.lastSnapped = snappedStart;
+    // Only auto-update endDate when it's empty or still matches the old
+    // auto-derived end — don't overwrite an end the admin manually changed.
+    if (!endEl.value || endEl.value === expectedEndForOldStart) {
+      endEl.value = lastOfMonthISO(snappedStart);
+    }
+  });
 
   // ----- Auto-fill from previous expense when picking an existing name -----
   const nameInput = m.bodyEl.querySelector('input[name="name"]');
@@ -617,10 +964,15 @@ function openExpenseDialog(exp = null) {
     if (data.type !== 'oneoff' && !data.startDate) { toast(t('exp.startDateRequired'), 'warning'); return; }
     if (data.type === 'oneoff' && !data.oneOffDate) { toast(t('exp.oneoffDateRequired'), 'warning'); return; }
     if (data.endDate === '') data.endDate = null;
+    // FormData turns unchecked checkboxes into "absent" — explicitly read the
+    // checkbox state so we can pass a clear boolean to the server.
+    const autoExtend = data.type === 'monthly'
+      && !!m.bodyEl.querySelector('#autoExtend-cb')?.checked;
+    delete data.autoExtend; // strip the form's "on" string before merging
     const saveBtn = m.footerEl.querySelector('[data-act="save"]');
     saveBtn.disabled = true;
     try {
-      const saved = await upsertExpense({ id: exp?.id, ...data, amount: Number(data.amount) });
+      const saved = await upsertExpense({ id: exp?.id, ...data, amount: Number(data.amount), autoExtend });
       const expenseId = saved?.id || exp?.id;
       // Upload queued files (best effort — surface failures via toast)
       let uploadFails = 0;
@@ -774,4 +1126,117 @@ function openExpenseDocsDialog(exp) {
     });
     input.click();
   });
+}
+
+// CSV export of the currently-filtered expenses list. UTF-8 BOM keeps Excel
+// happy with Hebrew. Each row mirrors the columns visible in the on-screen
+// table — name, category, type, amount, period, status, doc count.
+function exportExpensesCSV(rows) {
+  const BOM = '﻿';
+  const q = (s) => {
+    if (s == null) return '';
+    const str = String(s).replace(/"/g, '""');
+    return /[",\n\r]/.test(str) ? `"${str}"` : str;
+  };
+  const periodOf = (e) => {
+    if (e.type === 'oneoff') return e.oneOffDate || '';
+    return `${e.startDate || ''}${e.endDate ? ' → ' + e.endDate : ''}`;
+  };
+  const lines = [
+    [t('exp.col.name'), t('common.category'), t('exp.col.type'), t('common.amount'),
+     t('exp.col.period'), t('common.status'), t('exp.col.docs')].map(q).join(','),
+  ];
+  for (const e of rows) {
+    lines.push([
+      q(e.name),
+      q(e.category || ''),
+      q(t('exp.type.' + e.type)),
+      q(Number(e.amount || 0).toFixed(2)),
+      q(periodOf(e)),
+      q(t('exp.status.' + expenseDerivedStatus(e))),
+      q((e.documents || []).length),
+    ].join(','));
+  }
+  const today = todayISO();
+  const range = (filterFrom || filterTo)
+    ? `_${filterFrom || ''}_to_${filterTo || ''}`
+    : '';
+  downloadBlob(
+    new Blob([BOM + lines.join('\n')], { type: 'text/csv;charset=utf-8' }),
+    `expenses_${today}${range}.csv`,
+  );
+}
+
+// Print-friendly PDF export. Opens a popup window with the filtered table and
+// kicks off the browser's print dialog so the user can save as PDF.
+// Self-contained CSS — doesn't depend on the app's stylesheet.
+function exportExpensesPDF(rows) {
+  const periodOf = (e) => {
+    if (e.type === 'oneoff') return e.oneOffDate ? fmtDate(e.oneOffDate) : '';
+    return `${fmtDate(e.startDate)}${e.endDate ? ' → ' + fmtDate(e.endDate) : ''}`;
+  };
+  const dir = document.documentElement.getAttribute('dir') || 'rtl';
+  const title = t('exp.export.pdfTitle');
+  const headerRange = (filterFrom || filterTo)
+    ? `${fmtDate(filterFrom || '')} — ${fmtDate(filterTo || '')}`
+    : t('exp.filter.preset.all');
+  const html = `<!doctype html>
+<html lang="he" dir="${dir}">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(title)}</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:24px;color:#111}
+    h1{font-size:20px;margin:0 0 4px}
+    .meta{color:#555;font-size:12px;margin-bottom:14px}
+    table{border-collapse:collapse;width:100%;font-size:12px}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:start;vertical-align:top}
+    th{background:#f3f3f3;font-weight:600}
+    .num{text-align:end}
+    @media print{body{margin:12px}}
+  </style>
+</head>
+<body>
+  <h1>${esc(title)}</h1>
+  <div class="meta">${esc(headerRange)} · ${esc(t('exp.export.rowsCount', { n: rows.length }))} · ${esc(fmtDate(todayISO()))}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>${esc(t('exp.col.name'))}</th>
+        <th>${esc(t('common.category'))}</th>
+        <th>${esc(t('exp.col.type'))}</th>
+        <th class="num">${esc(t('common.amount'))}</th>
+        <th>${esc(t('exp.col.period'))}</th>
+        <th>${esc(t('common.status'))}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(e => `
+        <tr>
+          <td>${esc(e.name)}${e.notes ? `<br><span style="color:#777;font-size:11px">${esc(e.notes)}</span>` : ''}</td>
+          <td>${esc(e.category || '—')}</td>
+          <td>${esc(t('exp.type.' + e.type))}</td>
+          <td class="num">${esc(fmtCurrency(e.amount))}</td>
+          <td>${esc(periodOf(e))}</td>
+          <td>${esc(t('exp.status.' + expenseDerivedStatus(e)))}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+  // Use a Blob URL so the popup loads a real document (no doc.write — safer
+  // and side-steps strict-mode quirks). Once it's parsed we trigger print
+  // from this side.
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  const w = window.open(url, '_blank');
+  if (!w) {
+    URL.revokeObjectURL(url);
+    toast(t('exp.export.pdfPopupBlocked'), 'warning');
+    return;
+  }
+  setTimeout(() => {
+    try { w.focus(); w.print(); } catch (_) { /* user can re-print manually */ }
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }, 350);
 }

@@ -297,6 +297,28 @@ CREATE TABLE IF NOT EXISTS expense_payments (
 CREATE INDEX IF NOT EXISTS idx_expense_payments_exp_ym ON expense_payments(expense_id, year, month);
 CREATE INDEX IF NOT EXISTS idx_expense_payments_ym ON expense_payments(year, month);
 
+-- Opt-in flag for "auto-extend" on monthly expenses. When a row is present
+-- here and the matching expense is type='monthly', the cron worker pushes
+-- its end_date forward by one month every 1st of the month. This keeps the
+-- "one row per active month" mental model while still being automatic.
+-- last_extended_at is for diagnostics — the cron only acts if the current
+-- end_date is BEFORE the last day of the current calendar month.
+CREATE TABLE IF NOT EXISTS expense_auto_extend (
+  expense_id        TEXT PRIMARY KEY REFERENCES expenses(id) ON DELETE CASCADE,
+  last_extended_at  TEXT
+);
+
+-- Default payment method per expense. Pre-fills the method dropdown when the
+-- admin records a child payment, so the common case (e.g., "always paid by
+-- bank transfer") doesn't require setting it every month. Each child payment
+-- can still override the method in its own row. Stored in a separate table
+-- so the existing `expenses` schema stays untouched (CHECK + NOT NULL
+-- columns can't be added idempotently in SQLite).
+CREATE TABLE IF NOT EXISTS expense_default_method (
+  expense_id TEXT PRIMARY KEY REFERENCES expenses(id) ON DELETE CASCADE,
+  method     TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS contacts (
   id TEXT PRIMARY KEY,
   company TEXT NOT NULL,
