@@ -278,23 +278,36 @@ function drawSettings() {
         const pwdBadge = (has) => has
           ? `<span class="badge badge--success">${esc(t('settings.tenantPasswords.set'))}</span>`
           : `<span class="badge badge--warning">${esc(t('settings.tenantPasswords.notSet'))}</span>`;
-        // Owner row + nested apartment rows for each owner
+        // Owner row + nested RENTER rows for each owner.
+        // Owner-occupied apartments contribute no sub-row — the owner row
+        // already covers their login + admin grant. Only renter-occupied
+        // apartments need a separate row (renter has their own password +
+        // their apartment can be made admin independently).
         const ownerBlocks = ownersList.map(o => {
           const ownerApartments = (aptsByOwner.get(o.id) || [])
             .sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+          const renterApts = ownerApartments.filter(a => a.occupantType === 'renter');
           const aptCount = ownerApartments.length;
           const aptList = ownerApartments.map(a => String(a.number)).join(', ');
+          const expandable = renterApts.length > 0;
           const ownerAdminCell = o.isAdmin
             ? `<span class="badge badge--accent">${esc(t('settings.apartmentAdmin.yes'))}</span>`
             : `<span class="muted" style="font-size:12px">${esc(t('settings.apartmentAdmin.no'))}</span>`;
           const ownerAdminBtn = o.isAdmin
             ? `<button class="btn btn--sm" data-act="revoke-own-admin" data-id="${esc(o.id)}" data-name="${esc(o.name || '')}">${esc(t('settings.apartmentAdmin.revoke'))}</button>`
             : `<button class="btn btn--sm" data-act="grant-own-admin" data-id="${esc(o.id)}" data-name="${esc(o.name || '')}" ${!o.hasPassword ? `disabled title="${esc(t('settings.apartmentAdmin.needsPassword'))}"` : ''}>${esc(t('settings.apartmentAdmin.grant'))}</button>`;
+          // Collapse the chevron button to an empty spacer when there's
+          // nothing to expand — keeps the column alignment without exposing
+          // a useless control.
+          const chevron = expandable
+            ? `<button class="btn btn--sm btn--icon users-expand" data-owner-id="${esc(o.id)}" aria-expanded="false" style="padding:2px 6px; margin-inline-end:6px">▾</button>`
+            : `<span style="display:inline-block; width:32px"></span>`;
           const aptHeader = `
             <tr class="users-owner-row" data-owner-id="${esc(o.id)}">
               <td class="users-bulk-col" style="display:none"><input type="checkbox" class="users-cb" data-kind="owner" data-id="${esc(o.id)}" /></td>
               <td colspan="2">
-                <button class="btn btn--sm btn--icon users-expand" data-owner-id="${esc(o.id)}" aria-expanded="false" style="padding:2px 6px; margin-inline-end:6px">▾</button>
+                ${chevron}
+                <span class="badge badge--success" style="font-size:10px; padding:1px 6px; margin-inline-end:6px">${esc(t('settings.users.kind.owner'))}</span>
                 <strong>${esc(o.name || '—')}</strong>
                 <span class="muted" style="font-size:12px; margin-inline-start:6px">${esc(t('settings.users.ownerSubtitle', { n: aptCount, list: aptList || t('settings.ownerPasswords.noApts') }))}</span>
               </td>
@@ -307,41 +320,35 @@ function drawSettings() {
               </td>
             </tr>
           `;
-          const aptRows = ownerApartments.map(a => {
-            const isRenter = a.occupantType === 'renter';
-            const residentLabel = isRenter
-              ? t('settings.users.kind.renter') + (a.owner ? ` · ${a.owner}` : '')
-              : t('settings.users.kind.ownerOccupied');
-            // For owner-occupied apartments there's no separate renter
-            // password — login is via the owner's account. The row still
-            // surfaces the apartment-admin toggle (the grant applies to that
-            // apartment regardless of who logs in).
-            const showRenterPwd = isRenter;
+          // Only renter-occupied apartments get a sub-row. Owner-occupied
+          // are absorbed into the owner row above.
+          const aptRows = renterApts.map(a => {
             const adminCell = a.isAdmin
               ? `<span class="badge badge--accent">${esc(t('settings.apartmentAdmin.yes'))}</span>`
               : `<span class="muted" style="font-size:12px">${esc(t('settings.apartmentAdmin.no'))}</span>`;
             const adminBtn = a.isAdmin
               ? `<button class="btn btn--sm" data-act="revoke-admin" data-id="${esc(a.id)}" data-num="${esc(String(a.number))}">${esc(t('settings.apartmentAdmin.revoke'))}</button>`
-              : `<button class="btn btn--sm" data-act="grant-admin" data-id="${esc(a.id)}" data-num="${esc(String(a.number))}" ${(showRenterPwd && !a.hasPassword) ? `disabled title="${esc(t('settings.apartmentAdmin.needsPassword'))}"` : ''}>${esc(t('settings.apartmentAdmin.grant'))}</button>`;
-            const renterPwdBtn = showRenterPwd
-              ? `<button class="btn btn--sm" data-act="reset-apt-pwd" data-id="${esc(a.id)}" data-num="${esc(String(a.number))}">${esc(t('settings.tenantPasswords.reset'))}</button>`
-              : '';
+              : `<button class="btn btn--sm" data-act="grant-admin" data-id="${esc(a.id)}" data-num="${esc(String(a.number))}" ${!a.hasPassword ? `disabled title="${esc(t('settings.apartmentAdmin.needsPassword'))}"` : ''}>${esc(t('settings.apartmentAdmin.grant'))}</button>`;
+            const renterName = a.owner ? ` · ${a.owner}` : '';
             return `
-              <tr class="users-apt-row" data-owner-id="${esc(o.id)}" data-apt-id="${esc(a.id)}" style="display:none; background:var(--c-surface-2)">
+              <tr class="users-apt-row" data-owner-id="${esc(o.id)}" data-apt-id="${esc(a.id)}"
+                  style="display:none; background:linear-gradient(90deg, var(--c-warning-soft, #fff8eb) 0, var(--c-surface) 8px); border-inline-start:3px solid var(--c-warning, #d4a017)">
                 <td class="users-bulk-col" style="display:none">
-                  ${showRenterPwd ? `<input type="checkbox" class="users-cb" data-kind="apartment" data-id="${esc(a.id)}" />` : ''}
+                  <input type="checkbox" class="users-cb" data-kind="apartment" data-id="${esc(a.id)}" />
                 </td>
-                <td style="padding-inline-start:32px">
-                  <span style="display:inline-block; width:14px; border-inline-start:2px solid var(--c-border); height:1.1em; vertical-align:middle; margin-inline-end:8px"></span>
+                <td style="padding-inline-start:80px; position:relative">
+                  <span aria-hidden="true" style="position:absolute; inset-inline-start:36px; top:50%; width:24px; height:2px; background:var(--c-border-strong, #c8c8c8); transform:translateY(-1px)"></span>
+                  <span class="badge badge--warning" style="font-size:10px; padding:1px 6px; margin-inline-end:6px">${esc(t('settings.users.kind.renter'))}</span>
                   <strong>${esc(t('settings.users.aptLabel', { number: a.number }))}</strong>
+                  <span class="muted" style="font-size:12px">${esc(renterName)}</span>
                 </td>
-                <td class="muted" style="font-size:12px">${esc(residentLabel)}</td>
-                <td>${showRenterPwd ? pwdBadge(!!a.hasPassword) : '<span class="muted">—</span>'}</td>
+                <td class="muted" style="font-size:12px">${esc(t('settings.users.kind.renter'))}</td>
+                <td>${pwdBadge(!!a.hasPassword)}</td>
                 <td>${adminCell}</td>
-                <td class="muted">${(showRenterPwd && a.passwordSetAt) ? fmtDate(a.passwordSetAt) : '—'}</td>
+                <td class="muted">${a.passwordSetAt ? fmtDate(a.passwordSetAt) : '—'}</td>
                 <td class="actions">
                   ${adminBtn}
-                  ${renterPwdBtn}
+                  <button class="btn btn--sm" data-act="reset-apt-pwd" data-id="${esc(a.id)}" data-num="${esc(String(a.number))}">${esc(t('settings.tenantPasswords.reset'))}</button>
                 </td>
               </tr>
             `;
