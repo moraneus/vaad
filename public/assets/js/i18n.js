@@ -14,8 +14,12 @@ const dicts = {
     'lang.he': 'עברית',
     'lang.en': 'English',
 
-    'role.admin': 'מנהל',
+    'role.admin': 'מנהל ראשי',
     'role.tenant': 'צפייה',
+    'role.renter': 'שוכר',
+    'role.owner': 'בעל דירה',
+    'role.apartmentAdmin': 'מנהל דירה',
+    'role.ownerAdmin': 'בעל דירה · מנהל',
     'logout': 'יציאה',
     'menu.open': 'פתיחת תפריט',
 
@@ -1270,8 +1274,12 @@ const dicts = {
     'lang.he': 'עברית',
     'lang.en': 'English',
 
-    'role.admin': 'Admin',
-    'role.tenant': 'Resident',
+    'role.admin': 'Master admin',
+    'role.tenant': 'Viewer',
+    'role.renter': 'Renter',
+    'role.owner': 'Owner',
+    'role.apartmentAdmin': 'Apartment admin',
+    'role.ownerAdmin': 'Owner · admin',
     'logout': 'Sign out',
     'menu.open': 'Open menu',
 

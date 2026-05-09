@@ -188,14 +188,14 @@ export function renderShell(currentRoute) {
             </div>
           </div>
         </div>
-        <div class="app-header__actions">
+        <div class="app-header__actions" style="gap:10px">
           ${langToggleHTML(lang)}
           ${isAdmin ? reminderBellHTML() : ''}
-          <div class="hstack" style="gap:6px; align-items:center" title="${esc(t('app.loggedInAs', { label: session.userLabel || '' }))}">
-            <span class="role-pill ${isAdmin ? 'role-pill--admin' : ''}">${esc(isAdmin ? t('role.admin') : t('role.tenant'))}</span>
-            ${session.userLabel ? `<span class="muted" style="font-size:13px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(session.userLabel)}</span>` : ''}
-          </div>
-          <button class="btn btn--sm btn--ghost" id="logout-btn" title="${esc(t('logout'))}">${esc(t('logout'))}</button>
+          ${renderUserChip(session)}
+          <button class="btn btn--sm btn--ghost" id="logout-btn" title="${esc(t('logout'))}" aria-label="${esc(t('logout'))}" style="display:inline-flex; align-items:center; gap:6px">
+            ${Icon.logout || ''}
+            <span class="hide-on-narrow">${esc(t('logout'))}</span>
+          </button>
         </div>
       </header>
 
@@ -213,6 +213,47 @@ export function renderShell(currentRoute) {
 
       <main class="app-main" id="app-main"></main>
       <div class="scrim" id="scrim"></div>
+    </div>
+  `;
+}
+
+// ----- User chip (top-bar) -----
+// Renders the signed-in identity as a single rounded chip:
+//   [avatar circle]  Display name        · role tag
+// The avatar carries a single Hebrew letter derived from the userLabel; its
+// color reflects the role (gold for admin, success-green for owner, neutral
+// for renter). Display name and role tag are derived from the session shape:
+//   - Master admin   → "מנהל"  + admin
+//   - Owner-occupied → owner name + (owner / owner-admin)
+//   - Renter         → "דירה N" + (renter / renter-admin)
+function renderUserChip(session) {
+  const isAdmin = session.role === 'admin';
+  const isOwnerSession = !!session.ownerId;
+  const isApartmentSession = !!session.apartmentId;
+  const isMasterAdmin = isAdmin && !isOwnerSession && !isApartmentSession;
+  // Derive the role tag (separate from the kind of login).
+  let roleKey = 'role.tenant';
+  if (isMasterAdmin) roleKey = 'role.admin';
+  else if (isOwnerSession) roleKey = isAdmin ? 'role.ownerAdmin' : 'role.owner';
+  else if (isApartmentSession) roleKey = isAdmin ? 'role.apartmentAdmin' : 'role.renter';
+  // Derive a clean display name. The userLabel often contains parenthetical
+  // suffixes like "(בעלים)" or "(מנהל)" that duplicate the role tag — strip
+  // those for the chip, and keep the role tag as the single source of role.
+  const rawLabel = session.userLabel || '';
+  const cleanName = rawLabel.replace(/\s*\([^)]*\)\s*$/, '').trim() || rawLabel || '—';
+  // Avatar tone — gold for any admin, green for owner-only, neutral for renter
+  const tone = isAdmin ? 'admin' : (isOwnerSession ? 'owner' : 'renter');
+  const initial = (cleanName[0] || '?').toUpperCase();
+  const tooltip = t('app.loggedInAs', { label: rawLabel });
+  return `
+    <div class="user-chip user-chip--${tone}" title="${esc(tooltip)}"
+         style="display:inline-flex; align-items:center; gap:8px; padding:4px 10px 4px 4px; border:1px solid var(--c-border); border-radius:999px; background:var(--c-surface); transition:background 0.15s">
+      <span aria-hidden="true"
+            style="width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; background:${tone === 'admin' ? 'var(--c-warning, #c89221)' : tone === 'owner' ? 'var(--c-success, #1f7a52)' : 'var(--c-text-muted, #6b7280)'}">${esc(initial)}</span>
+      <span style="display:inline-flex; flex-direction:column; line-height:1.15; max-width:170px">
+        <span style="font-weight:600; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(cleanName)}</span>
+        <span style="font-size:11px; color:var(--c-text-muted, #6b7280); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(t(roleKey))}</span>
+      </span>
     </div>
   `;
 }
