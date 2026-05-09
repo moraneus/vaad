@@ -46,8 +46,12 @@ export function renderReports() {
       <input class="input" id="r-to" type="date" value="${esc(rangeTo || '')}" style="width:140px; display:${scope === 'range' ? 'inline-block' : 'none'}" title="${esc(t('exp.filter.to'))}" />
       <div class="spacer"></div>
       <div class="segmented">
-        <button class="segmented__opt ${mode==='cash'?'segmented__opt--active':''}" data-mode="cash">${esc(t('reports.cash'))}</button>
-        <button class="segmented__opt ${mode==='accounting'?'segmented__opt--active':''}" data-mode="accounting">${esc(t('reports.accounting'))}</button>
+        <button class="segmented__opt ${mode==='cash'?'segmented__opt--active':''}" data-mode="cash"
+                title="${esc(t('reports.cash.tooltip'))}">${esc(t('reports.cash'))}</button>
+        <button class="segmented__opt ${mode==='accounting'?'segmented__opt--active':''}" data-mode="accounting"
+                title="${esc(t('reports.accounting.tooltip'))}">${esc(t('reports.accounting'))}</button>
+        <span class="muted" style="margin-inline-start:6px; font-size:14px; cursor:help"
+              title="${esc(t('reports.modes.tooltip'))}">${Icon.info || 'ⓘ'}</span>
       </div>
     </div>
 
