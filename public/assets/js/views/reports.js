@@ -1,15 +1,19 @@
-// Reports — monthly / yearly · cash flow vs accounting · CSV / PDF print
+// Reports — monthly / yearly / custom range · cash flow vs accounting · CSV / PDF print
 
 import { getApartments, getPayments, getExpenses, getSettings } from '../store.js';
-import { fmtCurrency, esc, fmtDate, fmtMonth, downloadBlob } from '../utils.js';
+import { fmtCurrency, esc, fmtDate, fmtMonth, downloadBlob, todayISO } from '../utils.js';
 import { t, monthName } from '../i18n.js';
-import { monthSummary, yearSummary, aggregateByCategory, cumulativeBalance, knownYears } from '../calc.js';
+import { monthSummary, yearSummary, rangeSummary, aggregateByCategory, cumulativeBalance, knownYears } from '../calc.js';
 import { setHTML, renderPageHeader, Icon } from '../ui.js';
 
 let scope = 'monthly';
 let curYear = new Date().getFullYear();
 let curMonth = new Date().getMonth() + 1;
 let mode = 'cash';
+// Custom-range scope state. Defaults to the current quarter (3-months back
+// through today) on first activation.
+let rangeFrom = null;
+let rangeTo = null;
 
 export function renderReports() {
   const main = document.getElementById('app-main');
@@ -26,17 +30,20 @@ export function renderReports() {
       `,
     })}
 
-    <div class="toolbar">
-      <div class="segmented">
-        <button class="segmented__opt ${scope==='monthly'?'segmented__opt--active':''}" data-scope="monthly">${esc(t('reports.monthly'))}</button>
-        <button class="segmented__opt ${scope==='yearly'?'segmented__opt--active':''}" data-scope="yearly">${esc(t('reports.yearly'))}</button>
-      </div>
-      <select class="select" id="year" style="width:120px">
+    <div class="toolbar" style="gap:6px; flex-wrap:nowrap; overflow-x:auto">
+      <select class="select" id="r-scope" style="width:auto">
+        <option value="monthly" ${scope === 'monthly' ? 'selected' : ''}>${esc(t('reports.scope.monthly'))}</option>
+        <option value="yearly"  ${scope === 'yearly'  ? 'selected' : ''}>${esc(t('reports.scope.yearly'))}</option>
+        <option value="range"   ${scope === 'range'   ? 'selected' : ''}>${esc(t('income.export.preset.custom'))}</option>
+      </select>
+      <select class="select" id="year" style="width:110px; display:${scope === 'range' ? 'none' : 'inline-block'}">
         ${years.map(y => `<option ${y === curYear ? 'selected' : ''} value="${y}">${y}</option>`).join('')}
       </select>
-      <select class="select" id="month" style="width:160px; display:${scope==='monthly'?'inline-block':'none'}">
+      <select class="select" id="month" style="width:140px; display:${scope === 'monthly' ? 'inline-block' : 'none'}">
         ${Array.from({ length: 12 }, (_, i) => `<option ${i + 1 === curMonth ? 'selected' : ''} value="${i + 1}">${monthName(i + 1)}</option>`).join('')}
       </select>
+      <input class="input" id="r-from" type="date" value="${esc(rangeFrom || '')}" style="width:140px; display:${scope === 'range' ? 'inline-block' : 'none'}" title="${esc(t('exp.filter.from'))}" />
+      <input class="input" id="r-to" type="date" value="${esc(rangeTo || '')}" style="width:140px; display:${scope === 'range' ? 'inline-block' : 'none'}" title="${esc(t('exp.filter.to'))}" />
       <div class="spacer"></div>
       <div class="segmented">
         <button class="segmented__opt ${mode==='cash'?'segmented__opt--active':''}" data-mode="cash">${esc(t('reports.cash'))}</button>
@@ -47,15 +54,29 @@ export function renderReports() {
     <div id="report-body"></div>
   `);
 
-  document.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click', () => { scope = b.dataset.scope; renderReports(); }));
+  // Single scope dropdown — switching to 'range' seeds default dates if the
+  // admin hasn't picked any yet (last 3 months through today).
+  document.getElementById('r-scope').addEventListener('change', (e) => {
+    scope = e.target.value;
+    if (scope === 'range' && (!rangeFrom || !rangeTo)) {
+      const today = new Date();
+      const back = new Date(today); back.setMonth(today.getMonth() - 2); back.setDate(1);
+      rangeFrom = `${back.getFullYear()}-${String(back.getMonth() + 1).padStart(2, '0')}-01`;
+      rangeTo = todayISO();
+    }
+    renderReports();
+  });
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; renderReports(); }));
   document.getElementById('year').addEventListener('change', (e) => { curYear = Number(e.target.value); renderReports(); });
   document.getElementById('month').addEventListener('change', (e) => { curMonth = Number(e.target.value); renderReports(); });
+  document.getElementById('r-from')?.addEventListener('change', (e) => { rangeFrom = e.target.value || null; renderReports(); });
+  document.getElementById('r-to')?.addEventListener('change', (e) => { rangeTo = e.target.value || null; renderReports(); });
   document.getElementById('print-pdf').addEventListener('click', () => window.print());
   document.getElementById('export-csv').addEventListener('click', exportCSV);
 
   if (scope === 'monthly') renderMonthlyReport();
-  else renderYearlyReport();
+  else if (scope === 'yearly') renderYearlyReport();
+  else renderRangeReport();
 }
 
 function renderMonthlyReport() {
@@ -321,6 +342,134 @@ function renderYearlyReport() {
   `);
 }
 
+// Custom-range report — same shape as the yearly report but bounded by the
+// admin-picked [from..to] window. Shows top-line stats, a per-month
+// breakdown, and a per-category actual-spend table.
+function renderRangeReport() {
+  const body = document.getElementById('report-body');
+  if (!rangeFrom || !rangeTo) {
+    setHTML(body, `<div class="callout callout--warning">${esc(t('reports.range.pickDates'))}</div>`);
+    return;
+  }
+  const f = new Date(rangeFrom);
+  const tt = new Date(rangeTo);
+  if (isNaN(f.getTime()) || isNaN(tt.getTime()) || f.getTime() > tt.getTime()) {
+    setHTML(body, `<div class="callout callout--warning">${esc(t('income.export.invalidRange'))}</div>`);
+    return;
+  }
+  const rs = rangeSummary(rangeFrom, rangeTo, mode);
+  const settings = getSettings();
+  const allCats = new Map();
+  for (const ms of rs.months) {
+    for (const it of (ms.actualExpenseList || [])) {
+      const c = it.expense.category || '—';
+      allCats.set(c, (allCats.get(c) || 0) + it.amount);
+    }
+  }
+  const cats = [...allCats.entries()].sort((a, b) => b[1] - a[1]);
+  const modeLabelStr = mode === 'cash' ? t('reports.cash') : t('reports.accounting');
+  const incomeCollectionPct = rs.incomeExpected > 0 ? Math.round((rs.incomeActual / rs.incomeExpected) * 100) : 0;
+  const expenseExecPct = rs.expectedExpenses > 0 ? Math.round((rs.actualExpenses / rs.expectedExpenses) * 100) : (rs.actualExpenses > 0 ? 100 : 0);
+
+  setHTML(body, `
+    <div class="print-header" style="display:none">
+      <h1>${esc(t('reports.print.range', { from: fmtDate(rangeFrom), to: fmtDate(rangeTo) }))}</h1>
+      <div class="meta">${esc(t('reports.print.generated', { building: settings.buildingName || t('building.default'), mode: modeLabelStr, date: fmtDate(new Date().toISOString()) }))}</div>
+    </div>
+
+    <div class="callout">${esc(t('reports.range.headline', { from: fmtDate(rangeFrom), to: fmtDate(rangeTo), n: rs.months.length }))}</div>
+
+    <div class="stats-grid">
+      <div class="stat stat--success">
+        <div class="stat__label">${esc(t('reports.yearIncome'))} · ${esc(t('reports.expectedActual.short'))}</div>
+        <div class="stat__value">${fmtCurrency(rs.incomeActual)}</div>
+        <div class="stat__hint">${esc(t('reports.expectedShort', { amount: fmtCurrency(rs.incomeExpected) }))}</div>
+        <div class="progress" style="margin-top:6px"><div class="progress__bar progress__bar--success" style="width:${Math.min(100, incomeCollectionPct)}%"></div></div>
+        <div class="stat__hint">${esc(t('reports.collectionPct', { pct: incomeCollectionPct }))}</div>
+      </div>
+      <div class="stat stat--danger">
+        <div class="stat__label">${esc(t('reports.yearExpenses'))} · ${esc(t('reports.expectedActual.short'))}</div>
+        <div class="stat__value">${fmtCurrency(rs.actualExpenses)}</div>
+        <div class="stat__hint">${esc(t('reports.expectedShort', { amount: fmtCurrency(rs.expectedExpenses) }))}</div>
+        <div class="progress" style="margin-top:6px"><div class="progress__bar progress__bar--danger" style="width:${Math.min(100, expenseExecPct)}%"></div></div>
+        <div class="stat__hint">${esc(t('reports.executionPct', { pct: expenseExecPct }))}</div>
+      </div>
+      <div class="stat ${rs.balance >= 0 ? '' : 'stat--danger'}">
+        <div class="stat__label">${esc(t('reports.actualBalance'))}</div>
+        <div class="stat__value">${fmtCurrency(rs.balance)}</div>
+        <div class="stat__hint">${esc(t('reports.expectedBalance'))}: ${fmtCurrency(rs.expectedBalance)}</div>
+      </div>
+    </div>
+
+    <div class="card card--padless" style="margin-bottom:18px">
+      <div class="card__header"><h3 class="card__title">${esc(t('reports.byMonth'))}</h3></div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th rowspan="2">${esc(t('common.month'))}</th>
+              <th class="num" colspan="2">${esc(t('dash.income'))}</th>
+              <th class="num" colspan="2">${esc(t('dash.expenses'))}</th>
+              <th class="num" rowspan="2">${esc(t('reports.actualBalance'))}</th>
+              <th class="num" rowspan="2">${esc(t('reports.col.cumulative'))}</th>
+            </tr>
+            <tr>
+              <th class="num" style="font-size:11px; font-weight:500">${esc(t('reports.col.expected'))}</th>
+              <th class="num" style="font-size:11px; font-weight:500">${esc(t('reports.col.actual'))}</th>
+              <th class="num" style="font-size:11px; font-weight:500">${esc(t('reports.col.expected'))}</th>
+              <th class="num" style="font-size:11px; font-weight:500">${esc(t('reports.col.actual'))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rs.months.map((ms) => `
+              <tr>
+                <td>${monthName(ms.month)} ${ms.year}</td>
+                <td class="num muted">${fmtCurrency(ms.incomeExpected)}</td>
+                <td class="num text-success">${fmtCurrency(ms.incomeActual)}</td>
+                <td class="num muted">${fmtCurrency(ms.expectedExpenses)}</td>
+                <td class="num text-danger">${fmtCurrency(ms.actualExpenses)}</td>
+                <td class="num ${ms.balance >= 0 ? 'text-success' : 'text-danger'}">${fmtCurrency(ms.balance)}</td>
+                <td class="num">${fmtCurrency(cumulativeBalance(ms.year, ms.month))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>${esc(t('reports.totalLabel'))}</td>
+              <td class="num">${fmtCurrency(rs.incomeExpected)}</td>
+              <td class="num">${fmtCurrency(rs.incomeActual)}</td>
+              <td class="num">${fmtCurrency(rs.expectedExpenses)}</td>
+              <td class="num">${fmtCurrency(rs.actualExpenses)}</td>
+              <td class="num ${rs.balance >= 0 ? 'text-success' : 'text-danger'}">${fmtCurrency(rs.balance)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    ${cats.length ? `
+      <div class="card card--padless">
+        <div class="card__header"><h3 class="card__title">${esc(t('reports.byCategory'))}</h3></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>${esc(t('common.category'))}</th><th class="num">${esc(t('common.amount'))}</th><th class="num">${esc(t('reports.col.percent'))}</th></tr></thead>
+            <tbody>
+              ${cats.map(([c, amt]) => `
+                <tr>
+                  <td>${esc(c)}</td>
+                  <td class="num">${fmtCurrency(amt)}</td>
+                  <td class="num">${rs.expenses > 0 ? ((amt / rs.expenses) * 100).toFixed(1) : '0'}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+  `);
+}
+
 function modeLabel(m) {
   return m === 'monthly' ? t('reports.calcMonthly') :
          m === 'annual-12' ? t('reports.calcAnnual12') :
@@ -358,6 +507,20 @@ function exportCSV() {
     for (const r of perExp.values()) {
       csv += `${quote(r.e.name)},${quote(r.e.category || '')},${t('exp.type.' + (r.e.type || 'oneoff'))},${r.expected.toFixed(2)},${r.actual.toFixed(2)}\n`;
     }
+  } else if (scope === 'range' && rangeFrom && rangeTo) {
+    // Custom-range export — same column layout as the yearly CSV but bounded
+    // by the picked from..to dates. Each row carries (year + month) so the
+    // file remains useful when the range spans multiple calendar years.
+    const rs = rangeSummary(rangeFrom, rangeTo, mode);
+    filename = t('reports.export.range', { from: rangeFrom, to: rangeTo, mode });
+    csv += `${t('income.export.preset.custom')},${rangeFrom} → ${rangeTo}\n`;
+    csv += `Building,${quote(buildingName)}\n`;
+    csv += `Mode,${mode === 'cash' ? t('reports.cash') : t('reports.accounting')}\n\n`;
+    csv += `${t('common.month')},${t('reports.incomeExpectedLabel')},${t('reports.incomeActualLabel')},${t('reports.expectedExpenses')},${t('reports.expenseActualLabel')},${t('reports.actualBalance')},${t('reports.col.cumulative')}\n`;
+    for (const ms of rs.months) {
+      csv += `${monthName(ms.month)} ${ms.year},${ms.incomeExpected},${ms.incomeActual},${ms.expectedExpenses},${ms.actualExpenses},${ms.balance},${cumulativeBalance(ms.year, ms.month)}\n`;
+    }
+    csv += `${t('reports.totalLabel')},${rs.incomeExpected},${rs.incomeActual},${rs.expectedExpenses},${rs.actualExpenses},${rs.balance},\n`;
   } else {
     const ys = yearSummary(curYear, mode);
     filename = t('reports.export.yearly', { year: curYear, mode });

@@ -304,6 +304,41 @@ export function monthSummary(year, month, mode = 'cash') {
   };
 }
 
+// Range summary — aggregates monthSummary across every (year, month) pair
+// inside [from..to] (both ISO YYYY-MM-DD inclusive). Returns the same shape
+// as yearSummary but bounded by the picked range, plus per-month rows so
+// callers can build a per-month breakdown table or chart.
+export function rangeSummary(from, to, mode = 'cash') {
+  const f = new Date(from);
+  const t = new Date(to);
+  const months = [];
+  let income = 0, expenses = 0;
+  let incomeExpected = 0, incomeActual = 0;
+  let expectedExpenses = 0, actualExpenses = 0;
+  let y = f.getFullYear();
+  let m = f.getMonth() + 1;
+  const endY = t.getFullYear();
+  const endM = t.getMonth() + 1;
+  while (y < endY || (y === endY && m <= endM)) {
+    const ms = monthSummary(y, m, mode);
+    months.push(ms);
+    income += ms.income;
+    expenses += ms.expenses;
+    incomeExpected += ms.incomeExpected;
+    incomeActual += ms.incomeActual;
+    expectedExpenses += ms.expectedExpenses;
+    actualExpenses += ms.actualExpenses;
+    if (m === 12) { m = 1; y++; } else { m++; }
+  }
+  return {
+    from, to, mode, months,
+    income, expenses, incomeExpected, incomeActual,
+    expectedExpenses, actualExpenses,
+    balance: income - expenses,
+    expectedBalance: incomeExpected - expectedExpenses,
+  };
+}
+
 // Year summary (sum of months 1..12)
 export function yearSummary(year, mode = 'cash') {
   const months = [];
