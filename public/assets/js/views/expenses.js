@@ -495,6 +495,16 @@ function renderExpenseRow(e, isAdmin) {
   const status = derived === 'done'
     ? `<span class="badge badge--success">${Icon.check} ${esc(t('exp.status.done'))}</span>`
     : `<span class="badge badge--warning">${esc(t('exp.status.in_progress'))}</span>`;
+  // Number of installments + total = derived from the bounded range
+  // (start..end inclusive, in months). Only meaningful for type='installments'.
+  const monthsBetweenInclusive = (a, b) => {
+    if (!a || !b) return 0;
+    const da = new Date(a), db = new Date(b);
+    return (db.getFullYear() - da.getFullYear()) * 12 + (db.getMonth() - da.getMonth()) + 1;
+  };
+  const installmentsCount = e.type === 'installments' ? monthsBetweenInclusive(e.startDate, e.endDate) : 0;
+  const installmentsTotal = e.type === 'installments' ? (Number(e.amount) || 0) * installmentsCount : 0;
+
   let period = '';
   if (e.type === 'monthly') {
     period = `${fmtDate(e.startDate)}${e.endDate ? ` → ${fmtDate(e.endDate)}` : ''}`;
@@ -502,14 +512,17 @@ function renderExpenseRow(e, isAdmin) {
   } else if (e.type === 'annual') {
     period = `${fmtDate(e.startDate)}${e.endDate ? ` → ${fmtDate(e.endDate)}` : ''}`;
     if (e.billDate) period += ` · ${fmtDate(e.billDate)}`;
+  } else if (e.type === 'installments') {
+    period = `${fmtDate(e.startDate)}${e.endDate ? ` → ${fmtDate(e.endDate)}` : ''}`;
   } else {
     period = fmtDate(e.oneOffDate);
   }
   const docCount = (e.documents || []).length;
-  // Only monthly expenses get the inline expand-row affordance — that's where
-  // "show all monthly payments" makes sense. Annual/oneoff stay click-to-modal.
-  const isMonthly = e.type === 'monthly';
-  const chevron = isMonthly
+  // Monthly + installments expenses get the inline expand-row affordance —
+  // both have a per-month payment ledger that fits the same UI. Annual /
+  // one-off stay click-to-modal.
+  const expandable = e.type === 'monthly' || e.type === 'installments';
+  const chevron = expandable
     ? `<button class="btn btn--sm btn--icon" data-act="exp-expand" data-id="${e.id}" aria-expanded="false" title="${esc(t('exp.row.expand.show'))}" style="padding:2px 6px">▾</button>`
     : '';
   return `
@@ -532,7 +545,15 @@ function renderExpenseRow(e, isAdmin) {
       </td>
       <td>${esc(e.category || '—')}</td>
       <td>${typeBadge(e.type)}${e.type === 'annual' && e.rateHistory && e.rateHistory.length > 1 ? ` <button class="btn btn--sm btn--ghost" data-act="rates" data-id="${e.id}">${esc(t('exp.rates.count', { n: e.rateHistory.length }))}</button>` : ''}</td>
-      <td class="num">${fmtCurrency(e.amount)}${e.type === 'monthly' ? `<div class="muted" style="font-size:11px">${esc(t('exp.row.perMonth'))}</div>` : e.type === 'annual' ? `<div class="muted" style="font-size:11px">${esc(t('exp.row.perYear'))}</div>` : ''}</td>
+      <td class="num">${
+        e.type === 'installments'
+          ? `${fmtCurrency(installmentsTotal)}<div class="muted" style="font-size:11px">${esc(t('exp.row.installmentsBreakdown', { n: installmentsCount, perMonth: fmtCurrency(e.amount) }))}</div>`
+          : `${fmtCurrency(e.amount)}${
+              e.type === 'monthly' ? `<div class="muted" style="font-size:11px">${esc(t('exp.row.perMonth'))}</div>`
+              : e.type === 'annual' ? `<div class="muted" style="font-size:11px">${esc(t('exp.row.perYear'))}</div>`
+              : ''
+            }`
+      }</td>
       <td>${period}</td>
       <td>${status}</td>
       <td>
@@ -545,7 +566,7 @@ function renderExpenseRow(e, isAdmin) {
         ${isAdmin ? `<button class="btn btn--sm btn--icon" data-act="del-exp" data-id="${e.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>` : ''}
       </td>
     </tr>
-    ${isMonthly ? `
+    ${expandable ? `
       <tr class="exp-payments-row" data-exp="${e.id}" style="display:none; background:var(--c-surface-2)">
         <td colspan="8" style="padding:10px 16px">
           <div data-exp-payments-content="${e.id}">${renderExpensePaymentsBlock(e, isAdmin)}</div>
@@ -627,6 +648,7 @@ function renderExpensePaymentsBlock(e, isAdmin) {
 function typeBadge(typ) {
   return typ === 'monthly' ? `<span class="badge badge--info">${esc(t('exp.type.monthly'))}</span>` :
          typ === 'annual' ? `<span class="badge badge--accent">${esc(t('exp.type.annual'))}</span>` :
+         typ === 'installments' ? `<span class="badge badge--warning">${esc(t('exp.type.installments'))}</span>` :
          `<span class="badge">${esc(t('exp.type.oneoff'))}</span>`;
 }
 
@@ -654,10 +676,20 @@ function openExpenseDialog(exp = null) {
   // For other types or when editing, fall back to the existing values.
   const defaultStart = isEdit
     ? (exp?.startDate || todayISO())
-    : (ty === 'monthly' ? firstOfMonthISO() : todayISO());
+    : ((ty === 'monthly' || ty === 'installments') ? firstOfMonthISO() : todayISO());
   const defaultEnd = isEdit
     ? (exp?.endDate || '')
     : (ty === 'monthly' ? lastOfMonthISO() : '');
+  // Installments: derive N from existing range when editing, else default to 2.
+  // The row's `amount` is per-month, the form shows TOTAL = amount × N.
+  const monthsBetween = (a, b) => {
+    if (!a || !b) return 0;
+    const da = new Date(a), db = new Date(b);
+    return (db.getFullYear() - da.getFullYear()) * 12 + (db.getMonth() - da.getMonth()) + 1;
+  };
+  const initialInstallments = (isEdit && exp?.type === 'installments')
+    ? Math.max(2, monthsBetween(exp.startDate, exp.endDate))
+    : 2;
 
   // Build a list of known payee names from previous expenses (most recent wins on duplicates)
   const allExpenses = getExpenses();
@@ -679,6 +711,7 @@ function openExpenseDialog(exp = null) {
           <div class="segmented" id="type-seg">
             <button type="button" class="segmented__opt ${ty==='monthly'?'segmented__opt--active':''}" data-type="monthly">${esc(t('exp.type.monthly'))}</button>
             <button type="button" class="segmented__opt ${ty==='annual'?'segmented__opt--active':''}" data-type="annual">${esc(t('exp.type.annual'))}</button>
+            <button type="button" class="segmented__opt ${ty==='installments'?'segmented__opt--active':''}" data-type="installments">${esc(t('exp.type.installments'))}</button>
             <button type="button" class="segmented__opt ${ty==='oneoff'?'segmented__opt--active':''}" data-type="oneoff">${esc(t('exp.type.oneoff'))}</button>
           </div>
           <input type="hidden" name="type" id="type-val" value="${ty}" />
@@ -699,7 +732,10 @@ function openExpenseDialog(exp = null) {
 
         <div class="field field--required">
           <label class="field__label" id="lbl-amount">${esc(t('exp.field.amount'))}</label>
-          <input class="input" name="amount" type="number" step="0.01" required value="${exp?.amount ?? ''}" />
+          <input class="input" name="amount" type="number" step="0.01" required
+                 value="${(isEdit && exp?.type === 'installments')
+                   ? (Number(exp.amount || 0) * initialInstallments).toFixed(2)
+                   : (exp?.amount ?? '')}" />
           <div class="field__hint" id="hint-amount"></div>
         </div>
         <div class="field">
@@ -731,6 +767,11 @@ function openExpenseDialog(exp = null) {
         <div class="field field--required" id="field-start">
           <label class="field__label" id="lbl-start">${esc(t('exp.field.startDate'))}</label>
           <input class="input" name="startDate" type="date" value="${esc(defaultStart)}" />
+        </div>
+        <div class="field field--required" id="field-installments" style="display:${ty === 'installments' ? 'flex' : 'none'}">
+          <label class="field__label">${esc(t('exp.field.installmentsCount'))}</label>
+          <input class="input" name="installmentsCount" type="number" min="2" step="1" value="${esc(String(initialInstallments))}" />
+          <div class="field__hint">${esc(t('exp.field.installmentsCountHint'))}</div>
         </div>
         <div class="field" id="field-end">
           <label class="field__label">${esc(t('exp.field.endDate'))}</label>
@@ -919,12 +960,20 @@ function openExpenseDialog(exp = null) {
     m.bodyEl.querySelector('#field-bill').style.display = newType === 'annual' ? 'flex' : 'none';
     m.bodyEl.querySelector('#field-oneoff').style.display = newType === 'oneoff' ? 'flex' : 'none';
     m.bodyEl.querySelector('#field-start').style.display = newType === 'oneoff' ? 'none' : 'flex';
-    m.bodyEl.querySelector('#field-end').style.display = newType === 'oneoff' ? 'none' : 'flex';
+    // endDate is computed automatically for installments (start + N months) —
+    // hide the input so admins don't end up with conflicting values.
+    m.bodyEl.querySelector('#field-end').style.display = (newType === 'oneoff' || newType === 'installments') ? 'none' : 'flex';
+    m.bodyEl.querySelector('#field-installments').style.display = newType === 'installments' ? 'flex' : 'none';
     const lbl = m.bodyEl.querySelector('#lbl-amount');
     const hint = m.bodyEl.querySelector('#hint-amount');
     const hintEnd = m.bodyEl.querySelector('#hint-end');
-    lbl.textContent = newType === 'monthly' ? t('exp.field.amountMonthly') : newType === 'annual' ? t('exp.field.amountAnnual') : t('exp.field.amountOneoff');
-    hint.textContent = newType === 'annual' ? t('exp.annualHint') : '';
+    lbl.textContent = newType === 'monthly' ? t('exp.field.amountMonthly')
+                    : newType === 'annual' ? t('exp.field.amountAnnual')
+                    : newType === 'installments' ? t('exp.field.amountInstallmentsTotal')
+                    : t('exp.field.amountOneoff');
+    hint.textContent = newType === 'annual' ? t('exp.annualHint')
+                     : newType === 'installments' ? t('exp.installmentsHint')
+                     : '';
     if (hintEnd) hintEnd.style.display = newType === 'monthly' ? 'block' : 'none';
     const autoExtendField = m.bodyEl.querySelector('#field-autoextend');
     if (autoExtendField) autoExtendField.style.display = newType === 'monthly' ? 'flex' : 'none';
@@ -937,6 +986,12 @@ function openExpenseDialog(exp = null) {
       const ref = startEl.value || todayISO();
       startEl.value = firstOfMonthISO(ref);
       endEl.value = lastOfMonthISO(ref);
+    }
+    // Switching INTO 'installments' for a new expense snaps the start to the
+    // 1st of the picked month so the per-month math is clean.
+    if (!isEdit && newType === 'installments') {
+      const startEl = m.bodyEl.querySelector('input[name="startDate"]');
+      startEl.value = firstOfMonthISO(startEl.value || todayISO());
     }
   };
   setType(ty);
@@ -1017,10 +1072,30 @@ function openExpenseDialog(exp = null) {
     const autoExtend = data.type === 'monthly'
       && !!m.bodyEl.querySelector('#autoExtend-cb')?.checked;
     delete data.autoExtend; // strip the form's "on" string before merging
+    // Installments → store as a bounded monthly-style range. The form gives
+    // us a TOTAL amount + N; we derive the per-month rate (total / N) and
+    // the implicit endDate (last day of startDate + N − 1 months).
+    let perMonthAmount = Number(data.amount);
+    if (data.type === 'installments') {
+      const n = Math.max(2, Math.floor(Number(data.installmentsCount) || 0));
+      if (!Number.isFinite(n) || n < 2) { toast(t('exp.installmentsInvalid'), 'warning'); return; }
+      if (!Number.isFinite(perMonthAmount) || perMonthAmount <= 0) { toast(t('exp.amountRequired'), 'warning'); return; }
+      perMonthAmount = perMonthAmount / n;
+      // Compute endDate = last day of (startDate + N − 1 months)
+      const sd = new Date(data.startDate);
+      const endY = sd.getFullYear();
+      const endMidx = sd.getMonth() + (n - 1); // 0-based month + offset
+      const endDateObj = new Date(endY, endMidx + 1, 0); // day 0 of next month = last day
+      const ey = endDateObj.getFullYear();
+      const em = String(endDateObj.getMonth() + 1).padStart(2, '0');
+      const ed = String(endDateObj.getDate()).padStart(2, '0');
+      data.endDate = `${ey}-${em}-${ed}`;
+    }
+    delete data.installmentsCount; // not a server field
     const saveBtn = m.footerEl.querySelector('[data-act="save"]');
     saveBtn.disabled = true;
     try {
-      const saved = await upsertExpense({ id: exp?.id, ...data, amount: Number(data.amount), autoExtend });
+      const saved = await upsertExpense({ id: exp?.id, ...data, amount: perMonthAmount, autoExtend });
       const expenseId = saved?.id || exp?.id;
       // Upload queued files (best effort — surface failures via toast)
       let uploadFails = 0;

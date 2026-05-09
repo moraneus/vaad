@@ -100,7 +100,7 @@ export const onRequestPost = async ({ request, env }) => {
   const type = pickStr(body.type, 16);
   const amount = pickNum(body.amount);
   if (!name || !type || amount == null) return error('שדות חובה חסרים', 400);
-  if (!['monthly', 'annual', 'oneoff'].includes(type)) return error('סוג לא תקף', 400);
+  if (!['monthly', 'annual', 'oneoff', 'installments'].includes(type)) return error('סוג לא תקף', 400);
 
   const category = pickStr(body.category, 100);
   const status = pickStr(body.status, 20) || 'active';

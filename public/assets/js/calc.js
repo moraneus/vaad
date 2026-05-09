@@ -169,7 +169,7 @@ export function expectedExpensesForMonth(year, month) {
   for (const e of getExpenses()) {
     if (e.status === 'closed') continue;
 
-    if (e.type === 'monthly') {
+    if (e.type === 'monthly' || e.type === 'installments') {
       if (e.status === 'paused') continue;
       if (!isMonthInRange(year, month, e.startDate, e.endDate)) continue;
       // Use rate history if exists, else amount
@@ -200,7 +200,7 @@ export function accountingExpensesForMonth(year, month) {
   const result = [];
   for (const e of getExpenses()) {
     if (e.status === 'closed') continue;
-    if (e.type === 'monthly') {
+    if (e.type === 'monthly' || e.type === 'installments') {
       if (e.status === 'paused') continue;
       if (!isMonthInRange(year, month, e.startDate, e.endDate)) continue;
       const amt = e.rateHistory && e.rateHistory.length ? annualRateAt(e, year, month) : (Number(e.amount) || 0);
@@ -242,7 +242,7 @@ export function expenseStatusForMonth(expenseId, year, month) {
   // Compute expected for this expense in this month
   let expected = 0;
   if (e.status !== 'closed') {
-    if (e.type === 'monthly') {
+    if (e.type === 'monthly' || e.type === 'installments') {
       if (e.status !== 'paused' && isMonthInRange(year, month, e.startDate, e.endDate)) {
         expected = e.rateHistory && e.rateHistory.length ? annualRateAt(e, year, month) : (Number(e.amount) || 0);
       }
@@ -419,7 +419,7 @@ export function expenseDerivedStatus(expense) {
     return paid >= expected ? 'done' : 'in_progress';
   }
 
-  if (e.type === 'monthly') {
+  if (e.type === 'monthly' || e.type === 'installments') {
     if (!e.startDate) return 'done';
     const s = new Date(e.startDate);
     let y = s.getFullYear();
