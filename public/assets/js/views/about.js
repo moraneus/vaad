@@ -1,7 +1,7 @@
 // About — bank details, committee members, and free-form description.
 // Tenants see read-only; admins can edit each section.
 
-import { getSession, getSettings, getVaadMembers, updateSettingsBasic, upsertVaadMember, deleteVaadMember } from '../store.js';
+import { getSession, getSettings, getVaadMembers, getOwners, getApartments, updateSettingsBasic, upsertVaadMember, deleteVaadMember } from '../store.js';
 import { esc } from '../utils.js';
 import { t } from '../i18n.js';
 import { setHTML, renderPageHeader, openModal, confirmDialog, toast, requireAdmin, Icon } from '../ui.js';
@@ -283,13 +283,68 @@ async function handlePayboxSubmit(ev) {
 }
 
 // ----- Members section -----
+// Builds the source-list for the picker: every owner first, then every
+// renter-occupied apartment. Each option carries `kind` ('owner' or
+// 'apartment') and the source id, so the server can re-snapshot phone/email.
+function buildPickerOptions() {
+  const apts = getApartments();
+  const aptByOwnerId = new Map();
+  for (const a of apts) {
+    if (!a.ownerId) continue;
+    const arr = aptByOwnerId.get(a.ownerId) || [];
+    arr.push(String(a.number));
+    aptByOwnerId.set(a.ownerId, arr);
+  }
+  const opts = [];
+  for (const o of [...getOwners()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'he'))) {
+    const apartments = (aptByOwnerId.get(o.id) || [])
+      .sort((x, y) => String(x).localeCompare(String(y), undefined, { numeric: true }))
+      .join(', ');
+    const suffix = apartments ? ` · ${t('about.members.picker.aptsSuffix', { list: apartments })}` : '';
+    opts.push({
+      key: `owner:${o.id}`,
+      kind: 'owner',
+      id: o.id,
+      label: `${t('about.members.picker.ownerPrefix')}${o.name || '—'}${suffix}`,
+    });
+  }
+  for (const a of apts.filter(x => x.occupantType === 'renter')) {
+    const renterName = a.owner || '—';
+    opts.push({
+      key: `apartment:${a.id}`,
+      kind: 'apartment',
+      id: a.id,
+      label: `${t('about.members.picker.renterPrefix', { number: a.number })}${renterName}`,
+    });
+  }
+  return opts;
+}
+
+function lookupPickerLabel(kind, id) {
+  if (!kind || !id) return null;
+  if (kind === 'owner') {
+    const o = getOwners().find(x => x.id === id);
+    return o ? `${t('about.members.picker.ownerPrefix')}${o.name || '—'}` : t('about.members.picker.deleted');
+  }
+  if (kind === 'apartment') {
+    const a = getApartments().find(x => x.id === id);
+    return a ? `${t('about.members.picker.renterPrefix', { number: a.number })}${a.owner || '—'}` : t('about.members.picker.deleted');
+  }
+  return null;
+}
+
 function renderMemberCard(m, isAdmin) {
+  // Show the link-source badge under the name (e.g., "בעלים · יוסף כהן")
+  // when the row is linked. Falls back gracefully when the source row was
+  // deleted after the snapshot.
+  const linkLabel = lookupPickerLabel(m.linkedKind, m.linkedId);
   return `
     <div class="card" style="padding:12px 14px">
       <div class="hstack" style="gap:10px; flex-wrap:wrap">
         <div>
           <div style="font-weight:700; font-size:15px">${esc(m.name)}</div>
           ${m.role ? `<div class="muted" style="font-size:13px">${esc(m.role)}</div>` : ''}
+          ${linkLabel ? `<div class="muted" style="font-size:11px; margin-top:2px">${esc(linkLabel)}</div>` : ''}
         </div>
         <div class="spacer"></div>
         ${isAdmin ? `
@@ -311,34 +366,39 @@ function renderMemberCard(m, isAdmin) {
 function openMemberDialog(member = null) {
   if (!requireAdmin()) return;
   const isEdit = !!member;
+  const opts = buildPickerOptions();
+  if (!opts.length) {
+    toast(t('about.members.noPeopleAvailable'), 'warning');
+    return;
+  }
+  const initialKey = isEdit && member.linkedKind && member.linkedId
+    ? `${member.linkedKind}:${member.linkedId}`
+    : '';
   const m = openModal({
     title: isEdit ? t('about.members.dialog.edit') : t('about.members.dialog.add'),
     body: `
       <form id="vm-form" class="form-grid">
         <div class="field field--required" style="grid-column:1/-1">
-          <label class="field__label">${esc(t('about.members.field.name'))}</label>
-          <input class="input" name="name" required value="${esc(member?.name || '')}" />
+          <label class="field__label">${esc(t('about.members.field.person'))}</label>
+          <select class="select" id="vm-person" required>
+            <option value="" ${!initialKey ? 'selected' : ''}>${esc(t('about.members.field.person.choose'))}</option>
+            ${opts.map(o => `<option value="${esc(o.key)}" ${o.key === initialKey ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+          </select>
+          <div class="field__hint">${esc(t('about.members.field.person.hint'))}</div>
         </div>
         <div class="field">
           <label class="field__label">${esc(t('about.members.field.role'))}</label>
-          <input class="input" name="role" value="${esc(member?.role || '')}" />
+          <input class="input" name="role" value="${esc(member?.role || '')}" placeholder="${esc(t('about.members.field.rolePlaceholder'))}" />
         </div>
         <div class="field">
           <label class="field__label">${esc(t('about.members.field.order'))}</label>
           <input class="input" name="displayOrder" type="number" min="0" value="${member?.displayOrder ?? 0}" />
         </div>
-        <div class="field">
-          <label class="field__label">${esc(t('about.members.field.phone'))}</label>
-          <input class="input" name="phone" type="tel" value="${esc(member?.phone || '')}" />
-        </div>
-        <div class="field">
-          <label class="field__label">${esc(t('about.members.field.email'))}</label>
-          <input class="input" name="email" type="email" value="${esc(member?.email || '')}" />
-        </div>
         <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('about.members.field.notes'))}</label>
           <textarea class="textarea" name="notes" rows="2">${esc(member?.notes || '')}</textarea>
         </div>
+        <div class="muted" style="grid-column:1/-1; font-size:12px">${esc(t('about.members.field.snapshotHint'))}</div>
       </form>
     `,
     footer: `
@@ -350,14 +410,15 @@ function openMemberDialog(member = null) {
   m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
     const f = m.bodyEl.querySelector('#vm-form');
     const data = Object.fromEntries(new FormData(f).entries());
-    if (!data.name) { toast(t('about.members.nameRequired'), 'warning'); return; }
+    const personKey = m.bodyEl.querySelector('#vm-person').value;
+    if (!personKey) { toast(t('about.members.personRequired'), 'warning'); return; }
+    const [linkedKind, linkedId] = personKey.split(':');
     try {
       await upsertVaadMember({
         id: member?.id,
-        name: data.name,
+        linkedKind,
+        linkedId,
         role: data.role || null,
-        phone: data.phone || null,
-        email: data.email || null,
         notes: data.notes || null,
         displayOrder: Number(data.displayOrder || 0),
       });

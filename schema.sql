@@ -520,6 +520,23 @@ CREATE TABLE IF NOT EXISTS vaad_members (
 );
 CREATE INDEX IF NOT EXISTS idx_vaad_members_order ON vaad_members(display_order, created_at);
 
+-- Each vaad-member must be linked to an existing person (owner or apartment-
+-- renter). The vaad_members table still stores a name/phone/email snapshot
+-- so the committee card renders even if the linked entity changes; this
+-- table records the link itself so the admin can pick from a curated list.
+-- kind = 'owner' → linked_id is owners.id
+-- kind = 'apartment' → linked_id is apartments.id (renter snapshot from
+--   apartments.owner / apartments.phone / apartments.email).
+-- ON DELETE CASCADE on member_id; we deliberately don't FK linked_id so a
+-- deleted owner/apartment doesn't cascade-remove the committee row.
+CREATE TABLE IF NOT EXISTS vaad_member_link (
+  member_id  TEXT PRIMARY KEY REFERENCES vaad_members(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK(kind IN ('owner', 'apartment')),
+  linked_id  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vaad_member_link_linked
+  ON vaad_member_link(kind, linked_id);
+
 -- Optional opt-in email per apartment for monthly reports / broadcasts. The
 -- consent timestamp is recorded so the admin can prove opt-in if challenged
 -- (Israeli anti-spam law, GDPR-equivalent).
