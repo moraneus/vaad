@@ -29,6 +29,7 @@ export const onRequestPost = async ({ request, env }) => {
     db.prepare('DELETE FROM expense_auto_extend'),
     db.prepare('DELETE FROM expense_default_method'),
     db.prepare('DELETE FROM expense_contact_link'),
+    db.prepare('DELETE FROM expense_subtype'),
     db.prepare('DELETE FROM expense_rates'),
     db.prepare('DELETE FROM expenses'),
     db.prepare('DELETE FROM contacts'),

@@ -21,7 +21,33 @@ async function loadExpense(db, id) {
   e.defaultMethod = dm?.method || null;
   const cl = await db.prepare('SELECT contact_id FROM expense_contact_link WHERE expense_id = ?').bind(id).first();
   e.contactId = cl?.contact_id || null;
+  // Promote the logical subtype over the stored DB type (e.g., installments
+  // is stored as 'monthly' due to the CHECK constraint, but presented as
+  // 'installments' to the frontend).
+  const sub = await db.prepare('SELECT subtype FROM expense_subtype WHERE expense_id = ?').bind(id).first();
+  if (sub?.subtype) e.type = sub.subtype;
   return e;
+}
+
+// Maps a logical type from the API request to the underlying type stored in
+// `expenses.type` (which is constrained by an old CHECK). Returns the pair
+// { storedType, subtype } where subtype is null when the logical type
+// matches the stored type 1:1.
+function resolveStoredType(logicalType) {
+  if (logicalType === 'installments') return { storedType: 'monthly', subtype: 'installments' };
+  return { storedType: logicalType, subtype: null };
+}
+
+// Upserts/clears the subtype tag for an expense.
+async function writeSubtype(db, expenseId, subtype) {
+  if (subtype) {
+    await db.prepare(
+      'INSERT INTO expense_subtype (expense_id, subtype) VALUES (?, ?) ' +
+      'ON CONFLICT(expense_id) DO UPDATE SET subtype = excluded.subtype'
+    ).bind(expenseId, subtype).run();
+  } else {
+    await db.prepare('DELETE FROM expense_subtype WHERE expense_id = ?').bind(expenseId).run();
+  }
 }
 
 // Upserts (or clears) the contact link for an expense. Falsy contactId
@@ -78,6 +104,9 @@ export const onRequestGet = async ({ request, env }) => {
   // And contact links — single fetch.
   const clRows = (await env.DB.prepare('SELECT expense_id, contact_id FROM expense_contact_link').all()).results || [];
   const clMap = new Map(clRows.map(r => [r.expense_id, r.contact_id]));
+  // Same idea for subtypes (e.g., 'installments').
+  const subRows = (await env.DB.prepare('SELECT expense_id, subtype FROM expense_subtype').all()).results || [];
+  const subMap = new Map(subRows.map(r => [r.expense_id, r.subtype]));
   // Hydrate rate history + document links per expense
   const out = [];
   for (const e of rows.results) {
@@ -88,6 +117,8 @@ export const onRequestGet = async ({ request, env }) => {
     e.autoExtend = autoIds.has(e.id);
     e.defaultMethod = dmMap.get(e.id) || null;
     e.contactId = clMap.get(e.id) || null;
+    // Surface the logical subtype as the type if present.
+    if (subMap.has(e.id)) e.type = subMap.get(e.id);
     out.push(e);
   }
   return json({ expenses: out });
@@ -102,6 +133,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (!name || !type || amount == null) return error('שדות חובה חסרים', 400);
   if (!['monthly', 'annual', 'oneoff', 'installments'].includes(type)) return error('סוג לא תקף', 400);
 
+  // Map the logical type to the underlying DB type (handles 'installments'
+  // → stored as 'monthly' + tagged in expense_subtype).
+  const { storedType, subtype } = resolveStoredType(type);
+
   const category = pickStr(body.category, 100);
   const status = pickStr(body.status, 20) || 'active';
   const notes = pickStr(body.notes, 1000);
@@ -114,7 +149,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   const id = uid('exp-');
   await env.DB.prepare('INSERT INTO expenses (id, name, category, type, amount, start_date, end_date, bill_date, one_off_date, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, name, category || null, type, amount, startDate, endDate, billDate, oneOffDate, notes || null, status).run();
+    .bind(id, name, category || null, storedType, amount, startDate, endDate, billDate, oneOffDate, notes || null, status).run();
   if (type === 'annual' && startDate) {
     await env.DB.prepare('INSERT INTO expense_rates (id, expense_id, effective_from, amount) VALUES (?, ?, ?, ?)')
       .bind(uid('rate-'), id, startDate, amount).run();
@@ -125,6 +160,7 @@ export const onRequestPost = async ({ request, env }) => {
   }
   await writeDefaultMethod(env.DB, id, pickStr(body.defaultMethod, 16));
   await writeContactLink(env.DB, id, pickStr(body.contactId, 80));
+  await writeSubtype(env.DB, id, subtype);
   await logAudit(env.DB, request, { event: 'expense_created', role: 'admin', userLabel: 'מנהל', meta: { name, type, amount }, success: true });
   return json(await loadExpense(env.DB, id), { status: 201 });
 };
@@ -138,12 +174,15 @@ export const onRequestPut = async ({ request, env }) => {
   const type = pickStr(body.type, 16);
   const amount = pickNum(body.amount);
   if (!name || !type || amount == null) return error('שדות חובה חסרים', 400);
+  if (!['monthly', 'annual', 'oneoff', 'installments'].includes(type)) return error('סוג לא תקף', 400);
+  // Same logical→stored mapping as POST.
+  const { storedType, subtype } = resolveStoredType(type);
   const updEndDate = isISODate(body.endDate) ? body.endDate : null;
   await env.DB.prepare(`UPDATE expenses SET name = ?, category = ?, type = ?, amount = ?, start_date = ?, end_date = ?, bill_date = ?, one_off_date = ?, notes = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
     .bind(
       name,
       pickStr(body.category, 100) || null,
-      type,
+      storedType,
       amount,
       isISODate(body.startDate) ? body.startDate : null,
       updEndDate,
@@ -160,6 +199,7 @@ export const onRequestPut = async ({ request, env }) => {
   await writeAutoExtend(env.DB, id, wantAuto);
   await writeDefaultMethod(env.DB, id, pickStr(body.defaultMethod, 16));
   await writeContactLink(env.DB, id, pickStr(body.contactId, 80));
+  await writeSubtype(env.DB, id, subtype);
   await logAudit(env.DB, request, { event: 'expense_updated', role: 'admin', userLabel: 'מנהל', success: true });
   return json(await loadExpense(env.DB, id));
 };

@@ -319,6 +319,18 @@ CREATE TABLE IF NOT EXISTS expense_default_method (
   method     TEXT NOT NULL
 );
 
+-- Subtype tag for an expense — used when we want a logical type that the
+-- existing `expenses.type` CHECK constraint doesn't allow ('installments'
+-- in particular). The expense row stores the closest underlying type
+-- (e.g., installments → 'monthly') and this table tags it so the frontend
+-- can render the right label and the right form. Stored separately because
+-- the CHECK constraint on the expenses table can't be widened idempotently
+-- in SQLite without a full table rebuild.
+CREATE TABLE IF NOT EXISTS expense_subtype (
+  expense_id TEXT PRIMARY KEY REFERENCES expenses(id) ON DELETE CASCADE,
+  subtype    TEXT NOT NULL
+);
+
 -- Optional link from an expense to a real contact in the contacts table.
 -- Stored separately (rather than as a column on expenses) so the migration
 -- stays additive + idempotent. The link is one-way: an expense has at most
@@ -344,6 +356,21 @@ CREATE TABLE IF NOT EXISTS contacts (
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Multi-phone storage for contacts. Same shape as owner_phones — the legacy
+-- contacts.phone column stays as the "primary" phone for display fallback,
+-- and rows here are additional phones each with an optional `label` (e.g.,
+-- "office", "after hours"). PUT /api/contacts replaces all rows for that
+-- contact_id with the array supplied in the body.
+CREATE TABLE IF NOT EXISTS contact_phones (
+  id          TEXT PRIMARY KEY,
+  contact_id  TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  phone       TEXT NOT NULL,
+  label       TEXT,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_contact_phones_contact ON contact_phones(contact_id, sort_order);
 
 -- Documents metadata (binary lives in Google Drive)
 CREATE TABLE IF NOT EXISTS documents (
