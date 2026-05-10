@@ -460,6 +460,16 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
           <label class="field__label">${esc(t('common.notes'))}</label>
           <textarea class="textarea" name="notes" rows="2">${esc(isEdit ? (editing.notes || '') : '')}</textarea>
         </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('exp.payment.field.files'))}</label>
+          <div class="field__hint">${esc(t('exp.payment.field.filesHint'))}</div>
+          <div id="epay-existing-docs" style="margin-top:8px"></div>
+          <div id="epay-files-queue" style="display:flex; flex-direction:column; gap:6px; margin-top:8px"></div>
+          <div style="margin-top:8px">
+            <input type="file" id="epay-files-input" accept="image/*,application/pdf" multiple style="display:none" />
+            <button type="button" class="btn btn--sm" id="epay-add-files-btn">${Icon.upload} ${esc(t('exp.dialog.addFiles'))}</button>
+          </div>
+        </div>
       </form>
     `,
     footer: `
@@ -467,6 +477,73 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
       <button class="btn btn--primary" data-act="save">${esc(t('common.save'))}</button>
     `,
   });
+
+  // ----- File queue + existing payment-level attachments -----
+  // Already-attached docs only matter when editing an existing payment.
+  const existingDocs = isEdit
+    ? getDocuments().filter(d => (d.links || []).some(l => l.type === 'expense_payment' && l.targetId === editing.id))
+    : [];
+  const pendingFiles = [];
+  const queueEl = m.bodyEl.querySelector('#epay-files-queue');
+  const existingDocsEl = m.bodyEl.querySelector('#epay-existing-docs');
+  const fileInput = m.bodyEl.querySelector('#epay-files-input');
+  const renderQueue = () => {
+    if (!pendingFiles.length) { setHTML(queueEl, ''); return; }
+    setHTML(queueEl, `
+      <div class="muted" style="font-size:12px">${esc(t('exp.dialog.filesPending', { n: pendingFiles.length }))}</div>
+      ${pendingFiles.map((entry, i) => `
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; gap:8px">
+          <span title="${esc(entry.file.name)}">${Icon.document}</span>
+          <input class="input pending-name-input" type="text" data-i="${i}"
+                 value="${esc(entry.displayName)}"
+                 placeholder="${esc(t('docs.field.displayNamePlaceholder'))}"
+                 style="flex:1; min-width:120px; font-size:13px; padding:4px 8px" />
+          <button type="button" class="btn btn--sm btn--icon" data-rm-i="${i}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+        </div>
+      `).join('')}
+    `);
+    queueEl.querySelectorAll('[data-rm-i]').forEach(b => b.addEventListener('click', () => {
+      pendingFiles.splice(Number(b.dataset.rmI), 1);
+      renderQueue();
+    }));
+    queueEl.querySelectorAll('.pending-name-input').forEach(el => el.addEventListener('input', () => {
+      const i = Number(el.dataset.i);
+      if (pendingFiles[i]) pendingFiles[i].displayName = el.value;
+    }));
+  };
+  const renderExistingDocs = () => {
+    if (!existingDocs.length) { setHTML(existingDocsEl, ''); return; }
+    setHTML(existingDocsEl, `
+      <div class="muted" style="font-size:12px; margin-bottom:4px">${esc(t('infra.dialog.filesExisting', { n: existingDocs.length }))}</div>
+      ${existingDocs.map(d => `
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; margin-bottom:4px; gap:6px">
+          <span>${Icon.document}</span>
+          <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(d.displayName || d.name)}</span>
+          <a class="btn btn--sm" href="/api/documents/${esc(d.id)}" target="_blank" rel="noopener" title="${esc(t('common.view'))}">${esc(t('common.view'))}</a>
+          <a class="btn btn--sm btn--icon" href="/api/documents/${esc(d.id)}" download="${esc(d.displayName || d.name)}" title="${esc(t('common.download'))}">${Icon.download}</a>
+          <button type="button" class="btn btn--sm btn--icon" data-del-doc="${esc(d.id)}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
+        </div>
+      `).join('')}
+    `);
+    existingDocsEl.querySelectorAll('[data-del-doc]').forEach(b => b.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: t('common.delete'), message: t('docs.delete.confirm'), confirmText: t('common.delete'), danger: true });
+      if (!ok) return;
+      try {
+        await deleteDocument(b.dataset.delDoc);
+        const idx = existingDocs.findIndex(x => x.id === b.dataset.delDoc);
+        if (idx >= 0) existingDocs.splice(idx, 1);
+        renderExistingDocs();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    }));
+  };
+  m.bodyEl.querySelector('#epay-add-files-btn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    for (const f of fileInput.files || []) pendingFiles.push({ file: f, displayName: f.name });
+    fileInput.value = '';
+    renderQueue();
+  });
+  renderExistingDocs();
+
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
   m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
     const f = m.bodyEl.querySelector('#epay-form');
@@ -474,7 +551,7 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
     const { year, month } = parseMonthKey(data.monthKey);
     if (!data.amount) { toast(t('pay.amountRequired'), 'warning'); return; }
     try {
-      await upsertExpensePayment({
+      const saved = await upsertExpensePayment({
         id: isEdit ? editing.id : undefined,
         expenseId: exp.id,
         year, month,
@@ -483,7 +560,26 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
         method: data.method,
         notes: data.notes,
       });
-      toast(isEdit ? t('exp.payment.updated') : t('exp.payment.recorded'), 'success');
+      // The store's upsertExpensePayment doesn't currently return the row,
+      // so on a NEW payment we re-find the latest matching one from the
+      // freshly-refreshed cache. A small heuristic but reliable for the
+      // common case.
+      let paymentId = isEdit ? editing.id : null;
+      if (!paymentId) {
+        const fresh = getExpensePayments()
+          .filter(p => p.expenseId === exp.id && p.year === year && p.month === month)
+          .sort((a, b) => String(b.paidOn || '').localeCompare(String(a.paidOn || '')));
+        paymentId = fresh[0]?.id;
+      }
+      // Upload queued files attached to this payment.
+      let uploadFails = 0;
+      if (paymentId) {
+        for (const entry of pendingFiles) {
+          try { await uploadDocument(entry.file, { type: 'expense_payment', id: paymentId }, entry.displayName); }
+          catch (err) { uploadFails++; toast(`${entry.file.name}: ${err.message || t('common.error')}`, 'danger'); }
+        }
+      }
+      if (uploadFails === 0) toast(isEdit ? t('exp.payment.updated') : t('exp.payment.recorded'), 'success');
       m.close();
       onSaved && onSaved();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
@@ -600,6 +696,17 @@ function renderExpensePaymentsBlock(e, isAdmin) {
       return String(b.paidOn || '').localeCompare(String(a.paidOn || ''));
     });
   const total = rows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  // Pre-compute the docs-per-payment count so each row can show a small
+  // "📎 N" badge without re-scanning the documents cache N times.
+  const docsByPayment = new Map();
+  for (const d of getDocuments()) {
+    for (const l of (d.links || [])) {
+      if (l.type !== 'expense_payment') continue;
+      const arr = docsByPayment.get(l.targetId) || [];
+      arr.push(d);
+      docsByPayment.set(l.targetId, arr);
+    }
+  }
   return `
     <div class="hstack" style="gap:10px; align-items:baseline; margin-bottom:8px">
       <strong>${esc(t('exp.payments.title'))}</strong>
@@ -619,17 +726,32 @@ function renderExpensePaymentsBlock(e, isAdmin) {
               <th>${esc(t('exp.payments.col.paidOn'))}</th>
               <th>${esc(t('exp.payments.col.method'))}</th>
               <th>${esc(t('common.notes'))}</th>
+              <th>${esc(t('exp.payments.col.docs'))}</th>
               ${isAdmin ? `<th class="actions">${esc(t('common.actions'))}</th>` : ''}
             </tr>
           </thead>
           <tbody>
-            ${rows.map(p => `
+            ${rows.map(p => {
+              const docs = docsByPayment.get(p.id) || [];
+              // Render each linked doc as a compact pair of view + download
+              // buttons so the admin can grab the file directly from the
+              // payment row without re-opening the payment dialog.
+              const docsCell = docs.length
+                ? `<div class="vstack" style="gap:2px; font-size:12px">${docs.map(d => `
+                    <span class="hstack" style="gap:4px">
+                      <a href="${api.documentURL(d.id)}" target="_blank" rel="noopener" title="${esc(t('common.view'))}" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px">${Icon.document} ${esc(d.displayName || d.name)}</a>
+                      <a href="${api.documentURL(d.id)}" download="${esc(d.displayName || d.name)}" title="${esc(t('common.download'))}" style="display:inline-flex">${Icon.download}</a>
+                    </span>
+                  `).join('')}</div>`
+                : '<span class="muted">—</span>';
+              return `
               <tr>
                 <td>${esc(monthName(p.month))} ${p.year}</td>
                 <td class="num text-success">${fmtCurrency(p.amount)}</td>
                 <td>${p.paidOn ? fmtDate(p.paidOn) : '—'}</td>
                 <td>${esc(paymentMethodLabel(p.method))}</td>
                 <td class="muted">${esc(p.notes || '—')}</td>
+                <td>${docsCell}</td>
                 ${isAdmin ? `
                   <td class="actions">
                     <button class="btn btn--sm btn--icon" data-act="exp-edit-pay" data-pid="${p.id}" data-eid="${e.id}" title="${esc(t('common.edit'))}">${Icon.edit}</button>
@@ -637,7 +759,7 @@ function renderExpensePaymentsBlock(e, isAdmin) {
                   </td>
                 ` : ''}
               </tr>
-            `).join('')}
+            `;}).join('')}
           </tbody>
         </table>
       </div>
@@ -826,6 +948,9 @@ function openExpenseDialog(exp = null) {
   });
 
   // ----- File queue + existing attachments -----
+  // Each pending entry tracks the File plus an editable display name so the
+  // admin can rename it before save (instead of having to walk to the
+  // documents page afterwards). Defaults to the original filename.
   const pendingFiles = [];
   const queueEl = m.bodyEl.querySelector('#files-queue');
   const existingEl = m.bodyEl.querySelector('#existing-docs');
@@ -835,11 +960,14 @@ function openExpenseDialog(exp = null) {
     if (!pendingFiles.length) { setHTML(queueEl, ''); return; }
     setHTML(queueEl, `
       <div class="muted" style="font-size:12px">${esc(t('exp.dialog.filesPending', { n: pendingFiles.length }))}</div>
-      ${pendingFiles.map((f, i) => `
-        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px">
-          <span>${Icon.document} ${esc(f.name)}</span>
-          <span class="muted" style="font-size:12px">${formatBytes(f.size)}</span>
-          <div class="spacer"></div>
+      ${pendingFiles.map((entry, i) => `
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; gap:8px">
+          <span title="${esc(entry.file.name)}">${Icon.document}</span>
+          <input class="input pending-name-input" type="text" data-i="${i}"
+                 value="${esc(entry.displayName)}"
+                 placeholder="${esc(t('docs.field.displayNamePlaceholder'))}"
+                 style="flex:1; min-width:120px; font-size:13px; padding:4px 8px" />
+          <span class="muted" style="font-size:12px">${formatBytes(entry.file.size)}</span>
           <button type="button" class="btn btn--sm btn--icon" data-rm-i="${i}" title="${esc(t('exp.dialog.removeFromQueue'))}">${Icon.trash}</button>
         </div>
       `).join('')}
@@ -847,6 +975,10 @@ function openExpenseDialog(exp = null) {
     queueEl.querySelectorAll('[data-rm-i]').forEach(b => b.addEventListener('click', () => {
       pendingFiles.splice(Number(b.dataset.rmI), 1);
       renderQueue();
+    }));
+    queueEl.querySelectorAll('.pending-name-input').forEach(el => el.addEventListener('input', () => {
+      const i = Number(el.dataset.i);
+      if (pendingFiles[i]) pendingFiles[i].displayName = el.value;
     }));
   };
 
@@ -857,10 +989,12 @@ function openExpenseDialog(exp = null) {
     setHTML(existingEl, `
       <div class="vstack" style="gap:6px">
         ${docs.map(d => `
-          <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px">
-            <span>${Icon.document} <a href="${api.documentURL(d.id)}" target="_blank" rel="noopener">${esc(d.name)}</a></span>
+          <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; gap:6px">
+            <span>${Icon.document}</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(d.displayName || d.name)}</span>
             <span class="muted" style="font-size:12px">${formatBytes(d.size)}</span>
-            <div class="spacer"></div>
+            <a class="btn btn--sm" href="${api.documentURL(d.id)}" target="_blank" rel="noopener" title="${esc(t('common.view'))}">${esc(t('common.view'))}</a>
+            <a class="btn btn--sm btn--icon" href="${api.documentURL(d.id)}" download="${esc(d.displayName || d.name)}" title="${esc(t('common.download'))}">${Icon.download}</a>
             <button type="button" class="btn btn--sm btn--icon" data-detach="${d.id}" title="${esc(t('exp.docs.detach.confirm'))}">${Icon.trash}</button>
           </div>
         `).join('')}
@@ -879,7 +1013,7 @@ function openExpenseDialog(exp = null) {
 
   m.bodyEl.querySelector('#add-files-btn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
-    for (const f of Array.from(fileInput.files || [])) pendingFiles.push(f);
+    for (const f of Array.from(fileInput.files || [])) pendingFiles.push({ file: f, displayName: f.name });
     fileInput.value = '';
     renderQueue();
   });
@@ -1097,11 +1231,12 @@ function openExpenseDialog(exp = null) {
     try {
       const saved = await upsertExpense({ id: exp?.id, ...data, amount: perMonthAmount, autoExtend });
       const expenseId = saved?.id || exp?.id;
-      // Upload queued files (best effort — surface failures via toast)
+      // Upload queued files (best effort — surface failures via toast). Each
+      // entry carries a displayName the admin may have edited inline.
       let uploadFails = 0;
-      for (const file of pendingFiles) {
-        try { await uploadDocument(file, { type: 'expense', id: expenseId }); }
-        catch (err) { uploadFails++; toast(`${file.name}: ${err.message || t('common.error')}`, 'danger'); }
+      for (const entry of pendingFiles) {
+        try { await uploadDocument(entry.file, { type: 'expense', id: expenseId }, entry.displayName); }
+        catch (err) { uploadFails++; toast(`${entry.file.name}: ${err.message || t('common.error')}`, 'danger'); }
       }
       if (uploadFails === 0) toast(isEdit ? t('exp.updated') : t('exp.added'), 'success');
       m.close();

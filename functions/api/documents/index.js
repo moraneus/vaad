@@ -34,6 +34,11 @@ export const onRequestGet = async ({ request, env }) => {
     `SELECT document_id AS docId, expense_id AS targetId
      FROM infrastructure_expense_documents WHERE document_id IN (${placeholders})`
   ).bind(...ids).all()).results : [];
+  // Per-payment expense docs — same pattern.
+  const paymentLinks = ids.length ? (await env.DB.prepare(
+    `SELECT document_id AS docId, payment_id AS targetId
+     FROM expense_payment_documents WHERE document_id IN (${placeholders})`
+  ).bind(...ids).all()).results : [];
   const linkMap = new Map();
   for (const l of links) {
     if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
@@ -42,6 +47,10 @@ export const onRequestGet = async ({ request, env }) => {
   for (const l of infraLinks) {
     if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
     linkMap.get(l.docId).push({ type: 'infrastructure_expense', targetId: l.targetId });
+  }
+  for (const l of paymentLinks) {
+    if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
+    linkMap.get(l.docId).push({ type: 'expense_payment', targetId: l.targetId });
   }
   for (const d of docs.results) d.links = linkMap.get(d.id) || [];
   return json({ documents: docs.results });
@@ -105,6 +114,11 @@ export const onRequestPost = async ({ request, env }) => {
       // constraint can't include this type without an idempotency-breaking
       // migration.
       await env.DB.prepare('INSERT OR IGNORE INTO infrastructure_expense_documents (document_id, expense_id) VALUES (?, ?)')
+        .bind(id, targetId).run();
+    } else if (targetType === 'expense_payment') {
+      // Per-payment attachment on an expense_payments row — same dedicated-
+      // table reasoning as infrastructure_expense.
+      await env.DB.prepare('INSERT OR IGNORE INTO expense_payment_documents (document_id, payment_id) VALUES (?, ?)')
         .bind(id, targetId).run();
     }
   }

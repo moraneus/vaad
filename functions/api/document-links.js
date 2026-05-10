@@ -4,8 +4,10 @@
 import { json, error, readJSON, pickStr } from '../lib/util.js';
 import { requireAdmin } from '../lib/guard.js';
 
-// `infrastructure_expense` is stored in a separate table (see schema.sql).
-const ALLOWED_TYPES = new Set(['expense', 'payment', 'infrastructure_expense']);
+// `infrastructure_expense` and `expense_payment` are stored in separate
+// tables — the document_links CHECK constraint can't be widened idempotently
+// to admit them.
+const ALLOWED_TYPES = new Set(['expense', 'payment', 'infrastructure_expense', 'expense_payment']);
 
 export const onRequestPost = async ({ request, env }) => {
   const r = await requireAdmin(env, request); if (r.error) return r.error;
@@ -17,6 +19,10 @@ export const onRequestPost = async ({ request, env }) => {
   if (targetType === 'infrastructure_expense') {
     await env.DB.prepare(
       'INSERT OR IGNORE INTO infrastructure_expense_documents (document_id, expense_id) VALUES (?, ?)'
+    ).bind(documentId, targetId).run();
+  } else if (targetType === 'expense_payment') {
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO expense_payment_documents (document_id, payment_id) VALUES (?, ?)'
     ).bind(documentId, targetId).run();
   } else {
     await env.DB.prepare(
@@ -33,6 +39,10 @@ export const onRequestDelete = async ({ request, env }) => {
   if (targetType === 'infrastructure_expense') {
     await env.DB.prepare(
       'DELETE FROM infrastructure_expense_documents WHERE document_id = ? AND expense_id = ?'
+    ).bind(u.get('documentId'), u.get('targetId')).run();
+  } else if (targetType === 'expense_payment') {
+    await env.DB.prepare(
+      'DELETE FROM expense_payment_documents WHERE document_id = ? AND payment_id = ?'
     ).bind(u.get('documentId'), u.get('targetId')).run();
   } else {
     await env.DB.prepare('DELETE FROM document_links WHERE document_id = ? AND target_type = ? AND target_id = ?')

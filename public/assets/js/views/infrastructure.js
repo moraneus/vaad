@@ -175,10 +175,13 @@ function openExpenseDialog(exp = null) {
     if (!pendingFiles.length) { setHTML(queueEl, ''); return; }
     setHTML(queueEl, `
       <div class="muted" style="font-size:12px">${esc(t('infra.dialog.filesPending', { n: pendingFiles.length }))}</div>
-      ${pendingFiles.map((f, i) => `
-        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px">
-          <span>${Icon.document} ${esc(f.name)}</span>
-          <div class="spacer"></div>
+      ${pendingFiles.map((entry, i) => `
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; gap:8px">
+          <span title="${esc(entry.file.name)}">${Icon.document}</span>
+          <input class="input pending-name-input" type="text" data-i="${i}"
+                 value="${esc(entry.displayName)}"
+                 placeholder="${esc(t('docs.field.displayNamePlaceholder'))}"
+                 style="flex:1; min-width:120px; font-size:13px; padding:4px 8px" />
           <button type="button" class="btn btn--sm btn--icon" data-rm-i="${i}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
         </div>
       `).join('')}
@@ -187,15 +190,21 @@ function openExpenseDialog(exp = null) {
       pendingFiles.splice(Number(b.dataset.rmI), 1);
       renderQueue();
     }));
+    queueEl.querySelectorAll('.pending-name-input').forEach(el => el.addEventListener('input', () => {
+      const i = Number(el.dataset.i);
+      if (pendingFiles[i]) pendingFiles[i].displayName = el.value;
+    }));
   };
   const renderExisting = () => {
     if (!existingDocs.length) { setHTML(existingEl, ''); return; }
     setHTML(existingEl, `
       <div class="muted" style="font-size:12px; margin-bottom:4px">${esc(t('infra.dialog.filesExisting', { n: existingDocs.length }))}</div>
       ${existingDocs.map(d => `
-        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; margin-bottom:4px">
-          <a href="/api/documents/${esc(d.id)}" target="_blank" rel="noopener">${Icon.document} ${esc(d.displayName || d.name)}</a>
-          <div class="spacer"></div>
+        <div class="hstack" style="border:1px solid var(--c-border); padding:6px 10px; border-radius:8px; font-size:13px; margin-bottom:4px; gap:6px">
+          <span>${Icon.document}</span>
+          <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(d.displayName || d.name)}</span>
+          <a class="btn btn--sm" href="/api/documents/${esc(d.id)}" target="_blank" rel="noopener" title="${esc(t('common.view'))}">${esc(t('common.view'))}</a>
+          <a class="btn btn--sm btn--icon" href="/api/documents/${esc(d.id)}" download="${esc(d.displayName || d.name)}" title="${esc(t('common.download'))}">${Icon.download}</a>
           <button type="button" class="btn btn--sm btn--icon" data-del-doc="${esc(d.id)}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
         </div>
       `).join('')}
@@ -213,7 +222,7 @@ function openExpenseDialog(exp = null) {
   };
   m.bodyEl.querySelector('#infra-add-files-btn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
-    for (const f of fileInput.files || []) pendingFiles.push(f);
+    for (const f of fileInput.files || []) pendingFiles.push({ file: f, displayName: f.name });
     fileInput.value = '';
     renderQueue();
   });
@@ -238,9 +247,9 @@ function openExpenseDialog(exp = null) {
       // Upload queued files. Failures surface via toast and don't roll back
       // the expense — the admin can re-attach later from the edit dialog.
       let uploadFails = 0;
-      for (const file of pendingFiles) {
-        try { await uploadDocument(file, { type: 'infrastructure_expense', id: expenseId }); }
-        catch (err) { uploadFails++; toast(`${file.name}: ${err.message || t('common.error')}`, 'danger'); }
+      for (const entry of pendingFiles) {
+        try { await uploadDocument(entry.file, { type: 'infrastructure_expense', id: expenseId }, entry.displayName); }
+        catch (err) { uploadFails++; toast(`${entry.file.name}: ${err.message || t('common.error')}`, 'danger'); }
       }
       if (uploadFails === 0) toast(isEdit ? t('infra.updated') : t('infra.added'), 'success');
       m.close();

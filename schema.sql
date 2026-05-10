@@ -431,6 +431,18 @@ CREATE TABLE IF NOT EXISTS infrastructure_expense_documents (
 CREATE INDEX IF NOT EXISTS idx_infra_doc_expense
   ON infrastructure_expense_documents(expense_id);
 
+-- Per-payment documents on `expense_payments`. Same reasoning as the
+-- infrastructure table — the legacy document_links CHECK can't admit a new
+-- target_type idempotently, so payment-level attachments live in a
+-- dedicated table.
+CREATE TABLE IF NOT EXISTS expense_payment_documents (
+  document_id  TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  payment_id   TEXT NOT NULL REFERENCES expense_payments(id) ON DELETE CASCADE,
+  PRIMARY KEY (document_id, payment_id)
+);
+CREATE INDEX IF NOT EXISTS idx_exp_pay_doc_payment
+  ON expense_payment_documents(payment_id);
+
 -- Per-apartment manual adjustments (charges/credits) that affect the apartment
 -- outstanding balance independently of monthly fees and payments.
 --   kind = 'charge' adds to debt, 'credit' reduces debt (or creates a positive balance).

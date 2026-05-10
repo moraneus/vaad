@@ -28,13 +28,27 @@ export function renderDocuments() {
   // Infrastructure-expense links — populated from the document.links array
   // (added to the documents endpoint when we introduced the new attachment).
   const infraById = new Map(infraExpenses.map(e => [e.id, e]));
+  // Per-payment links — same shape, but the targetId is an expense_payments
+  // row. We label by parent expense + month so the admin can locate it.
+  const expensePaymentsList = (window.__VAAD__?.getCache?.()?.expensePayments) || [];
+  const paymentById = new Map(expensePaymentsList.map(p => [p.id, p]));
+  const expensesById = new Map(expenses.map(e => [e.id, e]));
   for (const d of docs) {
     for (const l of (d.links || [])) {
-      if (l.type !== 'infrastructure_expense') continue;
-      const infra = infraById.get(l.targetId);
-      const label = infra ? t('docs.linkedInfra', { name: infra.name }) : t('docs.linkedInfraDeleted');
-      if (!links.has(d.id)) links.set(d.id, []);
-      links.get(d.id).push({ kind: 'infra', label });
+      if (l.type === 'infrastructure_expense') {
+        const infra = infraById.get(l.targetId);
+        const label = infra ? t('docs.linkedInfra', { name: infra.name }) : t('docs.linkedInfraDeleted');
+        if (!links.has(d.id)) links.set(d.id, []);
+        links.get(d.id).push({ kind: 'infra', label });
+      } else if (l.type === 'expense_payment') {
+        const pay = paymentById.get(l.targetId);
+        const exp = pay ? expensesById.get(pay.expenseId) : null;
+        const label = pay && exp
+          ? t('docs.linkedExpensePayment', { name: exp.name, ym: `${pay.year}/${String(pay.month).padStart(2,'0')}` })
+          : t('docs.linkedExpensePaymentDeleted');
+        if (!links.has(d.id)) links.set(d.id, []);
+        links.get(d.id).push({ kind: 'expense_payment', label });
+      }
     }
   }
 
