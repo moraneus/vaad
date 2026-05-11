@@ -18,6 +18,26 @@ let searchTerm = '';
 // current calendar year on first load (computed lazily below).
 let filterFrom = null;
 let filterTo = null;
+// Names of expense groups currently expanded. Multiple expenses sharing the
+// same name collapse into a single header row by default; the key is the
+// normalized name (trimmed + lower-cased).
+const expandedGroups = new Set();
+
+function expGroupKey(name) {
+  return (name || '').trim().toLowerCase();
+}
+
+// Groups expenses by normalized name, preserving the order of first appearance.
+function groupExpensesByName(list) {
+  const byKey = new Map();
+  const order = [];
+  for (const e of list) {
+    const k = expGroupKey(e.name);
+    if (!byKey.has(k)) { byKey.set(k, []); order.push(k); }
+    byKey.get(k).push(e);
+  }
+  return order.map(k => ({ key: k, name: byKey.get(k)[0].name, items: byKey.get(k) }));
+}
 
 export function renderExpenses() {
   const main = document.getElementById('app-main');
@@ -97,6 +117,13 @@ export function renderExpenses() {
     return true;
   });
 
+  // Combine same-name expenses into a single header row. Singletons render
+  // unchanged; only names appearing twice or more get grouped.
+  const groups = groupExpensesByName(filtered);
+  const multiGroupKeys = groups.filter(g => g.items.length > 1).map(g => g.key);
+  const hasMultiGroups = multiGroupKeys.length > 0;
+  const allGroupsOpen = hasMultiGroups && multiGroupKeys.every(k => expandedGroups.has(k));
+
   setHTML(main, `
     ${renderPageHeader({
       title: t('exp.title'),
@@ -135,6 +162,9 @@ export function renderExpenses() {
       <input class="input" id="f-from" type="date" value="${esc(filterFrom || '')}" style="width:140px" title="${esc(t('exp.filter.from'))}" />
       <input class="input" id="f-to" type="date" value="${esc(filterTo || '')}" style="width:140px" title="${esc(t('exp.filter.to'))}" />
       <div class="spacer"></div>
+      ${hasMultiGroups ? `
+        <button class="btn btn--sm" id="exp-expand-all" style="white-space:nowrap">${allGroupsOpen ? '▴' : '▾'} ${esc(t(allGroupsOpen ? 'exp.group.collapseAll' : 'exp.group.expandAll'))}</button>
+      ` : ''}
       ${isAdmin ? `
         <button class="btn btn--sm" id="exp-export-csv" title="${esc(t('exp.export.csvHint'))}" style="white-space:nowrap">${Icon.download} ${esc(t('exp.export.csv'))}</button>
         <button class="btn btn--sm" id="exp-export-pdf" title="${esc(t('exp.export.pdfHint'))}" style="white-space:nowrap">${Icon.document} ${esc(t('exp.export.pdf'))}</button>
@@ -162,7 +192,10 @@ export function renderExpenses() {
               </tr>
             </thead>
             <tbody>
-              ${filtered.map(e => renderExpenseRow(e, isAdmin)).join('')}
+              ${groups.map(g => g.items.length === 1
+                ? renderExpenseRow(g.items[0], isAdmin)
+                : renderExpenseGroupRows(g, isAdmin, expandedGroups.has(g.key))
+              ).join('')}
             </tbody>
           </table>
         </div>
@@ -247,6 +280,48 @@ export function renderExpenses() {
     b.textContent = opening ? '▴' : '▾';
     b.setAttribute('aria-expanded', String(opening));
   }));
+
+  // Group-header chevron: toggles every member of a same-name group. Children
+  // of the group share data-group=<key>; the payments sub-row is reset to
+  // collapsed whenever the parent group collapses, so reopening starts clean.
+  document.querySelectorAll('[data-act="exp-group-expand"]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.key;
+    const opening = !expandedGroups.has(k);
+    if (opening) expandedGroups.add(k); else expandedGroups.delete(k);
+    const sel = `[data-group="${CSS.escape(k)}"]`;
+    document.querySelectorAll(`tr.exp-group-child${sel}`).forEach(tr => {
+      const isPay = tr.classList.contains('exp-payments-row');
+      if (opening) {
+        // Show the main child row; leave per-expense payments rows hidden
+        // until the user clicks the per-expense chevron.
+        if (!isPay) tr.style.display = '';
+      } else {
+        tr.style.display = 'none';
+      }
+    });
+    if (!opening) {
+      // Reset per-expense chevrons inside the group so reopening the group
+      // shows the expected ▾ icon.
+      document.querySelectorAll(`tr.exp-group-child${sel} [data-act="exp-expand"]`).forEach(btn => {
+        btn.textContent = '▾';
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    }
+    b.textContent = opening ? '▴' : '▾';
+    b.setAttribute('aria-expanded', String(opening));
+  }));
+
+  // Expand-all / collapse-all toggle in the toolbar — only present when at
+  // least one group has multiple members. Flips the state of every multi-
+  // member group at once and re-renders.
+  document.getElementById('exp-expand-all')?.addEventListener('click', () => {
+    if (allGroupsOpen) {
+      multiGroupKeys.forEach(k => expandedGroups.delete(k));
+    } else {
+      multiGroupKeys.forEach(k => expandedGroups.add(k));
+    }
+    renderExpenses();
+  });
   // Wire payment-CRUD handlers for any sub-rows that may have been rendered.
   document.querySelectorAll('[data-exp-payments-content]').forEach(host => {
     const expId = host.dataset.expPaymentsContent;
@@ -587,7 +662,7 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
   });
 }
 
-function renderExpenseRow(e, isAdmin) {
+function renderExpenseRow(e, isAdmin, groupCtx = null) {
   const derived = expenseDerivedStatus(e);
   const status = derived === 'done'
     ? `<span class="badge badge--success">${Icon.check} ${esc(t('exp.status.done'))}</span>`
@@ -622,9 +697,15 @@ function renderExpenseRow(e, isAdmin) {
   const chevron = expandable
     ? `<button class="btn btn--sm btn--icon" data-act="exp-expand" data-id="${e.id}" aria-expanded="false" title="${esc(t('exp.row.expand.show'))}" style="padding:2px 6px">▾</button>`
     : '';
+  // Grouped rows carry the group key so the group's "expand all" / "collapse"
+  // toggle can show/hide every member at once. Children of a collapsed group
+  // start hidden.
+  const groupAttrs = groupCtx ? ` class="exp-group-child" data-group="${esc(groupCtx.groupKey)}"` : '';
+  const groupStyle = groupCtx?.hidden ? ' style="display:none"' : '';
+  const indent = groupCtx ? ' style="padding-inline-start:32px"' : '';
   return `
-    <tr>
-      <td>
+    <tr${groupAttrs}${groupStyle}>
+      <td${indent}>
         <div class="hstack" style="gap:6px; align-items:baseline">
           <strong>${esc(e.name)}</strong>
           ${chevron}
@@ -664,13 +745,80 @@ function renderExpenseRow(e, isAdmin) {
       </td>
     </tr>
     ${expandable ? `
-      <tr class="exp-payments-row" data-exp="${e.id}" style="display:none; background:var(--c-surface-2)">
+      <tr class="exp-payments-row${groupCtx ? ' exp-group-child' : ''}" data-exp="${e.id}"${groupCtx ? ` data-group="${esc(groupCtx.groupKey)}"` : ''} style="display:none; background:var(--c-surface-2)">
         <td colspan="8" style="padding:10px 16px">
           <div data-exp-payments-content="${e.id}">${renderExpensePaymentsBlock(e, isAdmin)}</div>
         </td>
       </tr>
     ` : ''}
   `;
+}
+
+// Renders a header row + a child row per expense for a name-grouped bunch
+// (>=2 expenses sharing the same name). The header summarizes the group;
+// children render via renderExpenseRow with a groupCtx so they can be
+// shown/hidden together via the group chevron.
+function renderExpenseGroupRows(g, isAdmin, expanded) {
+  const items = g.items;
+  // Total amount: installments contribute total = perMonth × N months.
+  const monthsInclusive = (a, b) => {
+    if (!a || !b) return 0;
+    const da = new Date(a), db = new Date(b);
+    return (db.getFullYear() - da.getFullYear()) * 12 + (db.getMonth() - da.getMonth()) + 1;
+  };
+  const totalAmount = items.reduce((s, e) => {
+    if (e.type === 'installments') {
+      const n = Math.max(monthsInclusive(e.startDate, e.endDate), 0);
+      return s + (Number(e.amount) || 0) * n;
+    }
+    return s + (Number(e.amount) || 0);
+  }, 0);
+  const categories = new Set(items.map(e => e.category || ''));
+  const types = new Set(items.map(e => e.type));
+  const categoryLabel = categories.size === 1 ? (items[0].category || '—') : t('exp.group.mixed');
+  const typeLabel = types.size === 1
+    ? typeBadge(items[0].type)
+    : `<span class="badge">${esc(t('exp.group.mixed'))}</span>`;
+  // Earliest..latest date across all start/end/oneOff timestamps in the group.
+  const dates = [];
+  for (const e of items) {
+    if (e.startDate) dates.push(e.startDate);
+    if (e.endDate) dates.push(e.endDate);
+    if (e.oneOffDate) dates.push(e.oneOffDate);
+  }
+  let period = '—';
+  if (dates.length) {
+    const earliest = dates.reduce((a, b) => a < b ? a : b);
+    const latest = dates.reduce((a, b) => a > b ? a : b);
+    period = earliest === latest ? fmtDate(earliest) : `${fmtDate(earliest)} → ${fmtDate(latest)}`;
+  }
+  const docCount = items.reduce((s, e) => s + ((e.documents || []).length), 0);
+  const allDone = items.every(e => expenseDerivedStatus(e) === 'done');
+  const status = allDone
+    ? `<span class="badge badge--success">${Icon.check} ${esc(t('exp.status.done'))}</span>`
+    : `<span class="badge badge--warning">${esc(t('exp.status.in_progress'))}</span>`;
+  const chevron = `<button class="btn btn--sm btn--icon" data-act="exp-group-expand" data-key="${esc(g.key)}" aria-expanded="${expanded ? 'true' : 'false'}" title="${esc(t('exp.row.expand.show'))}" style="padding:2px 6px">${expanded ? '▴' : '▾'}</button>`;
+  const header = `
+    <tr class="exp-group-header" data-group-key="${esc(g.key)}" style="background:var(--c-surface-2)">
+      <td>
+        <div class="hstack" style="gap:6px; align-items:baseline">
+          <strong>${esc(g.name)}</strong>
+          <span class="badge">${esc(t('exp.group.count', { n: items.length }))}</span>
+          ${chevron}
+        </div>
+      </td>
+      <td>${esc(categoryLabel)}</td>
+      <td>${typeLabel}</td>
+      <td class="num">${fmtCurrency(totalAmount)}</td>
+      <td>${period}</td>
+      <td>${status}</td>
+      <td><span class="muted">${Icon.document} ${docCount}</span></td>
+      <td class="actions"></td>
+    </tr>
+  `;
+  const ctx = { groupKey: g.key, hidden: !expanded };
+  const childRows = items.map(e => renderExpenseRow(e, isAdmin, ctx)).join('');
+  return header + childRows;
 }
 
 // Localized label for a payment-method key. Falls back to the raw key for
