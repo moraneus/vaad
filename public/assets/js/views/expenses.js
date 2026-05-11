@@ -953,7 +953,9 @@ function lastOfMonthISO(iso) {
   return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
 }
 
-function openExpenseDialog(exp = null) {
+// Exported so other views (e.g. tickets) can open the same dialog and
+// react to the saved expense via the optional onSaved callback.
+export function openExpenseDialog(exp = null, { onSaved } = {}) {
   if (!requireAdmin()) return;
   const isEdit = !!exp;
   // Logical type: a decorating subtype (e.g., 'variable_monthly') wins over
@@ -1416,7 +1418,15 @@ function openExpenseDialog(exp = null) {
       }
       if (uploadFails === 0) toast(isEdit ? t('exp.updated') : t('exp.added'), 'success');
       m.close();
-      renderExpenses();
+      if (onSaved) {
+        // Caller handles its own UI refresh (e.g. tickets view re-renders
+        // after linking). We still notify the expenses view if it happens
+        // to be the current one — the re-render is cheap.
+        try { onSaved(saved || { id: expenseId, ...data, amount: perMonthAmount }); } catch { /* no-op */ }
+      }
+      // Re-render expenses if the user is on that view; safe to call from
+      // other views too — the DOM target #app-main isn't owned by tickets.
+      if (location.hash.startsWith('#expenses')) renderExpenses();
     } catch (err) {
       toast(err.message || t('common.error'), 'danger');
       saveBtn.disabled = false;

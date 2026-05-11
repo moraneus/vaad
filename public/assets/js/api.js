@@ -211,6 +211,27 @@ export const api = {
   updateVaadMember: (id, payload) => call(`/api/vaad-members?id=${encodeURIComponent(id)}`, opts('PUT', payload)),
   deleteVaadMember: (id) => call(`/api/vaad-members?id=${encodeURIComponent(id)}`, opts('DELETE')),
 
+  // Tickets (building-issue reports)
+  tickets: () => call('/api/tickets'),
+  getTicket: (id) => call(`/api/tickets?id=${encodeURIComponent(id)}`),
+  createTicket: (payload) => call('/api/tickets', opts('POST', payload)),
+  updateTicket: (id, payload) => call(`/api/tickets?id=${encodeURIComponent(id)}`, opts('PUT', payload)),
+  closeTicket: (id) => call(`/api/tickets?id=${encodeURIComponent(id)}&op=close`, opts('PATCH', {})),
+  reopenTicket: (id) => call(`/api/tickets?id=${encodeURIComponent(id)}&op=reopen`, opts('PATCH', {})),
+  linkTicketExpense: (id, expenseId) => call(`/api/tickets?id=${encodeURIComponent(id)}&op=link-expense`, opts('PATCH', { expenseId: expenseId || null })),
+  deleteTicket: (id) => call(`/api/tickets?id=${encodeURIComponent(id)}`, opts('DELETE')),
+  addTicketComment: (ticketId, body) => call(`/api/tickets/comments?ticketId=${encodeURIComponent(ticketId)}`, opts('POST', { body })),
+  deleteTicketComment: (id) => call(`/api/tickets/comments?id=${encodeURIComponent(id)}`, opts('DELETE')),
+  ticketsUnreadCount: () => call('/api/tickets/unread-count'),
+  ticketsMarkSeen: () => call('/api/tickets/unread-count?op=mark-seen', opts('POST', {})),
+
+  // Resend email channel (admin only)
+  resendStatus: () => call('/api/settings/resend'),
+  resendSave: (apiKey, recipient) => call('/api/settings/resend', opts('POST', { action: 'save', apiKey, recipient })),
+  resendVerify: (code) => call('/api/settings/resend', opts('POST', { action: 'verify', code })),
+  resendResendCode: () => call('/api/settings/resend', opts('POST', { action: 'resend-code' })),
+  resendRemove: () => call('/api/settings/resend', opts('POST', { action: 'remove' })),
+
   // Audit
   audit: (limit = 100) => call(`/api/audit?limit=${limit}`),
   clearAudit: () => call('/api/audit', opts('DELETE')),
@@ -253,6 +274,7 @@ const cache = {
   infrastructureDemands: [],
   infrastructurePayments: [],
   vaadMembers: [],
+  tickets: [],
 };
 
 const subscribers = new Set();
@@ -269,7 +291,7 @@ export async function refreshSession() {
 
 export async function refreshAll() {
   if (!cache.session?.loggedIn) return;
-  const [settings, apt, pay, exp, expPay, con, docs, rems, adj, adjPay, ov, owners, infE, infD, infP, vm] = await Promise.all([
+  const [settings, apt, pay, exp, expPay, con, docs, rems, adj, adjPay, ov, owners, infE, infD, infP, vm, tk] = await Promise.all([
     api.getSettings().catch(() => null),
     api.apartments().catch(() => ({ apartments: [] })),
     api.payments().catch(() => ({ payments: [] })),
@@ -286,6 +308,7 @@ export async function refreshAll() {
     api.infrastructureDemands().catch(() => ({ demands: [] })),
     api.infrastructurePayments().catch(() => ({ payments: [] })),
     api.vaadMembers().catch(() => ({ members: [] })),
+    api.tickets().catch(() => ({ tickets: [] })),
   ]);
   cache.settings = settings;
   // Sync the global display-decimals preference with whatever the admin
@@ -306,6 +329,7 @@ export async function refreshAll() {
   cache.infrastructureDemands = infD.demands || [];
   cache.infrastructurePayments = infP.payments || [];
   cache.vaadMembers = vm.members || [];
+  cache.tickets = tk.tickets || [];
   notify();
 }
 
@@ -326,3 +350,4 @@ export const getInfrastructureExpenses = () => cache.infrastructureExpenses;
 export const getInfrastructureDemands = () => cache.infrastructureDemands;
 export const getInfrastructurePayments = () => cache.infrastructurePayments;
 export const getVaadMembers = () => cache.vaadMembers;
+export const getTickets = () => cache.tickets;

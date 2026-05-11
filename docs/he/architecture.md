@@ -17,6 +17,7 @@
 │  • adjustments + adjustment-payments (חיובים פר דירה)        │
 │  • הוצאות תשתיתיות + דרישות + תשלומים                          │
 │  • reminders, vaad-members, receipts                         │
+│  • פניות (tickets) + תגובות + תמונות מצורפות                  │
 │  • documents (proxy ל-Google Drive)                          │
 │  • drive (OAuth init / callback / status / disconnect)       │
 │  • OAuth זהות (שחזור + כניסה עם Google)                       │

@@ -2,12 +2,12 @@
 // that views depend on, exposes async mutators that hit the server and refresh
 // the local cache.
 
-import { api, getCache, getSession as _getSession, getSettings as _getSettings, getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getOwners, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getVaadMembers, refreshAll, refreshSession, subscribe } from './api.js';
+import { api, getCache, getSession as _getSession, getSettings as _getSettings, getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getOwners, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getVaadMembers, getTickets, refreshAll, refreshSession, subscribe } from './api.js';
 
 export { subscribe, refreshAll, refreshSession };
 export const getSession = _getSession;
 export const getSettings = _getSettings;
-export { getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getOwners, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getVaadMembers };
+export { getApartments, getPayments, getExpenses, getExpensePayments, getContacts, getDocuments, getReminders, getAdjustments, getAdjustmentPayments, getFeeOverrides, getOwners, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, getVaadMembers, getTickets };
 
 // Read-only helpers
 export const getDocument = (id) => getDocuments().find(d => d.id === id);
@@ -97,6 +97,43 @@ export async function attachDocument(target, refId, docId) {
 }
 export async function detachDocument(target, refId, docId) {
   await api.detachDocument(docId, target, refId);
+  await refreshAll();
+}
+
+// ---- Tickets ----
+export async function createTicket(payload) {
+  const t = await api.createTicket(payload);
+  await refreshAll();
+  return t;
+}
+export async function updateTicket(id, payload) {
+  const t = await api.updateTicket(id, payload);
+  await refreshAll();
+  return t;
+}
+export async function closeTicket(id) {
+  await api.closeTicket(id);
+  await refreshAll();
+}
+export async function reopenTicket(id) {
+  await api.reopenTicket(id);
+  await refreshAll();
+}
+export async function linkTicketExpense(id, expenseId) {
+  await api.linkTicketExpense(id, expenseId);
+  await refreshAll();
+}
+export async function deleteTicket(id) {
+  await api.deleteTicket(id);
+  await refreshAll();
+}
+export async function addTicketComment(ticketId, body) {
+  const c = await api.addTicketComment(ticketId, body);
+  await refreshAll();
+  return c;
+}
+export async function deleteTicketComment(id) {
+  await api.deleteTicketComment(id);
   await refreshAll();
 }
 

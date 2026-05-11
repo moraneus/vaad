@@ -429,6 +429,7 @@ function drawSettings() {
       ${sectionHeader(t('settings.section.integrations'))}
       ${renderDriveCard(driveStatus)}
       ${renderEmailCard()}
+      ${renderResendCard(s)}
 
       ${sectionHeader(t('settings.section.maintenance'))}
       <div class="card" style="margin-bottom:14px">
@@ -549,6 +550,40 @@ function drawSettings() {
     document.getElementById('email-test-btn')?.addEventListener('click', () => openEmailTestDialog());
     document.getElementById('email-broadcast-btn')?.addEventListener('click', () => openBroadcastDialog());
     document.getElementById('email-monthly-btn')?.addEventListener('click', () => openMonthlyReportDialog());
+    // Resend (admin-managed email channel) — submit, verify, resend, remove.
+    document.getElementById('resend-save-btn')?.addEventListener('click', async () => {
+      const apiKey = document.getElementById('resend-key-input').value.trim();
+      const recipient = document.getElementById('resend-recipient-input').value.trim();
+      if (!apiKey || !recipient) { toast(t('settings.resend.fillBoth'), 'warning'); return; }
+      const btn = document.getElementById('resend-save-btn');
+      btn.disabled = true;
+      try {
+        await api.resendSave(apiKey, recipient);
+        toast(t('settings.resend.codeSent'), 'success');
+        drawSettings();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); btn.disabled = false; }
+    });
+    document.getElementById('resend-verify-btn')?.addEventListener('click', async () => {
+      const code = document.getElementById('resend-code-input').value.trim();
+      if (!/^\d{4,8}$/.test(code)) { toast(t('settings.resend.codeFormat'), 'warning'); return; }
+      const btn = document.getElementById('resend-verify-btn');
+      btn.disabled = true;
+      try {
+        await api.resendVerify(code);
+        toast(t('settings.resend.verified'), 'success');
+        drawSettings();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); btn.disabled = false; }
+    });
+    document.getElementById('resend-recode-btn')?.addEventListener('click', async () => {
+      try { await api.resendResendCode(); toast(t('settings.resend.codeSent'), 'success'); }
+      catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    });
+    document.getElementById('resend-remove-btn')?.addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: t('settings.resend.remove.title'), message: t('settings.resend.remove.message'), danger: true, confirmText: t('common.delete') });
+      if (!ok) return;
+      try { await api.resendRemove(); toast(t('settings.resend.removed'), 'success'); drawSettings(); }
+      catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    });
     // ----- Unified users card (owners + nested apartments) -----
     // Per-owner expand/collapse — clicking the chevron shows that owner's
     // apartments. In bulk-select mode we auto-expand everything so the admin
@@ -1035,6 +1070,58 @@ function openTwoFADisableDialog() {
       refreshTwoFACard();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
   });
+}
+
+// ----- Resend email-channel card (admin) -----
+// Three states: disabled / pending (key saved, awaiting code) / enabled.
+// The key itself is never shown back — only whether one is stored.
+function renderResendCard(s) {
+  const status = s?.ticketsEmailStatus || 'disabled';
+  const recipient = s?.ticketsAdminEmail || '';
+  const hasKey = !!s?.hasResendKey;
+  const statusBadge = status === 'enabled'
+    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.resend.status.enabled'))}</span>`
+    : status === 'pending'
+      ? `<span class="badge badge--warning">${esc(t('settings.resend.status.pending'))}</span>`
+      : `<span class="badge">${esc(t('settings.resend.status.disabled'))}</span>`;
+
+  return `
+    <div class="card" style="margin-bottom:14px">
+      <div class="hstack" style="margin-bottom:8px; gap:8px; align-items:center; flex-wrap:wrap">
+        <h3 style="margin:0; font-size:15px">${esc(t('settings.resend.title'))}</h3>
+        ${statusBadge}
+      </div>
+      <p class="muted" style="font-size:13px; margin:0 0 14px">${esc(t('settings.resend.hint'))}</p>
+
+      ${status === 'pending' ? `
+        <div class="vstack" style="gap:8px; background:var(--c-warning-soft); padding:10px 12px; border-radius:6px; margin-bottom:14px">
+          <div style="font-size:13px">${esc(t('settings.resend.pendingMessage', { email: recipient }))}</div>
+          <div class="hstack" style="gap:6px; align-items:center; flex-wrap:wrap">
+            <input class="input" id="resend-code-input" placeholder="${esc(t('settings.resend.codePlaceholder'))}" inputmode="numeric" pattern="\\d*" maxlength="8" style="width:140px" />
+            <button class="btn btn--primary btn--sm" id="resend-verify-btn">${esc(t('settings.resend.verifyBtn'))}</button>
+            <button class="btn btn--sm" id="resend-recode-btn">${esc(t('settings.resend.resendBtn'))}</button>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('settings.resend.field.apiKey'))}</label>
+          <input class="input" id="resend-key-input" type="password" autocomplete="new-password" placeholder="${esc(hasKey ? t('settings.resend.field.apiKeyMasked') : t('settings.resend.field.apiKeyPlaceholder'))}" />
+          <div class="field__hint">${esc(t('settings.resend.field.apiKeyHint'))}</div>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('settings.resend.field.recipient'))}</label>
+          <input class="input" id="resend-recipient-input" type="email" value="${esc(recipient)}" placeholder="${esc(t('settings.resend.field.recipientPlaceholder'))}" />
+          <div class="field__hint">${esc(t('settings.resend.field.recipientHint'))}</div>
+        </div>
+        <div style="grid-column:1/-1" class="hstack" style="gap:8px; flex-wrap:wrap">
+          <button class="btn btn--primary" id="resend-save-btn">${esc(hasKey ? t('settings.resend.replaceBtn') : t('settings.resend.sendCodeBtn'))}</button>
+          ${hasKey ? `<button class="btn btn--danger" id="resend-remove-btn">${esc(t('settings.resend.removeBtn'))}</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // ----- Email integration card (admin) -----

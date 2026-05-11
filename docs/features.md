@@ -41,9 +41,18 @@
 - **Two-factor auth (2FA)** — optional TOTP for the master admin (Google Authenticator / Authy / 1Password). Includes single-use backup codes.
 
 ### Documents, receipts & reminders
-- **Document storage** — uploads streamed through Pages Functions to Google Drive; the browser never sees the OAuth token. Each document gets an admin-given **display name** (independent of the original filename, which is preserved in Drive).
+- **Document storage** — uploads streamed through Pages Functions to Google Drive; the browser never sees the OAuth token. Each document gets an admin-given **display name** (independent of the original filename, which is preserved in Drive). Documents can also be attached from non-admin contexts (tenants uploading photos to their own open tickets).
 - **Receipts** — printable receipts (saved as PDF via the browser print dialog) with a stable, globally-running serial number. Same apartment + same month always returns the same receipt.
 - **Reminders** — persistent reminders with lead time. Show up in a header bell, in a login modal, or attached to specific expenses (contract renewals etc.).
+
+### Tickets / building-issue reports
+- **Open a ticket** — any logged-in user (admin, owner, or apartment tenant) can open a ticket with title, description, and a built-in category (electricity, plumbing, sewage, elevator, cleaning, garden, parking, security, intercom, renovation, other). Picking "other" reveals a free-text field for a custom label.
+- **Photos** — attach images either via the device camera (mobile) or from the gallery / file system. Files are uploaded through the existing Drive pipeline; thumbnails appear inline on each card.
+- **Comments thread** — anyone logged in can post a comment. Authors (or admins) can delete their own. Each comment shows author + timestamp.
+- **Close / reopen** — admin-only actions. Closed tickets keep all their data and stay visible (filter by status: open / closed / all).
+- **Link or create expense** — admin can either link an existing expense to a ticket, or open the standard expense-creation dialog from inside the ticket and have the newly-saved expense auto-linked back.
+- **Filters** — search, category, status, and a date-range picker with the same presets (this year / last 3 months / last year / all / custom) used elsewhere.
+- **Real-time admin notifier** — admin sessions poll every 20 seconds for new tickets and surface a toast when a count rises mid-session. Also drives a per-admin "seen" cursor so the badge resets after the admin opens the view.
 
 ### Reports & exports
 - **Income report — CSV / PDF by month, year, or custom range** — the income view has a compact export toolbar (single dropdown of presets + from/to dates + CSV/PDF buttons). The export is a per-apartment × per-month grid (expected and paid) with row totals, footer per-month totals, and an extra adjustment-payment line when applicable.
@@ -54,7 +63,8 @@
 ### Other
 - **About tab** — bank details for transfers + committee members + free-form notes. Visible to tenants for quick reference.
 - **Audit log** — every login, mutation, password change, and reset is logged with real client IP, User-Agent and timestamp.
-- **Email notifications** — opt-in per apartment. Admin can broadcast a custom message to all subscribed residents, or send the monthly report. Powered by Resend (free tier, 3,000 emails / month).
+- **Email notifications** — opt-in per apartment. Admin can broadcast a custom message to all subscribed residents, or send the monthly report. Also drives the per-ticket admin alert. Powered by Resend (free tier, 3,000 emails / month).
+- **Admin-uploadable Resend key** — instead of (or in addition to) the `RESEND_API_KEY` env-var, the admin can paste a key into the settings UI. It's stored encrypted (AES-GCM, derived from `SESSION_SECRET`) and never readable back. Activation requires a 6-digit verification code emailed to the configured recipient — proving both the key and the recipient mailbox are valid. Re-saving the key re-verifies.
 - **Automated monthly cron** — optional standalone Cloudflare Worker fires once a month and triggers two housekeeping endpoints: auto-extend monthly expenses (above) and the monthly email report.
 
 ## Languages

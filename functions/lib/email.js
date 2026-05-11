@@ -1,22 +1,72 @@
 // Outbound email via Resend (https://resend.com).
 // Free tier: 3000 emails/month, 100/day — way more than a vaad needs.
 //
-// Requires two env vars set as Cloudflare Pages secrets:
-//   - RESEND_API_KEY  (the api key from the Resend dashboard)
-//   - EMAIL_FROM      (a verified sender address; the domain must be verified
-//                      with Resend, or you can use the default "onboarding@resend.dev"
-//                      sender for testing).
+// Two ways to configure:
+//   1. Cloudflare Pages secrets: RESEND_API_KEY + EMAIL_FROM (legacy path).
+//   2. Admin uploads the key from settings; we store it encrypted under
+//      'resend_api_key_enc' + 'resend_api_key_iv' (preferred — lets the
+//      building admin manage it without redeploys).
+// When both are present, env wins so an org-level key always trumps a
+// per-building one.
 
+import { decryptString } from './crypto.js';
+
+const ensureSecret = (env) => env.SESSION_SECRET || 'dev-only-secret-change-me-in-production-please-1234567890';
+
+// Best-effort decryption of the settings-stored API key. Returns null when
+// no key is stored or the ciphertext is unreadable (e.g., SESSION_SECRET
+// rotated).
+async function loadStoredApiKey(env) {
+  if (!env?.DB) return null;
+  const rows = await env.DB
+    .prepare("SELECT key, value FROM settings WHERE key IN ('resend_api_key_enc', 'resend_api_key_iv')")
+    .all();
+  let ct = '', iv = '';
+  for (const r of (rows.results || [])) {
+    if (r.key === 'resend_api_key_enc') ct = r.value || '';
+    if (r.key === 'resend_api_key_iv') iv = r.value || '';
+  }
+  if (!ct || !iv) return null;
+  try {
+    return await decryptString(ct, iv, ensureSecret(env));
+  } catch {
+    return null;
+  }
+}
+
+// Resolves the API key to use for this request, preferring the env-var
+// (legacy / global) over the per-building stored one.
+async function resolveApiKey(env) {
+  if (env?.RESEND_API_KEY) return env.RESEND_API_KEY;
+  return loadStoredApiKey(env);
+}
+
+// Defaults so admin-managed keys still get a sender header even when the
+// env vars aren't set.
+const FALLBACK_FROM = 'onboarding@resend.dev';
+
+// Quick sync probe — true when env vars are set. The full async check
+// (which also looks at the settings table) is in emailEnabledAsync.
 export function emailEnabled(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
 }
 
-export async function sendEmail(env, { to, subject, html, text, replyTo }) {
-  if (!emailEnabled(env)) {
-    throw new Error('שירות האימייל לא הוגדר (חסרים RESEND_API_KEY / EMAIL_FROM)');
+// Async: returns true when EITHER the env path is configured OR a key is
+// stored in settings. Callers that need to gate ticket emails should use
+// this since the admin-managed path is the common case.
+export async function emailEnabledAsync(env) {
+  if (emailEnabled(env)) return true;
+  const stored = await loadStoredApiKey(env);
+  return !!stored;
+}
+
+export async function sendEmail(env, { to, subject, html, text, replyTo, apiKeyOverride, fromOverride }) {
+  const apiKey = apiKeyOverride || await resolveApiKey(env);
+  if (!apiKey) {
+    throw new Error('שירות האימייל לא הוגדר (אין מפתח Resend)');
   }
   const fromName = env.EMAIL_FROM_NAME || 'Vaad Bayit';
-  const fromAddr = env.EMAIL_FROM;
+  const fromAddr = fromOverride || env.EMAIL_FROM || FALLBACK_FROM;
   const fromHeader = `${fromName} <${fromAddr}>`;
   const recipients = Array.isArray(to) ? to : [to];
 
@@ -32,7 +82,7 @@ export async function sendEmail(env, { to, subject, html, text, replyTo }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -48,12 +98,14 @@ export async function sendEmail(env, { to, subject, html, text, replyTo }) {
 // batch endpoint accepts up to 100 messages at a time. Use this for the
 // monthly report and the admin broadcast.
 export async function sendBatchEmail(env, messages) {
-  if (!emailEnabled(env)) {
-    throw new Error('שירות האימייל לא הוגדר (חסרים RESEND_API_KEY / EMAIL_FROM)');
+  const apiKey = await resolveApiKey(env);
+  if (!apiKey) {
+    throw new Error('שירות האימייל לא הוגדר (אין מפתח Resend)');
   }
   if (!messages.length) return { ok: true, sent: 0 };
   const fromName = env.EMAIL_FROM_NAME || 'Vaad Bayit';
-  const fromHeader = `${fromName} <${env.EMAIL_FROM}>`;
+  const fromAddr = env.EMAIL_FROM || FALLBACK_FROM;
+  const fromHeader = `${fromName} <${fromAddr}>`;
   const payload = messages.map(m => ({
     from: fromHeader,
     to: Array.isArray(m.to) ? m.to : [m.to],
@@ -65,7 +117,7 @@ export async function sendBatchEmail(env, messages) {
   const res = await fetch('https://api.resend.com/emails/batch', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),

@@ -778,6 +778,90 @@ INSERT OR IGNORE INTO apartment_count_history (id, effective_from, count) VALUES
 INSERT OR IGNORE INTO monthly_fee_history (id, effective_from, amount) VALUES
   ('seed-1', date('now'), 280);
 
+-- ============================================================
+-- Tickets / building-issue reports
+-- ============================================================
+-- Any logged-in user can open a ticket; only admins can close, reopen,
+-- link an expense, or delete. Status is intentionally TEXT (not a CHECK
+-- enum) so future statuses can be introduced without a schema migration.
+CREATE TABLE IF NOT EXISTS tickets (
+  id              TEXT PRIMARY KEY,
+  title           TEXT NOT NULL,
+  description     TEXT,
+  -- One of the built-in category codes (electricity, cleaning, ...) or 'other'.
+  category        TEXT NOT NULL,
+  -- Free-text label used only when category='other'.
+  custom_category TEXT,
+  -- Snapshot of WHO opened the ticket. Kind = admin | owner | apartment-tenant.
+  opened_by_kind  TEXT NOT NULL,
+  opened_by_id    TEXT,
+  opened_by_label TEXT NOT NULL,
+  opened_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  closed_at       TEXT,
+  closed_by_label TEXT,
+  status          TEXT NOT NULL DEFAULT 'open',
+  -- Optional link to an expense (set by admin once a ticket results in a cost).
+  expense_id      TEXT REFERENCES expenses(id) ON DELETE SET NULL,
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_opened_at ON tickets(opened_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_expense ON tickets(expense_id);
+
+-- Comments thread on each ticket. Anyone logged in can comment; an author
+-- (or admin) can delete their own comment. Snapshotted author label keeps
+-- the thread readable even after the author's apartment/owner row changes.
+CREATE TABLE IF NOT EXISTS ticket_comments (
+  id            TEXT PRIMARY KEY,
+  ticket_id     TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  body          TEXT NOT NULL,
+  author_kind   TEXT NOT NULL,
+  author_id     TEXT,
+  author_label  TEXT NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket ON ticket_comments(ticket_id, created_at);
+
+-- Image attachments. Same junction pattern as expense_payment_documents
+-- to side-step the document_links CHECK constraint.
+CREATE TABLE IF NOT EXISTS ticket_documents (
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  ticket_id   TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  PRIMARY KEY (document_id, ticket_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_doc_ticket ON ticket_documents(ticket_id);
+
+-- Tracks which tickets each admin has already seen — drives the bell badge
+-- and the "X new tickets" toast. last_seen_at is updated each time an admin
+-- opens the tickets view; the unread count is computed as the number of
+-- tickets created after that timestamp.
+CREATE TABLE IF NOT EXISTS ticket_seen (
+  admin_kind   TEXT NOT NULL,
+  admin_id     TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (admin_kind, admin_id)
+);
+
+-- Pending email-verification challenges for activating the Resend channel.
+-- We store the hashed code so the plaintext never lives in the DB.
+CREATE TABLE IF NOT EXISTS resend_verification (
+  -- Single-row table; key is always 'pending'.
+  id           TEXT PRIMARY KEY DEFAULT 'pending',
+  code_hash    TEXT NOT NULL,
+  salt         TEXT NOT NULL,
+  expires_at   TEXT NOT NULL,
+  recipient    TEXT NOT NULL,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Seed settings keys for the Resend email channel. Stored encrypted at rest;
+-- the recipient email and status flag are plain.
+INSERT OR IGNORE INTO settings (key, value) VALUES
+  ('resend_api_key_enc',     ''),
+  ('resend_api_key_iv',      ''),
+  ('tickets_admin_email',    ''),
+  ('tickets_email_status',   'disabled');
+
 -- One-time normalization (idempotent): the new model has only two derived
 -- statuses (in_progress / done). Legacy 'closed' and 'paused' expense rows are
 -- migrated by closing them with an end_date if one isn't already set. After

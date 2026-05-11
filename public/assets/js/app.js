@@ -1,7 +1,8 @@
 // Bootstrap — entry point for the SPA. Loads session, routes views, refreshes cache.
 
-import { refreshSession, refreshAll, getSession, getCache, subscribe } from './api.js';
+import { refreshSession, refreshAll, getSession, getCache, subscribe, api } from './api.js';
 import { renderShell, attachShellHandlers, toast, maybeShowLoginRemindersModal } from './ui.js';
+import { t } from './i18n.js';
 import { renderLogin } from './views/login.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderApartments } from './views/apartments.js';
@@ -12,6 +13,7 @@ import { renderInfrastructure } from './views/infrastructure.js';
 import { renderContacts } from './views/contacts.js';
 import { renderDocuments } from './views/documents.js';
 import { renderReminders } from './views/reminders.js';
+import { renderTickets } from './views/tickets.js';
 import { renderReports } from './views/reports.js';
 import { renderAbout } from './views/about.js';
 import { renderSettings } from './views/settings.js';
@@ -26,6 +28,7 @@ const ROUTES = {
   contacts: renderContacts,
   documents: renderDocuments,
   reminders: renderReminders,
+  tickets: renderTickets,
   reports: renderReports,
   about: renderAbout,
   settings: renderSettings,
@@ -33,7 +36,7 @@ const ROUTES = {
 
 // Routes that a tenant (non-admin) is allowed to open. Anything else routes
 // back to the dashboard, even if the user pasted an admin-only URL hash.
-const TENANT_ROUTES = new Set(['dashboard', 'income', 'expenses', 'infrastructure', 'reports', 'about', 'settings']);
+const TENANT_ROUTES = new Set(['dashboard', 'income', 'expenses', 'infrastructure', 'tickets', 'reports', 'about', 'settings']);
 
 function isRouteAllowed(route) {
   if (!ROUTES[route]) return false;
@@ -90,6 +93,39 @@ window.addEventListener('hashchange', () => {
   if (route in ROUTES) navigate(route);
 });
 
+// ---- Live ticket notifier (admin only) ----
+// Polls /api/tickets/unread-count every 20 seconds. When the count increases
+// mid-session (a tenant/owner opened a new ticket while the admin was logged
+// in), surface a toast with a button that jumps to the tickets view. The
+// view's mark-seen call resets the counter once the admin looks at it.
+let ticketPollHandle = null;
+let lastTicketCount = -1;
+function startTicketNotifier() {
+  if (ticketPollHandle) return;
+  const poll = async () => {
+    try {
+      const sess = getSession();
+      if (!sess.loggedIn || sess.role !== 'admin') return;
+      const { count } = await api.ticketsUnreadCount();
+      // The first tick after login establishes the baseline silently so we
+      // don't trigger a toast on routine page loads.
+      if (lastTicketCount === -1) { lastTicketCount = count; return; }
+      if (count > lastTicketCount) {
+        const delta = count - lastTicketCount;
+        // Refresh the cached tickets list so the view shows the new rows
+        // when the admin clicks through. Fire-and-forget so toast lands
+        // immediately.
+        refreshAll().catch(() => {});
+        toast(t('tickets.unreadToast', { n: delta }), 'info');
+      }
+      lastTicketCount = count;
+    } catch { /* network blip — try again next tick */ }
+  };
+  // First tick immediate (sets baseline) and then every 20s.
+  poll();
+  ticketPollHandle = setInterval(poll, 20_000);
+}
+
 // Boot
 (async () => {
   await refreshSession();
@@ -99,6 +135,7 @@ window.addEventListener('hashchange', () => {
   await renderApp();
   // Show "you have N active reminders" modal once per session, after first render.
   if (getSession().loggedIn) maybeShowLoginRemindersModal(navigate);
+  if (getSession().role === 'admin') startTicketNotifier();
 })();
 
 // Re-render current view when cache changes (mutations)

@@ -2,9 +2,33 @@
 // POST /api/documents       — upload to Google Drive
 
 import { json, error, uid } from '../../lib/util.js';
-import { requireRead, requireAdmin } from '../../lib/guard.js';
+import { requireRead, requireAdmin, requireSession } from '../../lib/guard.js';
 import { logAudit } from '../../lib/audit.js';
 import { getAccessToken, uploadFile, getDriveStatus } from '../../lib/drive.js';
+
+// Tenants (and owner-tenants) may only upload documents in the context of
+// a ticket they own that is still open. Returns the session row on success,
+// or {error: Response} on failure.
+async function authorizeUpload(env, request, targetType, targetId) {
+  if (targetType === 'ticket' && targetId) {
+    const r = await requireSession(env, request);
+    if (r.error) return r;
+    if (r.sess.role === 'admin') return r;
+    const cur = await env.DB.prepare(
+      'SELECT opened_by_kind AS k, opened_by_id AS oid, status FROM tickets WHERE id = ?'
+    ).bind(targetId).first();
+    if (!cur) return { error: error('פנייה לא נמצאה', 404) };
+    if (cur.status !== 'open') return { error: error('הפנייה סגורה', 403) };
+    const kind = r.sess.userKind === 'owner' ? 'owner'
+              : (r.sess.userKind === 'tenant' ? 'apartment-tenant' : 'admin');
+    const id = r.sess.ownerId || r.sess.apartmentId || null;
+    if (cur.k !== kind || (cur.oid || null) !== id) {
+      return { error: error('אין הרשאה לפנייה זו', 403) };
+    }
+    return r;
+  }
+  return requireAdmin(env, request);
+}
 
 const ALLOWED_MIME = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -39,6 +63,11 @@ export const onRequestGet = async ({ request, env }) => {
     `SELECT document_id AS docId, payment_id AS targetId
      FROM expense_payment_documents WHERE document_id IN (${placeholders})`
   ).bind(...ids).all()).results : [];
+  // Ticket attachments — same separate-table pattern.
+  const ticketLinks = ids.length ? (await env.DB.prepare(
+    `SELECT document_id AS docId, ticket_id AS targetId
+     FROM ticket_documents WHERE document_id IN (${placeholders})`
+  ).bind(...ids).all()).results : [];
   const linkMap = new Map();
   for (const l of links) {
     if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
@@ -52,14 +81,17 @@ export const onRequestGet = async ({ request, env }) => {
     if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
     linkMap.get(l.docId).push({ type: 'expense_payment', targetId: l.targetId });
   }
+  for (const l of ticketLinks) {
+    if (!linkMap.has(l.docId)) linkMap.set(l.docId, []);
+    linkMap.get(l.docId).push({ type: 'ticket', targetId: l.targetId });
+  }
   for (const d of docs.results) d.links = linkMap.get(d.id) || [];
   return json({ documents: docs.results });
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  const r = await requireAdmin(env, request); if (r.error) return r.error;
-
-  // Drive must be connected
+  // Drive must be connected before we authenticate — saves a permission
+  // check when the channel isn't usable anyway.
   const status = await getDriveStatus(env.DB);
   if (!status.connected) return error('יש לחבר את Google Drive בהגדרות לפני העלאת מסמכים', 412);
 
@@ -74,6 +106,13 @@ export const onRequestPost = async ({ request, env }) => {
   if (!file || typeof file === 'string') return error('קובץ חסר', 400);
   if (file.size > maxBytes) return error('קובץ גדול מהמותר', 413);
   if (!ALLOWED_MIME.includes(file.type)) return error('סוג קובץ לא מורשה (תמונות או PDF בלבד)', 415);
+
+  // Permission depends on what the upload will attach to. Tickets allow
+  // creator+open self-uploads; everything else stays admin-only.
+  const targetType = form.get('targetType');
+  const targetId = form.get('targetId');
+  const r = await authorizeUpload(env, request, targetType, targetId);
+  if (r.error) return r.error;
 
   const id = uid('doc-');
 
@@ -103,26 +142,22 @@ export const onRequestPost = async ({ request, env }) => {
     ).bind(id, displayName).run();
   }
 
-  const targetType = form.get('targetType');
-  const targetId = form.get('targetId');
   if (targetType && targetId) {
     if (['expense', 'payment'].includes(targetType)) {
       await env.DB.prepare('INSERT OR IGNORE INTO document_links (document_id, target_type, target_id) VALUES (?, ?, ?)')
         .bind(id, targetType, targetId).run();
     } else if (targetType === 'infrastructure_expense') {
-      // Stored in a dedicated table (see schema.sql) — document_links' CHECK
-      // constraint can't include this type without an idempotency-breaking
-      // migration.
       await env.DB.prepare('INSERT OR IGNORE INTO infrastructure_expense_documents (document_id, expense_id) VALUES (?, ?)')
         .bind(id, targetId).run();
     } else if (targetType === 'expense_payment') {
-      // Per-payment attachment on an expense_payments row — same dedicated-
-      // table reasoning as infrastructure_expense.
       await env.DB.prepare('INSERT OR IGNORE INTO expense_payment_documents (document_id, payment_id) VALUES (?, ?)')
+        .bind(id, targetId).run();
+    } else if (targetType === 'ticket') {
+      await env.DB.prepare('INSERT OR IGNORE INTO ticket_documents (document_id, ticket_id) VALUES (?, ?)')
         .bind(id, targetId).run();
     }
   }
 
-  await logAudit(env.DB, request, { event: 'document_uploaded', role: 'admin', userLabel: r.sess.userLabel, meta: { id, name: file.name, displayName: displayName || null, size: file.size, driveFileId }, success: true });
+  await logAudit(env.DB, request, { event: 'document_uploaded', role: r.sess.role, userLabel: r.sess.userLabel, meta: { id, name: file.name, displayName: displayName || null, size: file.size, driveFileId, targetType, targetId }, success: true });
   return json({ id, name: file.name, displayName: displayName || file.name, size: file.size, mimeType: file.type }, { status: 201 });
 };

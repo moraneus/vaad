@@ -17,6 +17,7 @@
 │  • adjustments + adjustment-payments (per-apartment debts)   │
 │  • infrastructure expenses + demands + payments              │
 │  • reminders, vaad-members, receipts                         │
+│  • tickets (issue reports) + comments + image attachments    │
 │  • documents (proxy to Google Drive)                         │
 │  • drive (OAuth init / callback / status / disconnect)       │
 │  • identity OAuth (recovery + sign-in-with-google)           │

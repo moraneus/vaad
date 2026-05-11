@@ -34,6 +34,12 @@ async function loadSettings(db) {
     // decimals (true) vs round to nearest integer (false). Stored as
     // '0'/'1' to fit the TEXT-only settings table.
     displayDecimals: map.display_decimals === '1',
+    // Resend email-channel state. Plaintext key never leaves the server —
+    // only whether one is stored, the recipient address, and the
+    // disabled/pending/enabled status.
+    hasResendKey: !!map.resend_api_key_enc,
+    ticketsAdminEmail: map.tickets_admin_email || '',
+    ticketsEmailStatus: map.tickets_email_status || 'disabled',
     apartmentCountHistory: counts.results,
     monthlyFeeHistory: fees.results,
   };
