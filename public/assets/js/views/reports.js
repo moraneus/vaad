@@ -179,7 +179,7 @@ function renderMonthlyReport() {
                 <tr>
                   <td>${esc(it.expense.name)}</td>
                   <td>${esc(it.expense.category || '—')}</td>
-                  <td>${esc(t('exp.type.' + (it.expense.type || 'oneoff')))}</td>
+                  <td>${esc(t('exp.type.' + (it.expense.subtype || it.expense.type || 'oneoff')))}</td>
                   <td class="num muted">${it.remaining > 0 ? fmtCurrency(it.remaining, mode === 'accounting') : '—'}</td>
                   <td class="num text-success">${it.actual > 0 ? fmtCurrency(it.actual, mode === 'accounting') : '—'}</td>
                   <td>${status}</td>
@@ -509,7 +509,7 @@ function exportCSV() {
     }
     csv += `${t('common.name')},${t('common.category')},${t('exp.col.type')},${t('reports.col.expected')},${t('reports.col.actual')}\n`;
     for (const r of perExp.values()) {
-      csv += `${quote(r.e.name)},${quote(r.e.category || '')},${t('exp.type.' + (r.e.type || 'oneoff'))},${r.expected.toFixed(2)},${r.actual.toFixed(2)}\n`;
+      csv += `${quote(r.e.name)},${quote(r.e.category || '')},${t('exp.type.' + (r.e.subtype || r.e.type || 'oneoff'))},${r.expected.toFixed(2)},${r.actual.toFixed(2)}\n`;
     }
   } else if (scope === 'range' && rangeFrom && rangeTo) {
     // Custom-range export — same column layout as the yearly CSV but bounded

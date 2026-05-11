@@ -21,11 +21,18 @@ async function loadExpense(db, id) {
   e.defaultMethod = dm?.method || null;
   const cl = await db.prepare('SELECT contact_id FROM expense_contact_link WHERE expense_id = ?').bind(id).first();
   e.contactId = cl?.contact_id || null;
-  // Promote the logical subtype over the stored DB type (e.g., installments
-  // is stored as 'monthly' due to the CHECK constraint, but presented as
-  // 'installments' to the frontend).
+  // Two flavors of subtype:
+  //   - PROMOTING (e.g., 'installments'): also overrides e.type so the
+  //     frontend treats it as a first-class type. Used when behavior differs
+  //     materially from the stored type.
+  //   - DECORATING (e.g., 'variable_monthly'): exposed via e.subtype only,
+  //     leaving e.type at its stored value. Used when behavior is identical
+  //     to the stored type and only the visible label differs.
   const sub = await db.prepare('SELECT subtype FROM expense_subtype WHERE expense_id = ?').bind(id).first();
-  if (sub?.subtype) e.type = sub.subtype;
+  if (sub?.subtype) {
+    e.subtype = sub.subtype;
+    if (sub.subtype === 'installments') e.type = sub.subtype;
+  }
   return e;
 }
 
@@ -35,6 +42,10 @@ async function loadExpense(db, id) {
 // matches the stored type 1:1.
 function resolveStoredType(logicalType) {
   if (logicalType === 'installments') return { storedType: 'monthly', subtype: 'installments' };
+  // variable_monthly is functionally identical to one-off — stored as
+  // 'oneoff' with a decorating subtype tag so the frontend can show a
+  // distinct label without changing any behavior.
+  if (logicalType === 'variable_monthly') return { storedType: 'oneoff', subtype: 'variable_monthly' };
   return { storedType: logicalType, subtype: null };
 }
 
@@ -117,8 +128,12 @@ export const onRequestGet = async ({ request, env }) => {
     e.autoExtend = autoIds.has(e.id);
     e.defaultMethod = dmMap.get(e.id) || null;
     e.contactId = clMap.get(e.id) || null;
-    // Surface the logical subtype as the type if present.
-    if (subMap.has(e.id)) e.type = subMap.get(e.id);
+    if (subMap.has(e.id)) {
+      e.subtype = subMap.get(e.id);
+      // Same promotion rule as loadExpense — only 'installments' overrides
+      // the stored type; decorating subtypes stay on e.subtype only.
+      if (e.subtype === 'installments') e.type = 'installments';
+    }
     out.push(e);
   }
   return json({ expenses: out });
@@ -131,11 +146,13 @@ export const onRequestPost = async ({ request, env }) => {
   const type = pickStr(body.type, 16);
   const amount = pickNum(body.amount);
   if (!name || !type || amount == null) return error('שדות חובה חסרים', 400);
-  if (!['monthly', 'annual', 'oneoff', 'installments'].includes(type)) return error('סוג לא תקף', 400);
+  if (!['monthly', 'annual', 'oneoff', 'installments', 'variable_monthly'].includes(type)) return error('סוג לא תקף', 400);
 
   // Map the logical type to the underlying DB type (handles 'installments'
   // → stored as 'monthly' + tagged in expense_subtype).
   const { storedType, subtype } = resolveStoredType(type);
+  // Both 'oneoff' and 'variable_monthly' use the same single-date field.
+  const oneOffLike = type === 'oneoff' || type === 'variable_monthly';
 
   const category = pickStr(body.category, 100);
   const status = pickStr(body.status, 20) || 'active';
@@ -144,8 +161,8 @@ export const onRequestPost = async ({ request, env }) => {
   const endDate = isISODate(body.endDate) ? body.endDate : null;
   const billDate = isISODate(body.billDate) ? body.billDate : null;
   const oneOffDate = isISODate(body.oneOffDate) ? body.oneOffDate : null;
-  if (type !== 'oneoff' && !startDate) return error('תאריך התחלה חסר', 400);
-  if (type === 'oneoff' && !oneOffDate) return error('תאריך הוצאה חסר', 400);
+  if (!oneOffLike && !startDate) return error('תאריך התחלה חסר', 400);
+  if (oneOffLike && !oneOffDate) return error('תאריך הוצאה חסר', 400);
 
   const id = uid('exp-');
   await env.DB.prepare('INSERT INTO expenses (id, name, category, type, amount, start_date, end_date, bill_date, one_off_date, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -174,7 +191,7 @@ export const onRequestPut = async ({ request, env }) => {
   const type = pickStr(body.type, 16);
   const amount = pickNum(body.amount);
   if (!name || !type || amount == null) return error('שדות חובה חסרים', 400);
-  if (!['monthly', 'annual', 'oneoff', 'installments'].includes(type)) return error('סוג לא תקף', 400);
+  if (!['monthly', 'annual', 'oneoff', 'installments', 'variable_monthly'].includes(type)) return error('סוג לא תקף', 400);
   // Same logical→stored mapping as POST.
   const { storedType, subtype } = resolveStoredType(type);
   const updEndDate = isISODate(body.endDate) ? body.endDate : null;

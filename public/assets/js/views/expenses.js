@@ -106,7 +106,10 @@ export function renderExpenses() {
     return true;
   };
   const filtered = all.filter(e => {
-    if (filterType !== 'all' && e.type !== filterType) return false;
+    // Variable-monthly is stored as oneoff + decorating subtype; the filter
+    // dropdown speaks the logical type (e.subtype takes precedence).
+    const logicalType = e.subtype || e.type;
+    if (filterType !== 'all' && logicalType !== filterType) return false;
     if (filterStatus !== 'all' && expenseDerivedStatus(e) !== filterStatus) return false;
     if (filterCategory !== 'all' && (e.category || '') !== filterCategory) return false;
     if (!dateMatches(e)) return false;
@@ -138,6 +141,7 @@ export function renderExpenses() {
         <option value="monthly" ${filterType==='monthly'?'selected':''}>${esc(t('exp.type.monthly'))}</option>
         <option value="annual" ${filterType==='annual'?'selected':''}>${esc(t('exp.type.annual'))}</option>
         <option value="oneoff" ${filterType==='oneoff'?'selected':''}>${esc(t('exp.type.oneoff'))}</option>
+        <option value="variable_monthly" ${filterType==='variable_monthly'?'selected':''}>${esc(t('exp.type.variable_monthly'))}</option>
       </select>
       <select class="select" id="f-status" style="width:150px">
         <option value="all">${esc(t('common.allStatuses'))}</option>
@@ -722,7 +726,7 @@ function renderExpenseRow(e, isAdmin, groupCtx = null) {
         })()}
       </td>
       <td>${esc(e.category || '—')}</td>
-      <td>${typeBadge(e.type)}${e.type === 'annual' && e.rateHistory && e.rateHistory.length > 1 ? ` <button class="btn btn--sm btn--ghost" data-act="rates" data-id="${e.id}">${esc(t('exp.rates.count', { n: e.rateHistory.length }))}</button>` : ''}</td>
+      <td>${typeBadge(e.type, e.subtype)}${e.type === 'annual' && e.rateHistory && e.rateHistory.length > 1 ? ` <button class="btn btn--sm btn--ghost" data-act="rates" data-id="${e.id}">${esc(t('exp.rates.count', { n: e.rateHistory.length }))}</button>` : ''}</td>
       <td class="num">${
         e.type === 'installments'
           ? `${fmtCurrency(installmentsTotal)}<div class="muted" style="font-size:11px">${esc(t('exp.row.installmentsBreakdown', { n: installmentsCount, perMonth: fmtCurrency(e.amount) }))}</div>`
@@ -774,10 +778,13 @@ function renderExpenseGroupRows(g, isAdmin, expanded) {
     return s + (Number(e.amount) || 0);
   }, 0);
   const categories = new Set(items.map(e => e.category || ''));
-  const types = new Set(items.map(e => e.type));
+  // Treat variable_monthly (decorating subtype) as a separate logical type
+  // for grouping uniformity — a group containing both 'oneoff' and
+  // 'variable_monthly' is "mixed".
+  const types = new Set(items.map(e => e.subtype || e.type));
   const categoryLabel = categories.size === 1 ? (items[0].category || '—') : t('exp.group.mixed');
   const typeLabel = types.size === 1
-    ? typeBadge(items[0].type)
+    ? typeBadge(items[0].type, items[0].subtype)
     : `<span class="badge">${esc(t('exp.group.mixed'))}</span>`;
   // Earliest..latest date across all start/end/oneOff timestamps in the group.
   const dates = [];
@@ -916,7 +923,10 @@ function renderExpensePaymentsBlock(e, isAdmin) {
   `;
 }
 
-function typeBadge(typ) {
+function typeBadge(typ, subtype = null) {
+  if (subtype === 'variable_monthly') {
+    return `<span class="badge badge--info">${esc(t('exp.type.variable_monthly'))}</span>`;
+  }
   return typ === 'monthly' ? `<span class="badge badge--info">${esc(t('exp.type.monthly'))}</span>` :
          typ === 'annual' ? `<span class="badge badge--accent">${esc(t('exp.type.annual'))}</span>` :
          typ === 'installments' ? `<span class="badge badge--warning">${esc(t('exp.type.installments'))}</span>` :
@@ -939,7 +949,10 @@ function lastOfMonthISO(iso) {
 function openExpenseDialog(exp = null) {
   if (!requireAdmin()) return;
   const isEdit = !!exp;
-  const ty = exp?.type || 'monthly';
+  // Logical type: a decorating subtype (e.g., 'variable_monthly') wins over
+  // the stored type so editing an existing variable-monthly expense shows
+  // that segmented option as active.
+  const ty = exp?.subtype || exp?.type || 'monthly';
   const cats = knownCategories();
   // For NEW monthly expenses, default the date range to the current month so
   // the row covers exactly that month out of the box. The admin can extend
@@ -984,6 +997,7 @@ function openExpenseDialog(exp = null) {
             <button type="button" class="segmented__opt ${ty==='annual'?'segmented__opt--active':''}" data-type="annual">${esc(t('exp.type.annual'))}</button>
             <button type="button" class="segmented__opt ${ty==='installments'?'segmented__opt--active':''}" data-type="installments">${esc(t('exp.type.installments'))}</button>
             <button type="button" class="segmented__opt ${ty==='oneoff'?'segmented__opt--active':''}" data-type="oneoff">${esc(t('exp.type.oneoff'))}</button>
+            <button type="button" class="segmented__opt ${ty==='variable_monthly'?'segmented__opt--active':''}" data-type="variable_monthly">${esc(t('exp.type.variable_monthly'))}</button>
           </div>
           <input type="hidden" name="type" id="type-val" value="${ty}" />
         </div>
@@ -1036,7 +1050,7 @@ function openExpenseDialog(exp = null) {
           <div class="field__hint">${esc(t('exp.field.contact.hint'))}</div>
         </div>
 
-        <div class="field field--required" id="field-start">
+        <div class="field field--required" id="field-start" style="display:${(ty==='oneoff' || ty==='variable_monthly')?'none':'flex'}">
           <label class="field__label" id="lbl-start">${esc(t('exp.field.startDate'))}</label>
           <input class="input" name="startDate" type="date" value="${esc(defaultStart)}" />
         </div>
@@ -1045,7 +1059,7 @@ function openExpenseDialog(exp = null) {
           <input class="input" name="installmentsCount" type="number" min="2" step="1" value="${esc(String(initialInstallments))}" />
           <div class="field__hint">${esc(t('exp.field.installmentsCountHint'))}</div>
         </div>
-        <div class="field" id="field-end">
+        <div class="field" id="field-end" style="display:${(ty==='oneoff' || ty==='installments' || ty==='variable_monthly')?'none':'flex'}">
           <label class="field__label">${esc(t('exp.field.endDate'))}</label>
           <input class="input" name="endDate" type="date" value="${esc(defaultEnd)}" />
           <div class="field__hint" id="hint-end" style="display:${ty === 'monthly' ? 'block' : 'none'}">${esc(t('exp.field.endDateMonthlyHint'))}</div>
@@ -1064,7 +1078,7 @@ function openExpenseDialog(exp = null) {
           <input class="input" name="billDate" type="date" value="${esc(exp?.billDate || '')}" />
           <div class="field__hint">${esc(t('exp.field.billDateHint'))}</div>
         </div>
-        <div class="field field--required" id="field-oneoff" style="display:${ty==='oneoff'?'flex':'none'}">
+        <div class="field field--required" id="field-oneoff" style="display:${(ty==='oneoff' || ty==='variable_monthly')?'flex':'none'}">
           <label class="field__label">${esc(t('exp.field.oneoffDate'))}</label>
           <input class="input" name="oneOffDate" type="date" value="${esc(exp?.oneOffDate || todayISO())}" />
         </div>
@@ -1241,12 +1255,15 @@ function openExpenseDialog(exp = null) {
   const setType = (newType) => {
     m.bodyEl.querySelector('#type-val').value = newType;
     m.bodyEl.querySelectorAll('[data-type]').forEach(b => b.classList.toggle('segmented__opt--active', b.dataset.type === newType));
+    // variable_monthly is identical to oneoff for all form behaviors —
+    // same single-date field, no start/end range, no installments count.
+    const isOneOffLike = newType === 'oneoff' || newType === 'variable_monthly';
     m.bodyEl.querySelector('#field-bill').style.display = newType === 'annual' ? 'flex' : 'none';
-    m.bodyEl.querySelector('#field-oneoff').style.display = newType === 'oneoff' ? 'flex' : 'none';
-    m.bodyEl.querySelector('#field-start').style.display = newType === 'oneoff' ? 'none' : 'flex';
+    m.bodyEl.querySelector('#field-oneoff').style.display = isOneOffLike ? 'flex' : 'none';
+    m.bodyEl.querySelector('#field-start').style.display = isOneOffLike ? 'none' : 'flex';
     // endDate is computed automatically for installments (start + N months) —
     // hide the input so admins don't end up with conflicting values.
-    m.bodyEl.querySelector('#field-end').style.display = (newType === 'oneoff' || newType === 'installments') ? 'none' : 'flex';
+    m.bodyEl.querySelector('#field-end').style.display = (isOneOffLike || newType === 'installments') ? 'none' : 'flex';
     m.bodyEl.querySelector('#field-installments').style.display = newType === 'installments' ? 'flex' : 'none';
     const lbl = m.bodyEl.querySelector('#lbl-amount');
     const hint = m.bodyEl.querySelector('#hint-amount');
@@ -1348,8 +1365,10 @@ function openExpenseDialog(exp = null) {
     const data = Object.fromEntries(new FormData(f).entries());
     if (!data.name) { toast(t('exp.nameRequired'), 'warning'); return; }
     if (!data.amount) { toast(t('exp.amountRequired'), 'warning'); return; }
-    if (data.type !== 'oneoff' && !data.startDate) { toast(t('exp.startDateRequired'), 'warning'); return; }
-    if (data.type === 'oneoff' && !data.oneOffDate) { toast(t('exp.oneoffDateRequired'), 'warning'); return; }
+    // variable_monthly uses the same single-date field as oneoff.
+    const oneOffLikeSave = data.type === 'oneoff' || data.type === 'variable_monthly';
+    if (!oneOffLikeSave && !data.startDate) { toast(t('exp.startDateRequired'), 'warning'); return; }
+    if (oneOffLikeSave && !data.oneOffDate) { toast(t('exp.oneoffDateRequired'), 'warning'); return; }
     if (data.endDate === '') data.endDate = null;
     // FormData turns unchecked checkboxes into "absent" — explicitly read the
     // checkbox state so we can pass a clear boolean to the server.
@@ -1558,7 +1577,7 @@ function exportExpensesCSV(rows) {
     lines.push([
       q(e.name),
       q(e.category || ''),
-      q(t('exp.type.' + e.type)),
+      q(t('exp.type.' + (e.subtype || e.type))),
       q(Number(e.amount || 0).toFixed(2)),
       q(periodOf(e)),
       q(t('exp.status.' + expenseDerivedStatus(e))),
@@ -1623,7 +1642,7 @@ function exportExpensesPDF(rows) {
         <tr>
           <td>${esc(e.name)}${e.notes ? `<br><span style="color:#777;font-size:11px">${esc(e.notes)}</span>` : ''}</td>
           <td>${esc(e.category || '—')}</td>
-          <td>${esc(t('exp.type.' + e.type))}</td>
+          <td>${esc(t('exp.type.' + (e.subtype || e.type)))}</td>
           <td class="num">${esc(fmtCurrency(e.amount))}</td>
           <td>${esc(periodOf(e))}</td>
           <td>${esc(t('exp.status.' + expenseDerivedStatus(e)))}</td>
