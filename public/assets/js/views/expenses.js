@@ -445,6 +445,7 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
               const seedMethod = isEdit ? editing.method : (exp?.defaultMethod || 'bank');
               const opts = [
                 ['bank', t('pay.method.bank')],
+                ['standing_order', t('pay.method.standing_order')],
                 ['bit', t('pay.method.bit')],
                 ['check', t('pay.method.check')],
                 ['cash', t('pay.method.cash')],
@@ -676,7 +677,7 @@ function renderExpenseRow(e, isAdmin) {
 // any value not in the static set, so legacy rows with custom strings still
 // display something readable.
 function paymentMethodLabel(method) {
-  const known = new Set(['bank', 'bit', 'check', 'cash', 'other']);
+  const known = new Set(['bank', 'standing_order', 'bit', 'check', 'cash', 'other']);
   if (!method) return '—';
   return known.has(method) ? t(`pay.method.${method}`) : method;
 }
@@ -864,11 +865,12 @@ function openExpenseDialog(exp = null) {
           <label class="field__label">${esc(t('exp.field.defaultMethod'))}</label>
           <select class="select" name="defaultMethod">
             <option value="" ${!exp?.defaultMethod ? 'selected' : ''}>${esc(t('exp.field.defaultMethod.none'))}</option>
-            <option value="bank"  ${exp?.defaultMethod === 'bank'  ? 'selected' : ''}>${esc(t('pay.method.bank'))}</option>
-            <option value="bit"   ${exp?.defaultMethod === 'bit'   ? 'selected' : ''}>${esc(t('pay.method.bit'))}</option>
-            <option value="check" ${exp?.defaultMethod === 'check' ? 'selected' : ''}>${esc(t('pay.method.check'))}</option>
-            <option value="cash"  ${exp?.defaultMethod === 'cash'  ? 'selected' : ''}>${esc(t('pay.method.cash'))}</option>
-            <option value="other" ${exp?.defaultMethod === 'other' ? 'selected' : ''}>${esc(t('pay.method.other'))}</option>
+            <option value="bank"           ${exp?.defaultMethod === 'bank'           ? 'selected' : ''}>${esc(t('pay.method.bank'))}</option>
+            <option value="standing_order" ${exp?.defaultMethod === 'standing_order' ? 'selected' : ''}>${esc(t('pay.method.standing_order'))}</option>
+            <option value="bit"            ${exp?.defaultMethod === 'bit'            ? 'selected' : ''}>${esc(t('pay.method.bit'))}</option>
+            <option value="check"          ${exp?.defaultMethod === 'check'          ? 'selected' : ''}>${esc(t('pay.method.check'))}</option>
+            <option value="cash"           ${exp?.defaultMethod === 'cash'           ? 'selected' : ''}>${esc(t('pay.method.cash'))}</option>
+            <option value="other"          ${exp?.defaultMethod === 'other'          ? 'selected' : ''}>${esc(t('pay.method.other'))}</option>
           </select>
           <div class="field__hint">${esc(t('exp.field.defaultMethod.hint'))}</div>
         </div>

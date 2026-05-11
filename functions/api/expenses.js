@@ -79,7 +79,7 @@ async function writeAutoExtend(db, expenseId, flag) {
 // Upserts (or clears) the default payment method for an expense. Falsy method
 // removes the row.
 async function writeDefaultMethod(db, expenseId, method) {
-  const allowed = new Set(['bank', 'bit', 'check', 'cash', 'other']);
+  const allowed = new Set(['bank', 'standing_order', 'bit', 'check', 'cash', 'other']);
   if (method && allowed.has(method)) {
     await db.prepare(
       'INSERT INTO expense_default_method (expense_id, method) VALUES (?, ?) ' +

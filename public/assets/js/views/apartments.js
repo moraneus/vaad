@@ -1084,10 +1084,11 @@ export function openPaymentDialog(apt, onSaved) {
         <div class="field">
           <label class="field__label">${esc(t('pay.field.method'))}</label>
           <select class="select" name="method">
-            <option value="cash">${esc(t('pay.method.cash'))}</option>
+            <option value="bank">${esc(t('pay.method.bank'))}</option>
+            <option value="standing_order">${esc(t('pay.method.standing_order'))}</option>
             <option value="bit">${esc(t('pay.method.bit'))}</option>
             <option value="check">${esc(t('pay.method.check'))}</option>
-            <option value="bank">${esc(t('pay.method.bank'))}</option>
+            <option value="cash">${esc(t('pay.method.cash'))}</option>
             <option value="other">${esc(t('pay.method.other'))}</option>
           </select>
         </div>
