@@ -1,5 +1,7 @@
 // Client-side API wrapper. All calls go to /api/*. Cookies handle auth.
 
+import { setDisplayDecimals } from './i18n.js';
+
 const opts = (method, body, isForm = false) => ({
   method,
   credentials: 'same-origin',
@@ -286,6 +288,9 @@ export async function refreshAll() {
     api.vaadMembers().catch(() => ({ members: [] })),
   ]);
   cache.settings = settings;
+  // Sync the global display-decimals preference with whatever the admin
+  // saved last — fmtCurrency reads this for its default behavior.
+  setDisplayDecimals(!!settings?.displayDecimals);
   cache.apartments = apt.apartments || [];
   cache.payments = pay.payments || [];
   cache.expenses = exp.expenses || [];

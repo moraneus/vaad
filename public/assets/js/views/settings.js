@@ -149,6 +149,17 @@ function drawSettings() {
       </div>
 
       <div class="card" style="margin-bottom:14px">
+        <h3 style="margin:0 0 12px; font-size:15px">${esc(t('settings.display.title'))}</h3>
+        <label class="checkbox" style="display:flex; gap:10px; align-items:flex-start; cursor:${isAdmin ? 'pointer' : 'default'}">
+          <input type="checkbox" id="display-decimals-cb" ${s.displayDecimals ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''} />
+          <span>
+            <span style="font-weight:500">${esc(t('settings.displayDecimals.label'))}</span>
+            <div class="field__hint" style="margin-top:2px">${esc(t('settings.displayDecimals.hint'))}</div>
+          </span>
+        </label>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
         <div class="hstack" style="margin-bottom:12px">
           <h3 style="margin:0; font-size:15px">${esc(t('settings.aptCount'))}</h3>
           <span class="muted" style="font-size:12px">${esc(t('settings.aptCount.hint'))}</span>
@@ -485,6 +496,17 @@ function drawSettings() {
           openingBalance: Number(data.openingBalance) || 0,
           openingBalanceDate: data.openingBalanceDate,
         });
+        toast(t('settings.saveDone'), 'success');
+        drawSettings();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    });
+
+    // Display-decimals toggle — auto-save on change so the admin doesn't
+    // need to click an extra "Save" button. refreshAll() in updateSettingsBasic
+    // re-applies the flag globally via setDisplayDecimals.
+    document.getElementById('display-decimals-cb')?.addEventListener('change', async (e) => {
+      try {
+        await updateSettingsBasic({ displayDecimals: !!e.target.checked });
         toast(t('settings.saveDone'), 'success');
         drawSettings();
       } catch (err) { toast(err.message || t('common.error'), 'danger'); }

@@ -30,6 +30,10 @@ async function loadSettings(db) {
     payboxHolder: map.paybox_holder || '',
     payboxNotes: map.paybox_notes || '',
     aboutText: map.about_text || '',
+    // Display preference: show fractional currency amounts with two
+    // decimals (true) vs round to nearest integer (false). Stored as
+    // '0'/'1' to fit the TEXT-only settings table.
+    displayDecimals: map.display_decimals === '1',
     apartmentCountHistory: counts.results,
     monthlyFeeHistory: fees.results,
   };
@@ -66,6 +70,7 @@ export const onRequestPut = async ({ request, env }) => {
     ['paybox_holder',         body.payboxHolder,         (v) => pickStr(v, 200)],
     ['paybox_notes',          body.payboxNotes,          (v) => pickStr(v, 500)],
     ['about_text',            body.aboutText,            (v) => pickStr(v, 5000)],
+    ['display_decimals',      body.displayDecimals,      (v) => (v ? '1' : '0')],
   ];
   for (const [k, raw, fn] of candidates) {
     if (raw === undefined) continue;

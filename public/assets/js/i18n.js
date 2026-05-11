@@ -761,6 +761,9 @@ const dicts = {
     'settings.field.openingBalanceHint': 'היתרה הקיימת לפני שהמערכת התחילה',
     'settings.field.openingBalanceDate': 'תאריך התחלת ניהול',
     'settings.field.openingBalanceDateHint': 'מהתאריך הזה ואילך מתחילים להיספר חובות הדירות והיתרה המצטברת. כל פעילות שלפני נחשבת "סגורה" וכלולה ביתרת הפתיחה.',
+    'settings.display.title': 'תצוגת סכומים',
+    'settings.displayDecimals.label': 'הצג סכומים עם אגורות (שתי ספרות אחרי הנקודה)',
+    'settings.displayDecimals.hint': 'משפיע רק על התצוגה — הערכים המקוריים נשמרים תמיד במלואם. ברירת מחדל: עיגול לשקל הקרוב.',
     'settings.aptCount': 'מספר דירות בבניין',
     'settings.aptCount.hint': 'שינוי תקף מהתאריך הנבחר ואילך — ללא שינוי בעבר.',
     'settings.aptCount.add': 'שינוי מספר דירות',
@@ -2033,6 +2036,9 @@ const dicts = {
     'settings.field.openingBalanceHint': 'Balance present before this system started',
     'settings.field.openingBalanceDate': 'Management start date',
     'settings.field.openingBalanceDateHint': 'Apartment debts and the cumulative balance are counted from this date forward. Anything before is considered settled by the opening balance.',
+    'settings.display.title': 'Amount display',
+    'settings.displayDecimals.label': 'Show amounts with cents (two decimal places)',
+    'settings.displayDecimals.hint': 'Affects display only — the original values are always preserved. Default: round to the nearest shekel.',
     'settings.aptCount': 'Apartment count',
     'settings.aptCount.hint': 'Change applies from the chosen date forward — the past is not affected.',
     'settings.aptCount.add': 'Change apartment count',
@@ -2592,17 +2598,27 @@ export function applyDocAttrs() {
   document.title = t('app.titlebar');
 }
 
+// Global "show two decimals" preference, controlled by the admin from the
+// settings screen. When true, fmtCurrency() with no explicit `decimals` arg
+// shows two fraction digits. Call sites that pass `decimals` explicitly keep
+// their original behavior.
+let currentDisplayDecimals = false;
+export function setDisplayDecimals(flag) { currentDisplayDecimals = !!flag; }
+export function getDisplayDecimals() { return currentDisplayDecimals; }
+
 // Locale-aware formatters
-export function fmtCurrency(n, decimals = false) {
+export function fmtCurrency(n, decimals) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return '—';
+  // Fall back to the global pref when the caller didn't specify.
+  const showDec = decimals === undefined ? currentDisplayDecimals : !!decimals;
   const opts = { style: 'currency', currency: 'ILS' };
-  if (decimals) { opts.minimumFractionDigits = 2; opts.maximumFractionDigits = 2; }
+  if (showDec) { opts.minimumFractionDigits = 2; opts.maximumFractionDigits = 2; }
   else { opts.maximumFractionDigits = 0; }
   const locale = currentLang === 'he' ? 'he-IL' : 'en-IL';
   try {
-    return new Intl.NumberFormat(locale, opts).format(decimals ? Number(n) : Math.round(Number(n)));
+    return new Intl.NumberFormat(locale, opts).format(showDec ? Number(n) : Math.round(Number(n)));
   } catch {
-    return new Intl.NumberFormat('he-IL', opts).format(decimals ? Number(n) : Math.round(Number(n)));
+    return new Intl.NumberFormat('he-IL', opts).format(showDec ? Number(n) : Math.round(Number(n)));
   }
 }
 
