@@ -923,9 +923,16 @@ function renderExpensePaymentsBlock(e, isAdmin) {
   `;
 }
 
+// Each expense type gets a visually distinct badge tone so the column
+// reads at a glance:
+//   monthly         → info (blue) — steady recurring
+//   variable_monthly→ violet     — alternative recurring (auto-debit etc.)
+//   annual          → accent (tan/gold) — yearly
+//   installments    → warning (yellow) — multi-month split
+//   oneoff          → default gray — one-time
 function typeBadge(typ, subtype = null) {
   if (subtype === 'variable_monthly') {
-    return `<span class="badge badge--info">${esc(t('exp.type.variable_monthly'))}</span>`;
+    return `<span class="badge badge--violet">${esc(t('exp.type.variable_monthly'))}</span>`;
   }
   return typ === 'monthly' ? `<span class="badge badge--info">${esc(t('exp.type.monthly'))}</span>` :
          typ === 'annual' ? `<span class="badge badge--accent">${esc(t('exp.type.annual'))}</span>` :

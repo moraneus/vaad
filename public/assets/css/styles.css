@@ -642,6 +642,8 @@ p { margin: 0 0 8px; }
 .badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 4px;
   padding: 3px 10px;
   border-radius: 999px;
@@ -656,6 +658,8 @@ p { margin: 0 0 8px; }
 .badge--warning { background: var(--c-warning-soft); color: var(--c-warning); border-color: transparent; }
 .badge--info { background: var(--c-info-soft); color: var(--c-info); border-color: transparent; }
 .badge--accent { background: #f5ecda; color: var(--c-accent-hover); border-color: transparent; }
+.badge--violet { background: #ede9fe; color: #6d28d9; border-color: transparent; }
+.badge--teal { background: #ccfbf1; color: #0f766e; border-color: transparent; }
 
 /* ============================
    Modal
