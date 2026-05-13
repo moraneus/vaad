@@ -194,9 +194,12 @@ export function expectedExpensesForMonth(year, month) {
   const result = [];
   for (const e of getExpenses()) {
     if (e.status === 'closed') continue;
+    // Frozen expenses don't contribute to expected totals regardless of
+    // type — the admin froze them precisely to keep them out of the
+    // forecast until the actual payment lands.
+    if (e.status === 'paused') continue;
 
     if (e.type === 'monthly' || e.type === 'installments') {
-      if (e.status === 'paused') continue;
       if (!isMonthInRange(year, month, e.startDate, e.endDate)) continue;
       // Use rate history if exists, else amount
       const amt = e.rateHistory && e.rateHistory.length ? annualRateAt(e, year, month) : (Number(e.amount) || 0);
@@ -228,8 +231,9 @@ export function accountingExpensesForMonth(year, month) {
   const result = [];
   for (const e of getExpenses()) {
     if (e.status === 'closed') continue;
+    // Frozen → skip everywhere (same reasoning as expectedExpensesForMonth).
+    if (e.status === 'paused') continue;
     if (e.type === 'monthly' || e.type === 'installments') {
-      if (e.status === 'paused') continue;
       if (!isMonthInRange(year, month, e.startDate, e.endDate)) continue;
       const amt = e.rateHistory && e.rateHistory.length ? annualRateAt(e, year, month) : (Number(e.amount) || 0);
       result.push({ expense: e, amount: amt, year, month, mode: 'monthly' });
@@ -249,13 +253,16 @@ export function accountingExpensesForMonth(year, month) {
 }
 
 // ACTUAL expenses for a month — money that actually left the building
-// account, sourced from recorded expense_payments. Infrastructure_expenses
-// are NOT included: that table is a billing record, not an outflow.
-// The real contractor payment lives in the regular Expenses screen.
+// account, sourced from recorded expense_payments. Frozen payments are
+// excluded: the admin has marked them as recorded-in-error so they
+// shouldn't count toward totals (the row stays in the DB for audit/history).
+// Infrastructure_expenses are NOT included either: that table is a billing
+// record, not an outflow. The real contractor payment lives in the regular
+// Expenses screen.
 export function actualExpensesForMonth(year, month) {
   const expenseById = new Map(getExpenses().map(e => [e.id, e]));
   return getExpensePayments()
-    .filter(p => p.year === year && p.month === month)
+    .filter(p => p.year === year && p.month === month && !p.frozen)
     .map(p => ({
       expense: expenseById.get(p.expenseId) || { id: p.expenseId, name: p.notes || '—', category: '—', type: 'oneoff' },
       amount: Number(p.amount) || 0,
@@ -269,11 +276,13 @@ export function expenseStatusForMonth(expenseId, year, month) {
   const e = getExpenses().find(x => x.id === expenseId);
   if (!e) return { expected: 0, actual: 0, status: 'unpaid', payments: [] };
 
-  // Compute expected for this expense in this month
+  // Compute expected for this expense in this month. Frozen expenses
+  // contribute 0 expected regardless of type, so a frozen-too-early
+  // recurring row doesn't make the monthly ledger look unpaid.
   let expected = 0;
-  if (e.status !== 'closed') {
+  if (e.status !== 'closed' && e.status !== 'paused') {
     if (e.type === 'monthly' || e.type === 'installments') {
-      if (e.status !== 'paused' && isMonthInRange(year, month, e.startDate, e.endDate)) {
+      if (isMonthInRange(year, month, e.startDate, e.endDate)) {
         expected = e.rateHistory && e.rateHistory.length ? annualRateAt(e, year, month) : (Number(e.amount) || 0);
       }
     } else if (e.type === 'annual') {
@@ -293,8 +302,11 @@ export function expenseStatusForMonth(expenseId, year, month) {
     }
   }
 
+  // Frozen payments are returned in the list (so the UI can still render
+  // them muted) but excluded from the totals so the month's status
+  // doesn't accidentally flip to "paid" via a row the admin has shelved.
   const payments = getExpensePayments().filter(p => p.expenseId === expenseId && p.year === year && p.month === month);
-  const actual = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const actual = payments.filter(p => !p.frozen).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const status = actual === 0 ? (expected > 0 ? 'unpaid' : 'none')
                 : actual >= expected ? 'paid'
                 : 'partial';
@@ -404,26 +416,52 @@ export function aggregateByCategory(entries) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-// Cumulative balance from openingBalanceDate to (year, month) inclusive — cash mode.
-// Bank balance = opening balance + Σ(actual money in) − Σ(actual money out).
-// Activity before opening_balance_date is ignored (it's already wrapped up in
-// the opening balance amount).
+// Cumulative balance from openingBalanceDate to (year, month) inclusive.
+// This is the **real bank position**, so every line item is anchored to
+// its actual cash date (paid_on) — NOT to the billing month it targets.
+//
+// The distinction matters when a resident overpays or pre-pays a future
+// month: the cash hit the bank now, even though the surplus is allocated
+// to a later billing month in the apartment ledger. The dashboard balance
+// (which models the checking account) must reflect that surplus
+// immediately; the monthly income view (which models "how much was paid
+// FOR this month's bill") continues to use billing month.
+//
+// Activity before opening_balance_date is ignored — it's already rolled
+// up in the opening balance amount.
 export function cumulativeBalance(year, month) {
   const s = getSettings();
-  const openDate = new Date(s.openingBalanceDate || `${year}-01-01`);
+  const open = s.openingBalanceDate || `${year}-01-01`;
+  // Inclusive end-of-period cutoff: last calendar day of (year, month).
+  const lastDay = new Date(year, month, 0).getDate();
+  const cutoff = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   let bal = Number(s.openingBalance) || 0;
-  let y = openDate.getFullYear();
-  let m = openDate.getMonth() + 1;
-  while (y < year || (y === year && m <= month)) {
-    bal += actualIncomeForMonth(y, m);
-    // ACTUAL expenses (recorded expense_payments) — not the budgeted/expected
-    // amount from definitions. Only money that really left the account.
-    bal -= sumExp(actualExpensesForMonth(y, m));
-    m++;
-    if (m > 12) { m = 1; y++; }
-    // safety guard
-    if (y > year + 50) break;
+
+  // Falls back to the first of the billing month when paid_on is missing
+  // (legacy rows). Compares as ISO strings — they're zero-padded so
+  // lexical order matches chronological order.
+  const billingFirstISO = (p) => `${p.year}-${String(p.month).padStart(2, '0')}-01`;
+  const cashDate = (p) => p.paidOn || billingFirstISO(p);
+  const inRange = (iso) => iso && iso >= open && iso <= cutoff;
+
+  // INFLOWS — cash hitting the building bank.
+  for (const p of getPayments()) {
+    if (inRange(cashDate(p))) bal += Number(p.amount) || 0;
   }
+  for (const p of getAdjustmentPayments()) {
+    if (inRange(p.paidOn)) bal += Number(p.amount) || 0;
+  }
+  for (const p of getInfrastructurePayments()) {
+    if (inRange(p.paidOn)) bal += Number(p.amount) || 0;
+  }
+
+  // OUTFLOWS — money leaving the building bank via recorded expense_payments.
+  // Frozen rows are excluded (admin shelved them as recorded-in-error).
+  for (const p of getExpensePayments()) {
+    if (p.frozen) continue;
+    if (inRange(cashDate(p))) bal -= Number(p.amount) || 0;
+  }
+
   return bal;
 }
 
@@ -435,6 +473,10 @@ export function cumulativeBalance(year, month) {
 export function expenseDerivedStatus(expense) {
   const e = expense;
   if (!e) return 'done';
+  // A frozen expense is one the admin has paused — it stops contributing
+  // to expected/accounting totals until they unfreeze it. Surface that as
+  // a distinct status so the badge can render differently from "done".
+  if (e.status === 'paused') return 'frozen';
   const today = new Date();
   const todayY = today.getFullYear();
   const todayM = today.getMonth() + 1;
@@ -444,7 +486,7 @@ export function expenseDerivedStatus(expense) {
     const od = new Date(e.oneOffDate);
     const expected = Number(e.amount) || 0;
     const paid = getExpensePayments()
-      .filter(p => p.expenseId === e.id)
+      .filter(p => p.expenseId === e.id && !p.frozen)
       .reduce((s, p) => s + (Number(p.amount) || 0), 0);
     return paid >= expected ? 'done' : 'in_progress';
   }

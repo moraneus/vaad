@@ -65,6 +65,10 @@ export async function deleteExpensePayment(id) {
   await api.deleteExpensePayment(id);
   await refreshAll();
 }
+export async function setExpensePaymentFrozen(id, frozen) {
+  await api.setExpensePaymentFrozen(id, frozen);
+  await refreshAll();
+}
 export async function removeExpenseRate(expenseId, rateId) {
   try { await api.deleteExpenseRate(rateId); await refreshAll(); return true; }
   catch { return false; }

@@ -443,6 +443,17 @@ CREATE TABLE IF NOT EXISTS expense_payment_documents (
 CREATE INDEX IF NOT EXISTS idx_exp_pay_doc_payment
   ON expense_payment_documents(payment_id);
 
+-- Frozen state for individual expense_payments rows. A frozen payment keeps
+-- its history (row + linked documents) but stops contributing to "actual
+-- expenses" totals — useful when a payment was recorded prematurely or
+-- in error and the admin wants to suppress it without losing the record.
+-- Parallel-table pattern (rather than a new column) to keep schema.sql
+-- idempotent across re-runs.
+CREATE TABLE IF NOT EXISTS expense_payment_frozen (
+  payment_id TEXT PRIMARY KEY REFERENCES expense_payments(id) ON DELETE CASCADE,
+  frozen_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Per-apartment manual adjustments (charges/credits) that affect the apartment
 -- outstanding balance independently of monthly fees and payments.
 --   kind = 'charge' adds to debt, 'credit' reduces debt (or creates a positive balance).

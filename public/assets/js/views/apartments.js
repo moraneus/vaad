@@ -20,6 +20,32 @@ export function renderApartments() {
   const cnt = valueAtMonth(settings.apartmentCountHistory, currentYear, 12);
   const fee = valueAtMonth(settings.monthlyFeeHistory, currentYear, 12);
 
+  // Building-wide totals for the table footer. The outstanding column on
+  // each row already shows credit (negative) or debt (positive); summing
+  // those naturally gives the net — residents who overpaid offset residents
+  // who underpaid, which is exactly what "total balance across apartments"
+  // should mean. We also tally positive-only / negative-only so the
+  // footer can split the net into a one-line "X debt − Y credit = net".
+  let totalYearExpected = 0;
+  let totalYearPaid = 0;
+  let totalOutstandingNet = 0;
+  let totalDebt = 0;
+  let totalCredit = 0;
+  for (const a of apts) {
+    let ye = 0, yp = 0;
+    for (let m = 1; m <= 12; m++) {
+      const st = apartmentMonthStatus(a.id, currentYear, m);
+      ye += st.expected;
+      yp += st.paid;
+    }
+    totalYearExpected += ye;
+    totalYearPaid += yp;
+    const o = apartmentOutstanding(a.id, currentYear, 12);
+    totalOutstandingNet += o;
+    if (o > 0) totalDebt += o;
+    else if (o < 0) totalCredit += -o;
+  }
+
   setHTML(main, `
     ${renderPageHeader({
       title: t('apt.title'),
@@ -82,6 +108,24 @@ export function renderApartments() {
             <tbody>
               ${apts.map(apt => renderAptRow(apt, currentYear, isAdmin)).join('')}
             </tbody>
+            <tfoot>
+              <tr style="background:var(--c-surface-2); font-weight:600">
+                <td class="bulk-paid-col" style="display:none"></td>
+                <td colspan="4">${esc(t('apt.totals.label'))}</td>
+                <td class="num">${fmtCurrency(totalYearExpected)}</td>
+                <td class="num text-success">${fmtCurrency(totalYearPaid)}</td>
+                <td class="num">
+                  ${totalOutstandingNet > 0
+                    ? `<span class="text-danger">${fmtCurrency(totalOutstandingNet)}</span><div class="muted" style="font-size:11px; font-weight:400">${esc(t('apt.totals.debtLabel'))}</div>`
+                    : totalOutstandingNet < 0
+                      ? `<span class="text-success">+${fmtCurrency(Math.abs(totalOutstandingNet))}</span><div class="muted" style="font-size:11px; font-weight:400">${esc(t('apt.totals.creditLabel'))}</div>`
+                      : `<span class="muted">${fmtCurrency(0)}</span><div class="muted" style="font-size:11px; font-weight:400">${esc(t('apt.totals.settledLabel'))}</div>`
+                  }
+                  ${(totalDebt > 0 && totalCredit > 0) ? `<div class="muted" style="font-size:11px; font-weight:400; margin-top:2px">${esc(t('apt.totals.split', { debt: fmtCurrency(totalDebt), credit: fmtCurrency(totalCredit) }))}</div>` : ''}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

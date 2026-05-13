@@ -1,6 +1,6 @@
 // Expenses — 3 types: monthly, annual (with rate history), one-off
 
-import { getExpenses, upsertExpense, deleteExpense, addExpenseRate, removeExpenseRate, getDocuments, uploadDocument, attachDocument, detachDocument, deleteDocument, upsertExpensePayment, deleteExpensePayment, getExpensePayments, getReminders, deleteReminder, getContacts, upsertContact } from '../store.js';
+import { getExpenses, upsertExpense, deleteExpense, addExpenseRate, removeExpenseRate, getDocuments, uploadDocument, attachDocument, detachDocument, deleteDocument, upsertExpensePayment, deleteExpensePayment, setExpensePaymentFrozen, getExpensePayments, getReminders, deleteReminder, getContacts, upsertContact } from '../store.js';
 import { api } from '../api.js';
 import { fmtCurrency, esc, fmtDate, formatBytes, todayISO, sortHistory, monthKey, parseMonthKey, isMonthInRange, downloadBlob } from '../utils.js';
 import { t, monthName } from '../i18n.js';
@@ -147,6 +147,7 @@ export function renderExpenses() {
         <option value="all">${esc(t('common.allStatuses'))}</option>
         <option value="in_progress" ${filterStatus==='in_progress'?'selected':''}>${esc(t('exp.status.in_progress'))}</option>
         <option value="done" ${filterStatus==='done'?'selected':''}>${esc(t('exp.status.done'))}</option>
+        <option value="frozen" ${filterStatus==='frozen'?'selected':''}>${esc(t('exp.status.frozen'))}</option>
       </select>
       <select class="select" id="f-cat" style="width:170px">
         ${cats.map(c => `<option value="${esc(c)}" ${c === filterCategory ? 'selected' : ''}>${c === 'all' ? esc(t('common.allCategories')) : esc(c)}</option>`).join('')}
@@ -253,6 +254,21 @@ export function renderExpenses() {
     const ok = await confirmDialog({ title: t('exp.delete.title'), message: t('exp.delete.message', { name: e.name }), confirmText: t('common.delete'), danger: true });
     if (ok) { try { await deleteExpense(e.id); toast(t('exp.deleted'), 'success'); renderExpenses(); } catch (err) { toast(err.message || t('common.error'), 'danger'); } }
   }));
+  // Freeze / unfreeze toggle. Frozen expenses stop contributing to expected
+  // totals but stay visible (greyed out) so the admin can unfreeze them
+  // when the actual payment is about to happen. Existing payments stay.
+  const toggleFrozen = async (id, freeze) => {
+    if (!requireAdmin()) return;
+    const exp = getExpenses().find(x => x.id === id);
+    if (!exp) return;
+    try {
+      await upsertExpense({ ...exp, status: freeze ? 'paused' : 'active' });
+      toast(t(freeze ? 'exp.frozen' : 'exp.unfrozen'), 'success');
+      renderExpenses();
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  };
+  document.querySelectorAll('[data-act="freeze-exp"]').forEach(b => b.addEventListener('click', () => toggleFrozen(b.dataset.id, true)));
+  document.querySelectorAll('[data-act="unfreeze-exp"]').forEach(b => b.addEventListener('click', () => toggleFrozen(b.dataset.id, false)));
   document.querySelectorAll('[data-act="rates"]').forEach(b => b.addEventListener('click', () => {
     const e = getExpenses().find(x => x.id === b.dataset.id);
     openRatesDialog(e);
@@ -357,6 +373,18 @@ function rewireInlinePaymentHandlers(host, exp, isAdmin, refresh) {
       refresh(exp.id);
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
   }));
+  // Per-payment freeze / unfreeze. Same audit trail + toast pattern as the
+  // delete handler above. The payment row stays in the DB and the docs
+  // attached to it stay attached — only the totals stop counting it.
+  const togglePaymentFrozen = async (pid, frozen) => {
+    try {
+      await setExpensePaymentFrozen(pid, frozen);
+      toast(t(frozen ? 'exp.payments.frozenToast' : 'exp.payments.unfrozenToast'), 'success');
+      refresh(exp.id);
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  };
+  host.querySelectorAll('[data-act="exp-freeze-pay"]').forEach(b => b.addEventListener('click', () => togglePaymentFrozen(b.dataset.pid, true)));
+  host.querySelectorAll('[data-act="exp-unfreeze-pay"]').forEach(b => b.addEventListener('click', () => togglePaymentFrozen(b.dataset.pid, false)));
 }
 
 function openExpenseLedger(exp) {
@@ -668,9 +696,12 @@ function openExpensePaymentDialog(exp, onSaved, defaultYear = new Date().getFull
 
 function renderExpenseRow(e, isAdmin, groupCtx = null) {
   const derived = expenseDerivedStatus(e);
-  const status = derived === 'done'
-    ? `<span class="badge badge--success">${Icon.check} ${esc(t('exp.status.done'))}</span>`
-    : `<span class="badge badge--warning">${esc(t('exp.status.in_progress'))}</span>`;
+  const isFrozen = derived === 'frozen';
+  const status = derived === 'frozen'
+    ? `<span class="badge" style="background:#e0e7ff; color:#3730a3">❄ ${esc(t('exp.status.frozen'))}</span>`
+    : derived === 'done'
+      ? `<span class="badge badge--success">${Icon.check} ${esc(t('exp.status.done'))}</span>`
+      : `<span class="badge badge--warning">${esc(t('exp.status.in_progress'))}</span>`;
   // Number of installments + total = derived from the bounded range
   // (start..end inclusive, in months). Only meaningful for type='installments'.
   const monthsBetweenInclusive = (a, b) => {
@@ -705,10 +736,16 @@ function renderExpenseRow(e, isAdmin, groupCtx = null) {
   // toggle can show/hide every member at once. Children of a collapsed group
   // start hidden.
   const groupAttrs = groupCtx ? ` class="exp-group-child" data-group="${esc(groupCtx.groupKey)}"` : '';
-  const groupStyle = groupCtx?.hidden ? ' style="display:none"' : '';
+  const frozenStyle = isFrozen ? 'opacity:0.55;' : '';
+  // Combine the inline styles — groupCtx.hidden hides the row entirely; the
+  // frozen treatment fades it in place so the admin can still see and
+  // unfreeze it later.
+  const rowStyle = (groupCtx?.hidden || frozenStyle)
+    ? ` style="${groupCtx?.hidden ? 'display:none;' : ''}${frozenStyle}"`
+    : '';
   const indent = groupCtx ? ' style="padding-inline-start:32px"' : '';
   return `
-    <tr${groupAttrs}${groupStyle}>
+    <tr${groupAttrs}${rowStyle}>
       <td${indent}>
         <div class="hstack" style="gap:6px; align-items:baseline">
           <strong>${esc(e.name)}</strong>
@@ -744,6 +781,7 @@ function renderExpenseRow(e, isAdmin, groupCtx = null) {
       <td class="actions">
         <button class="btn btn--sm" data-act="ledger" data-id="${e.id}" title="${esc(t('exp.ledger.label'))}">${esc(t('exp.ledger.label'))}</button>
         ${isAdmin && e.type === 'annual' ? `<button class="btn btn--sm" data-act="rates" data-id="${e.id}" title="${esc(t('exp.rates.label'))}">${esc(t('exp.rates.label'))}</button>` : ''}
+        ${isAdmin && !expandable ? `<button class="btn btn--sm btn--icon" data-act="${isFrozen ? 'unfreeze-exp' : 'freeze-exp'}" data-id="${e.id}" title="${esc(isFrozen ? t('exp.row.unfreeze') : t('exp.row.freeze'))}">${isFrozen ? '▶' : '❄'}</button>` : ''}
         ${isAdmin ? `<button class="btn btn--sm btn--icon" data-act="edit-exp" data-id="${e.id}" title="${esc(t('common.edit'))}">${Icon.edit}</button>` : ''}
         ${isAdmin ? `<button class="btn btn--sm btn--icon" data-act="del-exp" data-id="${e.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>` : ''}
       </td>
@@ -900,9 +938,16 @@ function renderExpensePaymentsBlock(e, isAdmin) {
                     </span>
                   `).join('')}</div>`
                 : '<span class="muted">—</span>';
+              // Frozen payments render at 55% opacity with a ❄ chip in the
+              // month cell, so the admin can see they're shelved without
+              // having to compare against the running total.
+              const frozenStyle = p.frozen ? ' style="opacity:0.55"' : '';
+              const frozenChip = p.frozen
+                ? ` <span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:11px; padding:1px 6px">❄ ${esc(t('exp.payments.frozen'))}</span>`
+                : '';
               return `
-              <tr>
-                <td>${esc(monthName(p.month))} ${p.year}</td>
+              <tr${frozenStyle}>
+                <td>${esc(monthName(p.month))} ${p.year}${frozenChip}</td>
                 <td class="num text-success">${fmtCurrency(p.amount)}</td>
                 <td>${p.paidOn ? fmtDate(p.paidOn) : '—'}</td>
                 <td>${esc(paymentMethodLabel(p.method))}</td>
@@ -910,6 +955,7 @@ function renderExpensePaymentsBlock(e, isAdmin) {
                 <td>${docsCell}</td>
                 ${isAdmin ? `
                   <td class="actions">
+                    <button class="btn btn--sm btn--icon" data-act="${p.frozen ? 'exp-unfreeze-pay' : 'exp-freeze-pay'}" data-pid="${p.id}" data-eid="${e.id}" title="${esc(p.frozen ? t('exp.payments.unfreeze') : t('exp.payments.freeze'))}">${p.frozen ? '▶' : '❄'}</button>
                     <button class="btn btn--sm btn--icon" data-act="exp-edit-pay" data-pid="${p.id}" data-eid="${e.id}" title="${esc(t('common.edit'))}">${Icon.edit}</button>
                     <button class="btn btn--sm btn--icon" data-act="exp-del-pay" data-pid="${p.id}" title="${esc(t('common.delete'))}">${Icon.trash}</button>
                   </td>

@@ -3,7 +3,7 @@
 import { getApartments, getPayments, getExpenses, getSettings } from '../store.js';
 import { fmtCurrency, fmtMonth, esc, valueAtMonth } from '../utils.js';
 import { t, monthName } from '../i18n.js';
-import { monthSummary, yearSummary, expectedIncomeForMonth, actualIncomeForMonth, cumulativeBalance, expiringSoon } from '../calc.js';
+import { monthSummary, yearSummary, expectedIncomeForMonth, actualIncomeForMonth, cumulativeBalance, expiringSoon, apartmentOutstanding } from '../calc.js';
 import { setHTML, renderPageHeader, Icon } from '../ui.js';
 
 export function renderDashboard() {
@@ -20,6 +20,18 @@ export function renderDashboard() {
   const ys = yearSummary(year, 'cash');
   const cumulative = cumulativeBalance(year, month);
   const collectionRate = ms.incomeExpected > 0 ? Math.round((ms.incomeActual / ms.incomeExpected) * 100) : 0;
+
+  // Aggregate per-apartment outstanding: positive = residents net owe the
+  // building; negative = residents have net prepaid. Both kinds (יתרת חיוב
+  // and יתרת זכות) contribute with sign so the number reflects reality
+  // across the whole building.
+  let aptNet = 0, aptDebt = 0, aptCredit = 0;
+  for (const a of getApartments()) {
+    const o = apartmentOutstanding(a.id, year, 12);
+    aptNet += o;
+    if (o > 0) aptDebt += o;
+    else if (o < 0) aptCredit += -o;
+  }
 
   const expiring = expiringSoon(60);
 
@@ -63,6 +75,24 @@ export function renderDashboard() {
         <div class="stat__label">${esc(t('dash.cumulative'))}</div>
         <div class="stat__value">${fmtCurrency(cumulative)}</div>
         <div class="stat__hint">${esc(t('dash.includesOpening'))}</div>
+      </div>
+      <div class="stat ${aptNet > 0 ? 'stat--danger' : aptNet < 0 ? 'stat--success' : ''}">
+        <div class="stat__label">${esc(t('dash.aptOutstanding'))}</div>
+        <div class="stat__value">${
+          aptNet > 0 ? fmtCurrency(aptNet)
+          : aptNet < 0 ? '+' + fmtCurrency(Math.abs(aptNet))
+          : fmtCurrency(0)
+        }</div>
+        <div class="stat__hint">
+          ${esc(
+            aptNet > 0 ? t('dash.aptOutstanding.debt')
+            : aptNet < 0 ? t('dash.aptOutstanding.credit')
+            : t('dash.aptOutstanding.settled')
+          )}
+          ${(aptDebt > 0 && aptCredit > 0)
+            ? `<div class="muted" style="font-size:11px; margin-top:2px">${esc(t('dash.aptOutstanding.split', { debt: fmtCurrency(aptDebt), credit: fmtCurrency(aptCredit) }))}</div>`
+            : ''}
+        </div>
       </div>
     </div>
 

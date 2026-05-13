@@ -121,6 +121,7 @@ export const api = {
   },
   createExpensePayment: (payload) => call('/api/expense-payments', opts('POST', payload)),
   updateExpensePayment: (id, payload) => call(`/api/expense-payments?id=${encodeURIComponent(id)}`, opts('PUT', payload)),
+  setExpensePaymentFrozen: (id, frozen) => call(`/api/expense-payments?id=${encodeURIComponent(id)}`, opts('PUT', { frozen: !!frozen })),
   deleteExpensePayment: (id) => call(`/api/expense-payments?id=${encodeURIComponent(id)}`, opts('DELETE')),
 
   // Contacts
