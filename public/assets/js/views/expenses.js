@@ -1274,6 +1274,16 @@ export function openExpenseDialog(exp = null, { onSaved } = {}) {
     // hide the input so admins don't end up with conflicting values.
     m.bodyEl.querySelector('#field-end').style.display = (isOneOffLike || newType === 'installments') ? 'none' : 'flex';
     m.bodyEl.querySelector('#field-installments').style.display = newType === 'installments' ? 'flex' : 'none';
+    // If we're now in a one-off-like mode, clear the (now-hidden) startDate
+    // and endDate inputs so the form doesn't submit stale recurring-range
+    // values that the user can't even see — those would otherwise drift into
+    // the saved row and confuse downstream widgets (e.g. "ending soon").
+    if (isOneOffLike) {
+      const sEl = m.bodyEl.querySelector('input[name="startDate"]');
+      const eEl = m.bodyEl.querySelector('input[name="endDate"]');
+      if (sEl) sEl.value = '';
+      if (eEl) eEl.value = '';
+    }
     const lbl = m.bodyEl.querySelector('#lbl-amount');
     const hint = m.bodyEl.querySelector('#hint-amount');
     const hintEnd = m.bodyEl.querySelector('#hint-end');

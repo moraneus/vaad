@@ -41,7 +41,7 @@
 - **Two-factor auth (2FA)** — optional TOTP for the master admin (Google Authenticator / Authy / 1Password). Includes single-use backup codes.
 
 ### Documents, receipts & reminders
-- **Document storage** — uploads streamed through Pages Functions to Google Drive; the browser never sees the OAuth token. Each document gets an admin-given **display name** (independent of the original filename, which is preserved in Drive). Documents can also be attached from non-admin contexts (tenants uploading photos to their own open tickets).
+- **Document storage — three backends (D1 / R2 / Drive)** — uploads stream through Pages Functions to whichever backend the admin chose in Settings → אחסון מסמכים. **Cloudflare D1** is the default: bytes stored as BLOBs in the existing D1 database, no extra setup, no credit card, no third party. **Cloudflare R2** is preferred for larger files (10 GB free, zero egress, but R2 requires a payment method on file in your Cloudflare account even though the free tier costs $0). **Google Drive** is also supported as a third backend. Each document records its own backend, so the admin can switch the default at any time and old files keep working. Each document gets an admin-given **display name** (independent of the original filename). Documents can also be attached from non-admin contexts (tenants uploading photos to their own open tickets).
 - **Receipts** — printable receipts (saved as PDF via the browser print dialog) with a stable, globally-running serial number. Same apartment + same month always returns the same receipt.
 - **Reminders** — persistent reminders with lead time. Show up in a header bell, in a login modal, or attached to specific expenses (contract renewals etc.).
 

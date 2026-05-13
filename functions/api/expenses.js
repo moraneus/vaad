@@ -157,8 +157,11 @@ export const onRequestPost = async ({ request, env }) => {
   const category = pickStr(body.category, 100);
   const status = pickStr(body.status, 20) || 'active';
   const notes = pickStr(body.notes, 1000);
-  const startDate = isISODate(body.startDate) ? body.startDate : null;
-  const endDate = isISODate(body.endDate) ? body.endDate : null;
+  // For one-off-like types start/end dates are irrelevant and must NOT be
+  // persisted — keeping them around makes the "ending soon" dashboard widget
+  // mis-report one-offs as recurring contracts coming up for renewal.
+  const startDate = oneOffLike ? null : (isISODate(body.startDate) ? body.startDate : null);
+  const endDate = oneOffLike ? null : (isISODate(body.endDate) ? body.endDate : null);
   const billDate = isISODate(body.billDate) ? body.billDate : null;
   const oneOffDate = isISODate(body.oneOffDate) ? body.oneOffDate : null;
   if (!oneOffLike && !startDate) return error('תאריך התחלה חסר', 400);
@@ -194,14 +197,19 @@ export const onRequestPut = async ({ request, env }) => {
   if (!['monthly', 'annual', 'oneoff', 'installments', 'variable_monthly'].includes(type)) return error('סוג לא תקף', 400);
   // Same logical→stored mapping as POST.
   const { storedType, subtype } = resolveStoredType(type);
-  const updEndDate = isISODate(body.endDate) ? body.endDate : null;
+  const updOneOffLike = type === 'oneoff' || type === 'variable_monthly';
+  // Same precaution as POST — strip start/end on one-off types so stale
+  // values from a previous type (e.g. monthly with auto-filled endDate) can't
+  // leak into the persisted row.
+  const updStartDate = updOneOffLike ? null : (isISODate(body.startDate) ? body.startDate : null);
+  const updEndDate = updOneOffLike ? null : (isISODate(body.endDate) ? body.endDate : null);
   await env.DB.prepare(`UPDATE expenses SET name = ?, category = ?, type = ?, amount = ?, start_date = ?, end_date = ?, bill_date = ?, one_off_date = ?, notes = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
     .bind(
       name,
       pickStr(body.category, 100) || null,
       storedType,
       amount,
-      isISODate(body.startDate) ? body.startDate : null,
+      updStartDate,
       updEndDate,
       isISODate(body.billDate) ? body.billDate : null,
       isISODate(body.oneOffDate) ? body.oneOffDate : null,

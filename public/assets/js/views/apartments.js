@@ -1,11 +1,11 @@
 // Apartments management + per-apartment ledger
 
-import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword, refreshAll } from '../store.js';
+import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword, refreshAll, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, createInfrastructurePayment, deleteInfrastructurePayment } from '../store.js';
 import { wireLiveValidator, validatePassword } from '../password.js';
 import { api } from '../api.js';
 import { fmtCurrency, esc, fmtDate, valueAtMonth, todayISO, monthKey, parseMonthKey } from '../utils.js';
 import { t, monthName } from '../i18n.js';
-import { apartmentMonthStatus, apartmentOutstanding, availableYears, chargePaymentStatus } from '../calc.js';
+import { apartmentMonthStatus, apartmentOutstanding, availableYears, chargePaymentStatus, infrastructureDemandStatus } from '../calc.js';
 import { setHTML, renderPageHeader, renderEmpty, openModal, confirmDialog, toast, requireAdmin, Icon } from '../ui.js';
 import { getSession } from '../store.js';
 
@@ -900,6 +900,33 @@ function openApartmentLedger(apt) {
           </div>
         `}
       </div>
+
+      ${(() => {
+        // Infrastructure demands aimed at THIS apartment. Each demand carries
+        // a parent infrastructure_expense (name + total + date) — surface
+        // them alongside the monthly-fee ledger so an admin or resident can
+        // see at a glance "you owe X for the monthly fee AND Y for the
+        // shared building expense".
+        const infraExpensesById = new Map(getInfrastructureExpenses().map(e => [e.id, e]));
+        const aptDemands = getInfrastructureDemands()
+          .filter(d => d.apartmentId === apt.id)
+          .map(d => ({ demand: d, expense: infraExpensesById.get(d.expenseId) }))
+          .filter(x => x.expense)
+          .sort((a, b) => String(b.expense.expenseDate || '').localeCompare(String(a.expense.expenseDate || '')));
+        if (aptDemands.length === 0) return '';
+        return `
+          <div style="margin-top:18px">
+            <div class="hstack" style="margin-bottom:8px">
+              <h4 style="margin:0">${esc(t('apt.infraDemands.title'))}</h4>
+              <span class="badge">${aptDemands.length}</span>
+            </div>
+            <p class="muted" style="font-size:12px; margin:0 0 10px">${esc(t('apt.infraDemands.hint'))}</p>
+            <div class="vstack" style="gap:10px">
+              ${aptDemands.map(({ demand, expense }) => renderInfraDemandBlock(demand, expense, isAdmin)).join('')}
+            </div>
+          </div>
+        `;
+      })()}
     `);
     content.querySelector('#ledger-year').addEventListener('change', (e) => {
       currentYear = Number(e.target.value);
@@ -941,6 +968,35 @@ function openApartmentLedger(apt) {
       const ok = await confirmDialog({ title: t('apt.adjustment.payment.delete.title'), message: t('apt.adjustment.payment.delete.message'), confirmText: t('common.delete'), danger: true });
       if (!ok) return;
       try { await deleteAdjustmentPayment(b.dataset.pid); toast(t('apt.adjustment.payment.deleted'), 'success'); refresh(); renderApartments(); }
+      catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    }));
+    // Infrastructure-demand actions (same UX as adjustments but targeting
+    // infrastructure_payments). Quick-pay records the full remaining amount;
+    // partial-pay opens a small inline dialog for a custom amount.
+    content.querySelectorAll('[data-act="quick-pay-infra"]').forEach(b => b.addEventListener('click', async () => {
+      if (!requireAdmin()) return;
+      b.disabled = true;
+      try {
+        await createInfrastructurePayment({
+          demandId: b.dataset.did,
+          amount: Number(b.dataset.amt),
+          paidOn: todayISO(),
+          method: 'bank',
+        });
+        toast(t('apt.adjustment.payment.recorded'), 'success');
+        refresh();
+        renderApartments();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); b.disabled = false; }
+    }));
+    content.querySelectorAll('[data-act="pay-infra"]').forEach(b => b.addEventListener('click', () => {
+      const demand = getInfrastructureDemands().find(d => d.id === b.dataset.did);
+      if (demand) openInfraPaymentDialog(demand, () => { refresh(); renderApartments(); });
+    }));
+    content.querySelectorAll('[data-act="del-infra-pay"]').forEach(b => b.addEventListener('click', async () => {
+      if (!requireAdmin()) return;
+      const ok = await confirmDialog({ title: t('apt.adjustment.payment.delete.title'), message: t('apt.adjustment.payment.delete.message'), confirmText: t('common.delete'), danger: true });
+      if (!ok) return;
+      try { await deleteInfrastructurePayment(b.dataset.pid); toast(t('apt.adjustment.payment.deleted'), 'success'); refresh(); renderApartments(); }
       catch (err) { toast(err.message || t('common.error'), 'danger'); }
     }));
     // Quick mark-as-paid: one-click record of the remaining amount with today's
@@ -1280,6 +1336,60 @@ function renderAdjustmentBlock(a, isAdmin) {
   `;
 }
 
+// Row block for an infrastructure demand levied on this apartment. Same
+// shape as renderAdjustmentBlock — paid / remaining / quick-pay / per-row
+// payments list — so the two surfaces feel uniform when the resident or
+// admin scans down the ledger.
+function renderInfraDemandBlock(demand, expense, isAdmin) {
+  const status = infrastructureDemandStatus(demand.id);
+  const paid = status.paid;
+  const remaining = status.remaining;
+  const statusBadge = status.status === 'paid'
+    ? `<span class="badge badge--success">${esc(t('apt.adjustment.fullyPaid'))}</span>`
+    : status.status === 'partial'
+    ? `<span class="badge badge--warning">${esc(t('apt.adjustment.partial'))}</span>`
+    : `<span class="badge badge--danger">${esc(t('apt.adjustment.unpaid'))}</span>`;
+  const quickPayBtn = isAdmin && remaining > 0
+    ? `<button class="btn btn--sm btn--accent" data-act="quick-pay-infra" data-did="${esc(demand.id)}" data-amt="${remaining}" title="${esc(t('apt.adjustment.payment.markPaid'))}">${Icon.check} ${esc(t('apt.adjustment.payment.markPaidWith', { amount: fmtCurrency(remaining) }))}</button>`
+    : '';
+  const partialBtn = isAdmin && remaining > 0
+    ? `<button class="btn btn--sm" data-act="pay-infra" data-did="${esc(demand.id)}">${Icon.plus}</button>`
+    : '';
+  return `
+    <div class="card" style="padding:10px 14px">
+      <div class="hstack" style="gap:10px; flex-wrap:wrap">
+        <span class="badge badge--info">${esc(t('apt.infraDemands.badge'))}</span>
+        <strong style="font-size:13px">${esc(expense.name)}</strong>
+        <div class="num text-danger" style="font-weight:600">+${fmtCurrency(demand.amount)}</div>
+        <div class="muted" style="font-size:12px">${fmtDate(expense.expenseDate)}</div>
+        <div class="spacer"></div>
+        ${statusBadge}
+      </div>
+      ${demand.notes ? `<div class="muted" style="font-size:13px; margin-top:4px">${esc(demand.notes)}</div>` : ''}
+      <div class="hstack" style="gap:14px; margin-top:8px; font-size:13px">
+        <span>${esc(t('apt.adjustment.paid'))}: <strong class="text-success">${fmtCurrency(paid)}</strong></span>
+        <span>${esc(t('apt.adjustment.remaining'))}: <strong class="${remaining > 0 ? 'text-danger' : 'muted'}">${fmtCurrency(remaining)}</strong></span>
+        <div class="spacer"></div>
+        ${quickPayBtn}
+        ${partialBtn}
+      </div>
+      ${status.payments.length ? `
+        <div class="vstack" style="gap:4px; margin-top:8px; padding-inline-start:16px; border-inline-start:2px solid var(--c-border)">
+          ${status.payments.map(p => `
+            <div class="hstack" style="gap:8px; font-size:13px">
+              <span class="text-success">−${fmtCurrency(p.amount)}</span>
+              <span class="muted">${fmtDate(p.paidOn)}${p.method ? ` · ${esc(t('pay.method.' + p.method))}` : ''}</span>
+              ${p.notes ? `<span class="muted">· ${esc(p.notes)}</span>` : ''}
+              <div class="spacer"></div>
+              ${isAdmin ? `<button class="btn btn--sm btn--icon" data-act="del-infra-pay" data-pid="${esc(p.id)}" title="${esc(t('common.delete'))}">${Icon.trash}</button>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 // Dialog for recording a partial (or full) payment toward a specific charge.
 function openAdjustmentPaymentDialog(adj, onSaved) {
   if (!requireAdmin()) return;
@@ -1334,6 +1444,73 @@ function openAdjustmentPaymentDialog(adj, onSaved) {
     try {
       await createAdjustmentPayment({
         adjustmentId: adj.id,
+        amount,
+        paidOn: data.paidOn,
+        method: data.method,
+        notes: data.notes || null,
+      });
+      toast(t('apt.adjustment.payment.recorded'), 'success');
+      m.close();
+      onSaved && onSaved();
+    } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+  });
+}
+
+// Partial-payment dialog for an infrastructure demand. Same shape as
+// openAdjustmentPaymentDialog — single amount + date + method + notes —
+// just routed to the infrastructure_payments table.
+function openInfraPaymentDialog(demand, onSaved) {
+  if (!requireAdmin()) return;
+  const status = infrastructureDemandStatus(demand.id);
+  const m = openModal({
+    title: t('apt.adjustment.payment.dialog.title'),
+    body: `
+      <form id="infrapay-form" class="form-grid">
+        <div class="field" style="grid-column:1/-1">
+          <div class="muted" style="font-size:13px">
+            ${esc(t('apt.adjustment.remaining'))}: <strong>${fmtCurrency(status.remaining)}</strong>
+            / ${esc(t('common.amount'))}: <strong>${fmtCurrency(demand.amount)}</strong>
+          </div>
+        </div>
+        <div class="field field--required">
+          <label class="field__label">${esc(t('apt.adjustment.payment.field.amount'))}</label>
+          <input class="input" name="amount" type="number" step="0.01" min="0.01" max="${status.remaining}" required value="${status.remaining}" />
+        </div>
+        <div class="field field--required">
+          <label class="field__label">${esc(t('apt.adjustment.payment.field.date'))}</label>
+          <input class="input" name="paidOn" type="date" required value="${todayISO()}" />
+        </div>
+        <div class="field">
+          <label class="field__label">${esc(t('apt.adjustment.payment.field.method'))}</label>
+          <select class="select" name="method">
+            <option value="bank">${esc(t('pay.method.bank'))}</option>
+            <option value="bit">${esc(t('pay.method.bit'))}</option>
+            <option value="check">${esc(t('pay.method.check'))}</option>
+            <option value="cash">${esc(t('pay.method.cash'))}</option>
+            <option value="other">${esc(t('pay.method.other'))}</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label class="field__label">${esc(t('apt.adjustment.payment.field.notes'))}</label>
+          <textarea class="textarea" name="notes" rows="2"></textarea>
+        </div>
+      </form>
+    `,
+    footer: `
+      <button class="btn" data-act="cancel">${esc(t('common.cancel'))}</button>
+      <button class="btn btn--primary" data-act="save">${esc(t('common.save'))}</button>
+    `,
+  });
+  m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());
+  m.footerEl.querySelector('[data-act="save"]').addEventListener('click', async () => {
+    const f = m.bodyEl.querySelector('#infrapay-form');
+    const data = Object.fromEntries(new FormData(f).entries());
+    const amount = Number(data.amount);
+    if (!amount || amount <= 0) { toast(t('apt.adjustment.payment.field.amount'), 'warning'); return; }
+    if (!data.paidOn) { toast(t('apt.adjustment.dateRequired'), 'warning'); return; }
+    try {
+      await createInfrastructurePayment({
+        demandId: demand.id,
         amount,
         paidOn: data.paidOn,
         method: data.method,

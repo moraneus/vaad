@@ -4,7 +4,7 @@
 import { json, error, uid } from '../../lib/util.js';
 import { requireRead, requireAdmin, requireSession } from '../../lib/guard.js';
 import { logAudit } from '../../lib/audit.js';
-import { getAccessToken, uploadFile, getDriveStatus } from '../../lib/drive.js';
+import { uploadDoc, recordDocStorage, hasAnyStorage } from '../../lib/storage.js';
 
 // Tenants (and owner-tenants) may only upload documents in the context of
 // a ticket they own that is still open. Returns the session row on success,
@@ -90,10 +90,11 @@ export const onRequestGet = async ({ request, env }) => {
 };
 
 export const onRequestPost = async ({ request, env }) => {
-  // Drive must be connected before we authenticate — saves a permission
-  // check when the channel isn't usable anyway.
-  const status = await getDriveStatus(env.DB);
-  if (!status.connected) return error('יש לחבר את Google Drive בהגדרות לפני העלאת מסמכים', 412);
+  // At least one storage backend must be usable before authentication —
+  // saves a permission check when the channel isn't ready anyway.
+  if (!(await hasAnyStorage(env.DB, env))) {
+    return error('אין ספק אחסון מוגדר. הגדר R2 או חבר Google Drive בהגדרות.', 412);
+  }
 
   const ct = request.headers.get('content-type') || '';
   if (!ct.startsWith('multipart/form-data')) return error('יש לשלוח multipart/form-data', 400);
@@ -116,21 +117,22 @@ export const onRequestPost = async ({ request, env }) => {
 
   const id = uid('doc-');
 
-  let driveFileId;
+  // Dispatch to whichever provider is active right now. The dispatcher
+  // returns the bookkeeping fields (storage, driveFileId, r2Key) that we
+  // persist alongside the row.
+  let placed;
   try {
-    const { accessToken, folderId } = await getAccessToken(env.DB, env);
-    driveFileId = await uploadFile(accessToken, folderId, {
-      name: file.name || 'file',
-      mimeType: file.type,
-      body: file,
-    });
+    placed = await uploadDoc(env.DB, env, id, file);
   } catch (e) {
-    return error(`Google Drive upload failed: ${e.message}`, 502);
+    return error(`Upload failed: ${e.message}`, 502);
   }
 
+  // drive_file_id column is NOT NULL — write '' for R2 rows (the real
+  // identifier lives in document_storage.r2_key, joined at read time).
   await env.DB.prepare(
     'INSERT INTO documents (id, name, mime_type, size, drive_file_id, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(id, file.name || 'file', file.type, file.size, driveFileId, r.sess.userLabel || null).run();
+  ).bind(id, file.name || 'file', file.type, file.size, placed.driveFileId || '', r.sess.userLabel || null).run();
+  await recordDocStorage(env.DB, id, placed);
 
   // Optional admin-given display name. The form field is `displayName`; when
   // empty/absent we don't insert a meta row (the GET coalesce falls back to
@@ -158,6 +160,6 @@ export const onRequestPost = async ({ request, env }) => {
     }
   }
 
-  await logAudit(env.DB, request, { event: 'document_uploaded', role: r.sess.role, userLabel: r.sess.userLabel, meta: { id, name: file.name, displayName: displayName || null, size: file.size, driveFileId, targetType, targetId }, success: true });
-  return json({ id, name: file.name, displayName: displayName || file.name, size: file.size, mimeType: file.type }, { status: 201 });
+  await logAudit(env.DB, request, { event: 'document_uploaded', role: r.sess.role, userLabel: r.sess.userLabel, meta: { id, name: file.name, displayName: displayName || null, size: file.size, storage: placed.storage, targetType, targetId }, success: true });
+  return json({ id, name: file.name, displayName: displayName || file.name, size: file.size, mimeType: file.type, storage: placed.storage }, { status: 201 });
 };

@@ -161,6 +161,28 @@ npx wrangler d1 execute <your-d1-name> --remote --file=./schema.sql
 
 **What this does:** Creates all the tables (apartments, owners, payments, expenses, sessions, audit_log, reminders, receipts, …) and seeds initial values. The schema is fully idempotent (`CREATE TABLE IF NOT EXISTS`, `INSERT OR IGNORE`) — running it again is safe and is exactly how you'll apply future updates.
 
+### Step 4.5 — (Optional) Create the R2 bucket for larger document storage
+
+Document storage supports **three backends** — pick whichever you prefer in Settings → אחסון מסמכים after first login. Existing documents always stay on whichever backend they were uploaded with, so switching is safe.
+
+| Backend | Free tier | Setup | Per-doc cap | Notes |
+|---------|-----------|-------|-------------|-------|
+| **Cloudflare D1** (default) | 5 GB total | none — works immediately | ~5 MB | Bytes stored as BLOBs in the same D1 already running the app. **No credit card required.** Best for small files. |
+| **Cloudflare R2** | 10 GB / month + zero egress | bucket + R2 enabled in dashboard | up to 20 MB | Requires a payment method on file (even though free tier is $0). Best for larger files. |
+| **Google Drive** | 15 GB per account | OAuth (Step 6 + Step 9) | up to 20 MB | Depends on the Google account staying healthy. |
+
+The **default is D1** — it works the second the schema is applied, no extra steps. If you want R2 too (recommended for larger files), do this now:
+
+```bash
+npx wrangler r2 bucket create vaad-docs
+```
+
+If you get `Please enable R2 through the Cloudflare Dashboard`: open https://dash.cloudflare.com → R2 Object Storage → click **Purchase R2**. You'll be asked for a payment method but the free tier is $0; if you'd rather not provide a card, skip R2 and let D1 (and optionally Drive) handle storage.
+
+(The bucket name `vaad-docs` is referenced from `wrangler.toml` under the `DOCS_BUCKET` binding. Pick a different name if you like, just keep them in sync.)
+
+If you skip R2, comment out (or remove) the `[[r2_buckets]]` block in `wrangler.toml` — otherwise the deploy step will fail trying to bind a nonexistent bucket.
+
 ### Step 5 — Initial deployment (no secrets yet)
 
 We need to deploy first to get a public URL — Google's OAuth setup needs the URL.
@@ -178,7 +200,9 @@ npx wrangler pages deploy ./public --project-name=<cf-pages-project>
 
 The stable, permanent URL is **`https://<cf-pages-project>.pages.dev`** (without the random ID). Copy it — you'll paste it into Google Cloud Console next.
 
-### Step 6 — Google Cloud Console: OAuth setup
+### Step 6 — Google Cloud Console: OAuth setup *(optional — only if you want Drive as a storage backend or "Sign in with Google" recovery)*
+
+> 💡 You can skip this step if you're happy with R2 as your only document backend and don't need the "Sign in with Google" admin password recovery flow. Everything else (the main login, 2FA, email broadcasts, etc.) works without Google.
 
 This step gives the app permission to talk to Google Drive on your behalf. Free for personal use.
 
@@ -296,14 +320,17 @@ Open **הגדרות (Settings)** → scroll to the **אבטחה וסיסמאות
 5. You're redirected back. The card now shows **"מאומת" (Verified)** with the registered email.
 6. The *Change admin password* button below is now enabled.
 
-### Step 9 (Optional) — Connect Google Drive for document storage
+### Step 9 (Optional) — Connect Google Drive as an alternate storage backend
 
-If you want to upload receipts, expense scans, or other documents to a private Drive folder, connect Drive now. Otherwise you can skip this — the rest of the system works fully without it.
+> 💡 R2 is already the default and works out of the box. Connect Drive only if you want it as an alternative (or as your *only* backend, in which case skip Step 4.5 and switch the active provider to Drive once connected).
 
-1. Still in Settings, scroll to **אינטגרציות (Integrations) → Google Drive** → click **חיבור Google Drive (Connect Google Drive)**.
+If you want to upload to a private Drive folder instead of (or in addition to) R2, connect Drive now.
+
+1. Still in Settings, scroll to **אינטגרציות (Integrations) → אחסון מסמכים (Document storage)** and **Google Drive** → click **חיבור Google Drive (Connect Google Drive)**.
 2. **You may pick a different Google account here than the one used in Step 8.5** — the recovery and Drive accounts can differ.
 3. Click **Allow** to grant the `drive.file` scope (only files this app creates).
 4. The Drive card shows **"מחובר" (Connected)**.
+5. If you want Drive to be the active backend for *new* uploads, pick its radio in the **אחסון מסמכים** card. Existing R2-stored documents stay on R2 — only fresh uploads change.
 
 **Verify:** open Drive in another tab — there's a new folder named **`vaad-docs`**.
 

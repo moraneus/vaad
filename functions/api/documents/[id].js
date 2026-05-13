@@ -1,34 +1,31 @@
-// GET    /api/documents/:id   — proxy stream from Google Drive
+// GET    /api/documents/:id   — proxy stream from the per-row backend (R2 or Drive)
 // PATCH  /api/documents/:id   — admin only; rename (sets display_name)
-// DELETE /api/documents/:id   — admin only; deletes from Drive then DB
+// DELETE /api/documents/:id   — admin only; deletes from the per-row backend then DB
 
 import { json, error, readJSON } from '../../lib/util.js';
 import { requireRead, requireAdmin } from '../../lib/guard.js';
 import { logAudit } from '../../lib/audit.js';
-import { getAccessToken, downloadFile, deleteFile } from '../../lib/drive.js';
+import { downloadDoc, deleteDocBlob, resolveDocStorage } from '../../lib/storage.js';
 
 export const onRequestGet = async ({ request, env, params }) => {
   const r = await requireRead(env, request); if (r.error) return r.error;
   const id = params.id;
-  const doc = await env.DB.prepare('SELECT id, name, mime_type AS mimeType, drive_file_id AS driveFileId FROM documents WHERE id = ?').bind(id).first();
-  if (!doc) return error('המסמך לא נמצא', 404);
+  const meta = await resolveDocStorage(env.DB, id);
+  if (!meta) return error('המסמך לא נמצא', 404);
 
-  let driveRes;
+  let res;
   try {
-    const { accessToken } = await getAccessToken(env.DB, env);
-    driveRes = await downloadFile(accessToken, doc.driveFileId);
+    res = await downloadDoc(env.DB, env, id);
   } catch (e) {
-    return error(`קובץ אינו זמין ב-Drive: ${e.message}`, 502);
+    return error(`קובץ אינו זמין: ${e.message}`, 502);
   }
 
   const headers = new Headers();
-  headers.set('content-type', doc.mimeType || 'application/octet-stream');
-  headers.set('content-disposition', `inline; filename*=UTF-8''${encodeURIComponent(doc.name || 'file')}`);
+  headers.set('content-type', res.contentType || 'application/octet-stream');
+  headers.set('content-disposition', `inline; filename*=UTF-8''${encodeURIComponent(meta.name || 'file')}`);
   headers.set('cache-control', 'private, max-age=300');
-  // Pass through content-length if Drive provided one
-  const cl = driveRes.headers.get('content-length');
-  if (cl) headers.set('content-length', cl);
-  return new Response(driveRes.body, { headers });
+  if (res.contentLength) headers.set('content-length', String(res.contentLength));
+  return new Response(res.body, { headers });
 };
 
 export const onRequestPatch = async ({ request, env, params }) => {
@@ -58,19 +55,15 @@ export const onRequestPatch = async ({ request, env, params }) => {
 export const onRequestDelete = async ({ request, env, params }) => {
   const r = await requireAdmin(env, request); if (r.error) return r.error;
   const id = params.id;
-  const doc = await env.DB.prepare('SELECT drive_file_id AS driveFileId FROM documents WHERE id = ?').bind(id).first();
-  if (!doc) return error('המסמך לא נמצא', 404);
+  const meta = await resolveDocStorage(env.DB, id);
+  if (!meta) return error('המסמך לא נמצא', 404);
 
-  // Try to delete from Drive — best effort, even if it fails we still remove the DB row
-  try {
-    const { accessToken } = await getAccessToken(env.DB, env);
-    await deleteFile(accessToken, doc.driveFileId);
-  } catch (e) {
-    // Log but proceed
-    await logAudit(env.DB, request, { event: 'document_drive_delete_failed', role: 'admin', userLabel: r.sess.userLabel, meta: { id, error: e.message }, success: false });
-  }
+  // Best-effort blob delete on whichever backend owns the file. The DB row
+  // gets removed regardless — a lingering R2 object or Drive file is far
+  // less bad than a dangling DB reference (which would 404 forever).
+  await deleteDocBlob(env.DB, env, id);
 
   await env.DB.prepare('DELETE FROM documents WHERE id = ?').bind(id).run();
-  await logAudit(env.DB, request, { event: 'document_deleted', role: 'admin', userLabel: r.sess.userLabel, meta: { id }, success: true });
+  await logAudit(env.DB, request, { event: 'document_deleted', role: 'admin', userLabel: r.sess.userLabel, meta: { id, storage: meta.storage }, success: true });
   return json({ ok: true });
 };

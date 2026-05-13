@@ -862,6 +862,43 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('tickets_admin_email',    ''),
   ('tickets_email_status',   'disabled');
 
+-- ============================================================
+-- Document storage: dual-backend (Cloudflare R2 + Google Drive)
+-- ============================================================
+-- The legacy documents table has a NOT-NULL drive_file_id, which SQLite
+-- can't loosen idempotently. We keep the column (R2 rows store ''), and
+-- side-car the per-document storage info in a parallel table — the same
+-- pattern already used by expense_subtype, expense_default_method, etc.
+-- A document with no row in document_storage is treated as 'drive' so all
+-- existing records keep working without backfill.
+CREATE TABLE IF NOT EXISTS document_storage (
+  document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  -- 'r2', 'drive', or 'd1'. New uploads pick the active provider from settings.
+  provider    TEXT NOT NULL,
+  -- Object key within the R2 bucket (non-null when provider='r2', null
+  -- otherwise so the Drive path uses documents.drive_file_id as before).
+  -- D1-stored bytes live in document_d1_blobs keyed by document_id.
+  r2_key      TEXT
+);
+
+-- D1-resident document bytes for accounts that can't or don't want to use
+-- R2 or Drive. SQLite stores BLOBs natively; D1 supports them through bind.
+-- Practical per-document size cap of ~5 MB — fine for ticket photos and
+-- receipt PDFs, less suitable for very large scans.
+CREATE TABLE IF NOT EXISTS document_d1_blobs (
+  document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  bytes       BLOB NOT NULL,
+  stored_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Seed: storage_provider controls which backend NEW uploads use. D1 is the
+-- default — no extra binding, no third-party account, no credit card on
+-- file. R2 is preferred when actually wired up (10 GB free, zero egress)
+-- and the admin can opt into it from Settings. Drive remains available as
+-- a third option for installations that already use it.
+INSERT OR IGNORE INTO settings (key, value) VALUES
+  ('storage_provider', 'd1');
+
 -- One-time normalization (idempotent): the new model has only two derived
 -- statuses (in_progress / done). Legacy 'closed' and 'paused' expense rows are
 -- migrated by closing them with an end_date if one isn't already set. After

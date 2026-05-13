@@ -7,8 +7,9 @@
 #   1. cp wrangler.example.toml wrangler.toml
 #   2. Pick a Pages project name and a D1 database name (lowercase, hyphenated)
 #   3. wrangler d1 create <your-d1-name>     → copy the printed database_id
-#   4. Edit wrangler.toml with your three values: name, database_name, database_id
-#   5. wrangler pages deploy ./public --project-name=<your-cf-pages-project>
+#   4. wrangler r2 bucket create vaad-docs   → no copy needed, just the name
+#   5. Edit wrangler.toml with your values: name, database_name, database_id, bucket_name
+#   6. wrangler pages deploy ./public --project-name=<your-cf-pages-project>
 #
 # DO NOT commit your real wrangler.toml. The .gitignore already excludes it.
 
@@ -22,16 +23,37 @@ binding = "DB"
 database_name = "your-d1-name"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
-# Document storage uses Google Drive (admin-connected via OAuth in Settings).
-# No R2 binding required.
+# Document storage — three backends supported.
+#
+# Default backend is **Cloudflare D1 BLOBs** (just works, no extra setup,
+# no credit card required, ~5 MB per file cap). You don't need to do
+# anything for D1 — the schema already includes the necessary table.
+#
+# For larger files you can opt into **Cloudflare R2** (10 GB free, zero
+# egress, but R2 requires a payment method on file in your CF account):
+#
+#   1. Enable R2: dash.cloudflare.com → R2 Object Storage → Purchase R2
+#   2. wrangler r2 bucket create vaad-docs
+#   3. Uncomment the [[r2_buckets]] block below
+#   4. Deploy, then pick R2 in Settings → אחסון מסמכים
+#
+# Or use **Google Drive** as a third option — connect it from the
+# Settings UI after first login.
+
+# [[r2_buckets]]
+# binding = "DOCS_BUCKET"
+# bucket_name = "vaad-docs"
 
 # ---- Secrets (set with `wrangler pages secret put NAME` — never commit values) ----
 # Required:
-#   SESSION_SECRET        — random 48+ bytes, signs cookies + encrypts Drive token
+#   SESSION_SECRET        — random 48+ bytes, signs cookies + encrypts Drive token / Resend key
+# Required ONLY if you want Google Drive as a storage backend:
 #   GOOGLE_CLIENT_ID      — OAuth Client ID from Google Cloud Console
 #   GOOGLE_CLIENT_SECRET  — OAuth Client Secret from Google Cloud Console
 # Optional (email features):
-#   RESEND_API_KEY        — API key from resend.com (free tier: 3000/month)
+#   RESEND_API_KEY        — API key from resend.com (free tier: 3000/month).
+#                           Alternative: leave unset and upload an encrypted
+#                           key via Settings → התראות אימייל.
 #   EMAIL_FROM            — verified sender address on a domain you own
 #   EMAIL_FROM_NAME       — display name (e.g. building name)
 # Optional (admin password recovery + monthly cron):

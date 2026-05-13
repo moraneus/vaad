@@ -56,6 +56,7 @@ export const api = {
   oauthLoginInit: () => call('/api/auth/oauth-login-init', opts('POST', {})),
 
   identityStatus: () => call('/api/auth/identity-status'),
+  identityDisconnect: () => call('/api/auth/identity-disconnect', opts('POST', {})),
   identityInit: (purpose, opts2 = {}) => {
     // Backwards-compat: if opts2 is a string, treat it as apartmentId.
     const o = typeof opts2 === 'string' ? { apartmentId: opts2 } : opts2;
@@ -240,6 +241,10 @@ export const api = {
   driveStatus: () => call('/api/drive/status'),
   driveAuthInit: () => call('/api/drive/auth-init', opts('POST', {})),
   driveDisconnect: () => call('/api/drive/disconnect', opts('POST', {})),
+
+  // Storage (R2 vs Drive)
+  storageStatus: () => call('/api/storage/status'),
+  setStorageProvider: (provider) => call('/api/settings/storage', opts('POST', { provider })),
 
   // Admin
   resetSystem: () => call('/api/admin/reset', opts('POST', { confirm: 'I-AGREE-TO-WIPE' })),

@@ -93,24 +93,44 @@ export function expectedIncomeForMonth(year, month) {
   const charges = adjustments.filter(a => a.kind === 'charge').reduce((s, a) => s + Number(a.amount || 0), 0);
   const credits = adjustments.filter(a => a.kind === 'credit').reduce((s, a) => s + Number(a.amount || 0), 0);
 
-  return fromFees + charges - credits;
+  // Infrastructure demands billed in this month — anchored to the parent
+  // expense's expense_date. Each demand is a chargeable amount for an
+  // apartment, so they belong in expected building-wide income alongside
+  // monthly fees and one-off adjustments.
+  const expensesById = new Map(getInfrastructureExpenses().map(e => [e.id, e]));
+  const infraExpected = getInfrastructureDemands().reduce((sum, d) => {
+    const exp = expensesById.get(d.expenseId);
+    if (!exp || !exp.expenseDate) return sum;
+    if (exp.expenseDate < monthStart || exp.expenseDate > monthEnd) return sum;
+    if (open && exp.expenseDate < open) return sum;
+    return sum + Number(d.amount || 0);
+  }, 0);
+
+  return fromFees + charges - credits + infraExpected;
 }
 
-// Actual income for a specific month — includes both regular monthly payments
-// (anchored to year/month) AND payments made toward apartment charges (anchored
-// to a real-world paid_on date). Both are real money that came in.
+// Actual income for a specific month — every kind of real money that came in:
+//   - monthly fee payments (anchored to year/month)
+//   - apartment-adjustment payments (anchored by paidOn)
+//   - infrastructure demand payments (anchored by paidOn)
+// All three flow into the same building bank account, so the dashboard,
+// income view, reports, and cumulative balance should treat them the same.
 export function actualIncomeForMonth(year, month) {
   const fromMonthly = getPayments()
     .filter(p => p.year === year && p.month === month)
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const inMonth = (iso) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    return d.getFullYear() === year && (d.getMonth() + 1) === month;
+  };
   const fromAdjustments = getAdjustmentPayments()
-    .filter(p => {
-      if (!p.paidOn) return false;
-      const d = new Date(p.paidOn);
-      return d.getFullYear() === year && (d.getMonth() + 1) === month;
-    })
+    .filter(p => inMonth(p.paidOn))
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  return fromMonthly + fromAdjustments;
+  const fromInfrastructure = getInfrastructurePayments()
+    .filter(p => inMonth(p.paidOn))
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  return fromMonthly + fromAdjustments + fromInfrastructure;
 }
 
 // Per-apartment status for a given month.
@@ -164,6 +184,9 @@ function annualRateAt(expense, year, month) {
 // monthly: include amount if active in this month
 // annual: include FULL amount in the billDate's month each year (between start..end)
 // oneoff: include if oneOffDate is in this month
+// infrastructure: include if expense_date is in this month (treated as a
+//                 one-off charge against the building bank, regardless of
+//                 how the costs get apportioned to apartments)
 export function expectedExpensesForMonth(year, month) {
   const result = [];
   for (const e of getExpenses()) {
@@ -192,7 +215,30 @@ export function expectedExpensesForMonth(year, month) {
       }
     }
   }
+  for (const ie of infrastructureExpensesInMonth(year, month)) result.push(ie);
   return result;
+}
+
+// Infrastructure expenses anchored to this month by expense_date. Returned
+// in the same shape as regular expense entries so they slot into
+// month/year summaries without callers caring about the source.
+function infrastructureExpensesInMonth(year, month) {
+  const lastDay = new Date(year, month, 0).getDate();
+  const mm = String(month).padStart(2, '0');
+  const monthStart = `${year}-${mm}-01`;
+  const monthEnd = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
+  const open = openingDateISO();
+  return getInfrastructureExpenses()
+    .filter(e => e.expenseDate && e.expenseDate >= monthStart && e.expenseDate <= monthEnd
+                 && (!open || e.expenseDate >= open))
+    .map(e => ({
+      // Project the infra row into the shape views expect (.expense + .amount).
+      expense: { id: e.id, name: e.name, category: 'תשתית', type: 'infrastructure', notes: e.notes },
+      amount: Number(e.totalAmount) || 0,
+      year,
+      month,
+      source: 'infrastructure',
+    }));
 }
 
 // Accounting-view expenses for a month: annual is divided by 12
@@ -217,14 +263,20 @@ export function accountingExpensesForMonth(year, month) {
       }
     }
   }
+  // Infrastructure expenses are treated as one-off charges on expense_date
+  // in the accounting view too — they're not the kind of recurring cost
+  // that gets spread over a year.
+  for (const ie of infrastructureExpensesInMonth(year, month)) {
+    result.push({ ...ie, mode: 'oneoff' });
+  }
   return result;
 }
 
-// ACTUAL expenses for a month (from recorded expense_payments).
-// Returns one entry per payment, joined to the expense definition for display.
+// ACTUAL expenses for a month (from recorded expense_payments + infrastructure
+// expenses dated to this month). Returns one entry per cash outflow.
 export function actualExpensesForMonth(year, month) {
   const expenseById = new Map(getExpenses().map(e => [e.id, e]));
-  return getExpensePayments()
+  const fromExpensePayments = getExpensePayments()
     .filter(p => p.year === year && p.month === month)
     .map(p => ({
       expense: expenseById.get(p.expenseId) || { id: p.expenseId, name: p.notes || '—', category: '—', type: 'oneoff' },
@@ -232,6 +284,11 @@ export function actualExpensesForMonth(year, month) {
       year, month,
       payment: p,
     }));
+  // Infrastructure: the system doesn't track a separate "outgoing payment"
+  // table for these — we treat the full total_amount as paid out by the
+  // building on expense_date (which is also how the per-apartment balance
+  // already handles it).
+  return [...fromExpensePayments, ...infrastructureExpensesInMonth(year, month)];
 }
 
 // Per-expense status for a given month: { expected, actual, status, payments, expenseEntry }
@@ -663,11 +720,17 @@ export function acknowledgedReminders() {
 }
 
 // Annual expenses ending in next 90 days (alerts)
+// Expenses whose end_date falls within `daysAhead` days from now —
+// surfaced on the dashboard as a renewal-coming-up nudge. Only recurring
+// types (monthly, annual, installments) have a meaningful end date; one-off
+// rows that somehow still carry an endDate (legacy data, or a type-switched
+// edit) are filtered out so the widget reads correctly.
 export function expiringSoon(daysAhead = 90) {
   const today = new Date();
   const limit = new Date(); limit.setDate(today.getDate() + daysAhead);
   return getExpenses().filter(e => {
     if (!e.endDate || e.status === 'closed') return false;
+    if (e.type === 'oneoff' || e.subtype === 'variable_monthly') return false;
     const ed = new Date(e.endDate);
     return ed >= today && ed <= limit;
   });

@@ -22,15 +22,22 @@
 │  • drive (OAuth init / callback / status / disconnect)       │
 │  • identity OAuth (recovery + sign-in-with-google)           │
 └──────┬───────────────────────────────┬──────────────────────┘
-       │                               │
-┌──────▼──────────────────┐   ┌────────▼──────────────────────┐
-│  Cloudflare D1 (SQLite) │   │   Google Drive (admin's)      │
-│  • application tables   │   │   folder: vaad-docs            │
-│  • sessions, audit log  │   │   • PDF / image documents      │
-│  • PBKDF2 hashes        │   │   • OAuth scope: drive.file    │
-│  • encrypted Drive token│   │     (cannot see other files)   │
-└─────────────────────────┘   └────────────────────────────────┘
+       │              ┌────────────┼────────────┐
+       │              │            │            │
+┌──────▼───────────┐ ┌▼──────────┐┌▼──────────┐┌▼─────────────────┐
+│  Cloudflare D1   │ │ D1 BLOBs   ││ R2         ││ Google Drive     │
+│  (SQLite)        │ │ table:     ││ bucket:    ││ (admin account)  │
+│  • app tables    │ │ document_  ││ vaad-docs  ││ folder: vaad-docs│
+│  • sessions      │ │ d1_blobs   ││            ││                  │
+│  • audit log     │ │            ││ binding:   ││ OAuth: drive.file│
+│  • PBKDF2 hashes │ │ DEFAULT.   ││ DOCS_      ││                  │
+│  • encrypted     │ │ Zero setup.││ BUCKET.    ││ Encrypted token  │
+│    secrets       │ │ ~5MB cap   ││ 10GB free, ││ stored in D1     │
+│                  │ │ per doc    ││ zero egress││                  │
+└──────────────────┘ └────────────┘└────────────┘└──────────────────┘
 ```
+
+**Document storage** is **three-backend**. New uploads go to whichever provider the admin picked (default: **D1**, since it requires no setup and no credit card). Each row in the `documents` table is paired with a `document_storage` row (or, for D1, a `document_d1_blobs` row keyed by document_id) recording its backend — so downloads and deletes route to the right place regardless of which provider was active when the file was uploaded. Switching providers in Settings affects only *future* uploads; old documents stay where they are.
 
 ## Roles
 

@@ -18,6 +18,7 @@ import { wireLiveValidator, validatePassword } from '../password.js';
 import { openPasswordManagerDialog } from './apartments.js';
 
 let driveStatus = null;
+let storageStatusData = null;
 let identityStatus = null;
 
 export async function renderSettings() {
@@ -32,6 +33,7 @@ export async function renderSettings() {
     promises.push(
       loadAuditLog(100),
       api.driveStatus().then(s => { driveStatus = s; }).catch(() => { driveStatus = null; }),
+      api.storageStatus().then(s => { storageStatusData = s; }).catch(() => { storageStatusData = null; }),
     );
   }
   await Promise.all(promises);
@@ -71,6 +73,7 @@ function drawSettings() {
     document.getElementById('ch-tenant-pwd')?.addEventListener('click', () => changeTenantPasswordDialog());
     document.getElementById('id-verify')?.addEventListener('click', () => startIdentityFlow('register'));
     document.getElementById('id-replace')?.addEventListener('click', () => startIdentityFlow('replace'));
+    document.getElementById('id-disconnect')?.addEventListener('click', () => disconnectIdentity());
     if (session.emailEnabled) refreshTenantEmailCard(session.apartmentId);
     return;
   }
@@ -427,6 +430,7 @@ function drawSettings() {
       })()}
 
       ${sectionHeader(t('settings.section.integrations'))}
+      ${renderStorageCard(storageStatusData)}
       ${renderDriveCard(driveStatus)}
       ${renderEmailCard()}
       ${renderResendCard(s)}
@@ -541,6 +545,7 @@ function drawSettings() {
     document.getElementById('ch-pwd-tenant')?.addEventListener('click', () => changeTenantPasswordDialog());
     document.getElementById('id-verify')?.addEventListener('click', () => startIdentityFlow('register'));
     document.getElementById('id-replace')?.addEventListener('click', () => startIdentityFlow('replace'));
+    document.getElementById('id-disconnect')?.addEventListener('click', () => disconnectIdentity());
     refreshTwoFACard();
     if (session.apartmentId && session.emailEnabled) {
       // Load this card into a custom element id so it doesn't collide with the
@@ -583,6 +588,22 @@ function drawSettings() {
       if (!ok) return;
       try { await api.resendRemove(); toast(t('settings.resend.removed'), 'success'); drawSettings(); }
       catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    });
+    // Storage-provider switch — admin picks the backend for NEW uploads.
+    // Existing documents stay on whichever backend they were uploaded with.
+    document.querySelectorAll('input[name="storage-provider"]').forEach(radio => {
+      radio.addEventListener('change', async (e) => {
+        const provider = e.target.value;
+        try {
+          const r = await api.setStorageProvider(provider);
+          storageStatusData = r;
+          toast(t('settings.storage.switched', { provider: t(`settings.storage.${provider}.title`) }), 'success');
+          drawSettings();
+        } catch (err) {
+          toast(err.message || t('common.error'), 'danger');
+          drawSettings(); // revert the radio
+        }
+      });
     });
     // ----- Unified users card (owners + nested apartments) -----
     // Per-owner expand/collapse — clicking the chevron shows that owner's
@@ -1236,6 +1257,78 @@ function openMonthlyReportDialog() {
   });
 }
 
+// ----- Storage backend card (D1 / R2 / Drive) -----
+// Lets the admin see which backends are wired up and pick which one new
+// uploads land in. Existing documents always stay on their original
+// backend — that data is per-row in document_storage.
+function renderStorageCard(s) {
+  const d1Available = !!s?.d1?.available;
+  const r2Available = !!s?.r2?.available;
+  const driveConnected = !!s?.drive?.connected;
+  const configured = s?.configuredProvider || 'd1';
+  const active = s?.activeProvider || 'd1';
+  const d1Badge = d1Available
+    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.available'))}</span>`
+    : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`;
+  const r2Badge = r2Available
+    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.available'))}</span>`
+    : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`;
+  const driveBadge = driveConnected
+    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.connected'))}</span>`
+    : `<span class="badge">${esc(t('settings.storage.notConnected'))}</span>`;
+  // "Recommended" tag goes to R2 when it's wired (best limits + zero
+  // egress); otherwise D1 (zero setup, always works).
+  const recommendedProvider = r2Available ? 'r2' : 'd1';
+  const recBadge = `<span class="badge badge--info">${esc(t('settings.storage.recommended'))}</span>`;
+  // When configured doesn't equal active, surface a small notice — the
+  // chosen backend isn't actually usable so we fell back.
+  const mismatch = configured !== active && active !== 'none'
+    ? `<div class="callout callout--warning" style="margin-top:10px; font-size:13px">${esc(t('settings.storage.fallbackNotice', { configured, active }))}</div>`
+    : '';
+  return `
+    <div class="card" style="margin-bottom:18px">
+      <h3 style="margin-top:0; font-size:15px">${esc(t('settings.storage.title'))}</h3>
+      <p class="muted" style="font-size:13px; margin-bottom:14px">${esc(t('settings.storage.hint'))}</p>
+
+      <div class="vstack" style="gap:10px">
+        <label class="hstack" style="gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; cursor:${d1Available ? 'pointer' : 'not-allowed'}; opacity:${d1Available ? 1 : 0.6}">
+          <input type="radio" name="storage-provider" value="d1" ${configured === 'd1' ? 'checked' : ''} ${d1Available ? '' : 'disabled'} />
+          <div style="flex:1">
+            <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap">
+              <strong>${esc(t('settings.storage.d1.title'))}</strong>
+              ${d1Badge}
+              ${recommendedProvider === 'd1' ? recBadge : ''}
+            </div>
+            <div class="muted" style="font-size:12px; margin-top:4px">${esc(t('settings.storage.d1.hint'))}</div>
+          </div>
+        </label>
+        <label class="hstack" style="gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; cursor:${r2Available ? 'pointer' : 'not-allowed'}; opacity:${r2Available ? 1 : 0.6}">
+          <input type="radio" name="storage-provider" value="r2" ${configured === 'r2' ? 'checked' : ''} ${r2Available ? '' : 'disabled'} />
+          <div style="flex:1">
+            <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap">
+              <strong>${esc(t('settings.storage.r2.title'))}</strong>
+              ${r2Badge}
+              ${recommendedProvider === 'r2' ? recBadge : ''}
+            </div>
+            <div class="muted" style="font-size:12px; margin-top:4px">${esc(t('settings.storage.r2.hint'))}</div>
+          </div>
+        </label>
+        <label class="hstack" style="gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; cursor:${driveConnected ? 'pointer' : 'not-allowed'}; opacity:${driveConnected ? 1 : 0.6}">
+          <input type="radio" name="storage-provider" value="drive" ${configured === 'drive' ? 'checked' : ''} ${driveConnected ? '' : 'disabled'} />
+          <div style="flex:1">
+            <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap">
+              <strong>${esc(t('settings.storage.drive.title'))}</strong>
+              ${driveBadge}
+            </div>
+            <div class="muted" style="font-size:12px; margin-top:4px">${esc(t('settings.storage.drive.hint'))}</div>
+          </div>
+        </label>
+      </div>
+      ${mismatch}
+    </div>
+  `;
+}
+
 function renderDriveCard(status) {
   if (!status) {
     return `
@@ -1319,7 +1412,10 @@ function renderIdentityCard(status) {
         <div>${esc(t('settings.identity.currentEmail', { email: status.email }))}</div>
         ${status.verifiedAt ? `<div class="muted">${esc(t('settings.identity.verifiedAt', { date: fmtDateTime(status.verifiedAt) }))}</div>` : ''}
       </div>
-      <button class="btn" id="id-replace">${esc(t('settings.identity.replace'))}</button>
+      <div class="hstack" style="gap:8px; flex-wrap:wrap">
+        <button class="btn" id="id-replace">${esc(t('settings.identity.replace'))}</button>
+        <button class="btn btn--danger" id="id-disconnect">${esc(t('settings.identity.disconnect'))}</button>
+      </div>
     </div>`;
 }
 
@@ -1335,6 +1431,30 @@ async function startIdentityFlow(purpose) {
   try {
     const res = await api.identityInit(purpose);
     location.href = res.url;
+  } catch (err) {
+    toast(err.message || t('common.error'), 'danger');
+  }
+}
+
+// Disconnect the Google account currently registered for password recovery.
+// The main login keeps working; only the "Sign in with Google to reset
+// password" shortcut becomes unavailable until the user re-registers.
+async function disconnectIdentity() {
+  const ok = await confirmDialog({
+    title: t('settings.identity.disconnect.confirm.title'),
+    message: t('settings.identity.disconnect.confirm.message'),
+    danger: true,
+    confirmText: t('settings.identity.disconnect'),
+  });
+  if (!ok) return;
+  try {
+    await api.identityDisconnect();
+    // The server cleared the recovery row — mirror that in the cached
+    // status so the card re-renders to its "not registered" state without
+    // an extra round trip.
+    identityStatus = { registered: false, email: null, verifiedAt: null };
+    toast(t('settings.identity.disconnected'), 'success');
+    drawSettings();
   } catch (err) {
     toast(err.message || t('common.error'), 'danger');
   }
