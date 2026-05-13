@@ -184,9 +184,12 @@ function annualRateAt(expense, year, month) {
 // monthly: include amount if active in this month
 // annual: include FULL amount in the billDate's month each year (between start..end)
 // oneoff: include if oneOffDate is in this month
-// infrastructure: include if expense_date is in this month (treated as a
-//                 one-off charge against the building bank, regardless of
-//                 how the costs get apportioned to apartments)
+//
+// NOTE: infrastructure_expenses are NOT counted here. That table is a
+// billing tool (it records WHAT each apartment owes), not an actual
+// outflow. The real cash that leaves the building bank is whatever the
+// admin records in the regular Expenses screen — those rows already cover
+// any contractor payment.
 export function expectedExpensesForMonth(year, month) {
   const result = [];
   for (const e of getExpenses()) {
@@ -215,33 +218,12 @@ export function expectedExpensesForMonth(year, month) {
       }
     }
   }
-  for (const ie of infrastructureExpensesInMonth(year, month)) result.push(ie);
   return result;
 }
 
-// Infrastructure expenses anchored to this month by expense_date. Returned
-// in the same shape as regular expense entries so they slot into
-// month/year summaries without callers caring about the source.
-function infrastructureExpensesInMonth(year, month) {
-  const lastDay = new Date(year, month, 0).getDate();
-  const mm = String(month).padStart(2, '0');
-  const monthStart = `${year}-${mm}-01`;
-  const monthEnd = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
-  const open = openingDateISO();
-  return getInfrastructureExpenses()
-    .filter(e => e.expenseDate && e.expenseDate >= monthStart && e.expenseDate <= monthEnd
-                 && (!open || e.expenseDate >= open))
-    .map(e => ({
-      // Project the infra row into the shape views expect (.expense + .amount).
-      expense: { id: e.id, name: e.name, category: 'תשתית', type: 'infrastructure', notes: e.notes },
-      amount: Number(e.totalAmount) || 0,
-      year,
-      month,
-      source: 'infrastructure',
-    }));
-}
-
-// Accounting-view expenses for a month: annual is divided by 12
+// Accounting-view expenses for a month: annual is divided by 12.
+// Like expectedExpensesForMonth, infrastructure_expenses don't appear here —
+// the admin records the real outflow separately in the Expenses screen.
 export function accountingExpensesForMonth(year, month) {
   const result = [];
   for (const e of getExpenses()) {
@@ -263,20 +245,16 @@ export function accountingExpensesForMonth(year, month) {
       }
     }
   }
-  // Infrastructure expenses are treated as one-off charges on expense_date
-  // in the accounting view too — they're not the kind of recurring cost
-  // that gets spread over a year.
-  for (const ie of infrastructureExpensesInMonth(year, month)) {
-    result.push({ ...ie, mode: 'oneoff' });
-  }
   return result;
 }
 
-// ACTUAL expenses for a month (from recorded expense_payments + infrastructure
-// expenses dated to this month). Returns one entry per cash outflow.
+// ACTUAL expenses for a month — money that actually left the building
+// account, sourced from recorded expense_payments. Infrastructure_expenses
+// are NOT included: that table is a billing record, not an outflow.
+// The real contractor payment lives in the regular Expenses screen.
 export function actualExpensesForMonth(year, month) {
   const expenseById = new Map(getExpenses().map(e => [e.id, e]));
-  const fromExpensePayments = getExpensePayments()
+  return getExpensePayments()
     .filter(p => p.year === year && p.month === month)
     .map(p => ({
       expense: expenseById.get(p.expenseId) || { id: p.expenseId, name: p.notes || '—', category: '—', type: 'oneoff' },
@@ -284,11 +262,6 @@ export function actualExpensesForMonth(year, month) {
       year, month,
       payment: p,
     }));
-  // Infrastructure: the system doesn't track a separate "outgoing payment"
-  // table for these — we treat the full total_amount as paid out by the
-  // building on expense_date (which is also how the per-apartment balance
-  // already handles it).
-  return [...fromExpensePayments, ...infrastructureExpensesInMonth(year, month)];
 }
 
 // Per-expense status for a given month: { expected, actual, status, payments, expenseEntry }
