@@ -372,6 +372,19 @@ CREATE TABLE IF NOT EXISTS contact_phones (
 );
 CREATE INDEX IF NOT EXISTS idx_contact_phones_contact ON contact_phones(contact_id, sort_order);
 
+-- Bank account details for vendor / service-provider contacts. Optional —
+-- only a handful of contacts (the ones the vaad pays by bank transfer)
+-- actually need a row here. Side-car table rather than columns on contacts
+-- so schema.sql stays idempotent across re-runs.
+CREATE TABLE IF NOT EXISTS contact_bank_details (
+  contact_id     TEXT PRIMARY KEY REFERENCES contacts(id) ON DELETE CASCADE,
+  bank_name      TEXT,
+  branch_number  TEXT,
+  account_number TEXT,
+  beneficiary    TEXT,
+  updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Documents metadata (binary lives in Google Drive)
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY,

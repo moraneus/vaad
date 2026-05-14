@@ -107,11 +107,27 @@ function renderPhonesCell(c) {
   `).join('')}</div>`;
 }
 
+// Compact one-liner that shows whichever bank fields are filled in. Skipped
+// entirely when there are no bank details on file.
+function renderBankLine(bank) {
+  if (!bank) return '';
+  const parts = [];
+  if (bank.bankName) parts.push(esc(bank.bankName));
+  if (bank.branchNumber) parts.push(`${esc(t('contacts.field.bank.branchShort'))} ${esc(bank.branchNumber)}`);
+  if (bank.accountNumber) parts.push(`${esc(t('contacts.field.bank.accountShort'))} ${esc(bank.accountNumber)}`);
+  if (bank.beneficiary) parts.push(`${esc(t('contacts.field.bank.beneficiaryShort'))} ${esc(bank.beneficiary)}`);
+  if (!parts.length) return '';
+  return `<div class="muted" style="font-size:11px; margin-top:2px">🏦 ${parts.join(' · ')}</div>`;
+}
+
 function renderRow(c, isAdmin, highlightId) {
   const isHighlighted = highlightId && c.id === highlightId;
   return `
     <tr id="contact-row-${esc(c.id)}" ${isHighlighted ? 'style="background:var(--c-warning-soft, #fff7e6); transition:background 1.5s"' : ''}>
-      <td><strong>${esc(c.company || '—')}</strong></td>
+      <td>
+        <strong>${esc(c.company || '—')}</strong>
+        ${renderBankLine(c.bank)}
+      </td>
       <td>${esc(c.name || '—')}</td>
       <td>${esc(c.role || '—')}</td>
       <td>${renderPhonesCell(c)}</td>
@@ -160,6 +176,32 @@ function openContactDialog(c = null) {
           <label class="field__label">${esc(t('contacts.field.email'))}</label>
           <input class="input" name="email" type="email" value="${esc(c?.email || '')}" />
         </div>
+
+        <div class="field" style="grid-column:1/-1; margin-top:6px">
+          <div class="hstack" style="gap:8px; align-items:center; margin-bottom:4px">
+            <strong style="font-size:13px">${esc(t('contacts.field.bank.title'))}</strong>
+            <span class="muted" style="font-size:12px">${esc(t('contacts.field.bank.hint'))}</span>
+          </div>
+          <div class="form-grid" style="margin-top:6px">
+            <div class="field">
+              <label class="field__label">${esc(t('contacts.field.bank.bankName'))}</label>
+              <input class="input" name="bankName" value="${esc(c?.bank?.bankName || '')}" placeholder="${esc(t('contacts.field.bank.bankNamePlaceholder'))}" />
+            </div>
+            <div class="field">
+              <label class="field__label">${esc(t('contacts.field.bank.branchNumber'))}</label>
+              <input class="input" name="branchNumber" value="${esc(c?.bank?.branchNumber || '')}" inputmode="numeric" placeholder="${esc(t('contacts.field.bank.branchPlaceholder'))}" />
+            </div>
+            <div class="field">
+              <label class="field__label">${esc(t('contacts.field.bank.accountNumber'))}</label>
+              <input class="input" name="accountNumber" value="${esc(c?.bank?.accountNumber || '')}" inputmode="numeric" placeholder="${esc(t('contacts.field.bank.accountPlaceholder'))}" />
+            </div>
+            <div class="field">
+              <label class="field__label">${esc(t('contacts.field.bank.beneficiary'))}</label>
+              <input class="input" name="beneficiary" value="${esc(c?.bank?.beneficiary || '')}" placeholder="${esc(t('contacts.field.bank.beneficiaryPlaceholder'))}" />
+            </div>
+          </div>
+        </div>
+
         <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('common.notes'))}</label>
           <textarea class="textarea" name="notes" rows="3">${esc(c?.notes || '')}</textarea>
@@ -222,8 +264,18 @@ function openContactDialog(c = null) {
         phone: row.querySelector('.c-phone-num').value.trim(),
       }))
       .filter(p => p.phone);
+    // Pull the 4 bank fields off the flat formdata into a nested object —
+    // the server clears the row when all four are empty.
+    const bank = {
+      bankName: (d.bankName || '').trim(),
+      branchNumber: (d.branchNumber || '').trim(),
+      accountNumber: (d.accountNumber || '').trim(),
+      beneficiary: (d.beneficiary || '').trim(),
+    };
+    // Strip the flat keys so they don't end up as top-level contact fields.
+    delete d.bankName; delete d.branchNumber; delete d.accountNumber; delete d.beneficiary;
     try {
-      await upsertContact({ id: c?.id, ...d, phones });
+      await upsertContact({ id: c?.id, ...d, phones, bank });
       toast(isEdit ? t('contacts.updated') : t('contacts.added'), 'success');
       m.close();
       renderContacts();
