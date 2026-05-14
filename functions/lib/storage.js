@@ -19,16 +19,18 @@
 import * as drive from './drive.js';
 import { r2Available, r2Put, r2Get, r2Delete, r2Key } from './r2.js';
 import { d1Available, d1Put, d1Get, d1Delete, d1SizeLimit } from './d1-blob.js';
+import { b2Available, b2Put, b2Get, b2Delete, b2Key, b2Status } from './b2.js';
 
 // Reads (and validates) the configured active provider. Falls back to
 // whichever one is actually available so a misconfiguration doesn't break
 // uploads — the UI still shows the configured choice so the admin knows.
-// Fallback order: configured → d1 (always present) → r2 → drive.
+// Fallback order: configured → d1 (always present) → r2 → b2 → drive.
 export async function getActiveProvider(db, env) {
   const row = await db.prepare("SELECT value FROM settings WHERE key = 'storage_provider'").first();
   const choice = (row?.value || 'd1');
   if (choice === 'r2' && r2Available(env)) return 'r2';
   if (choice === 'd1' && d1Available(env)) return 'd1';
+  if (choice === 'b2' && (await b2Available(env))) return 'b2';
   if (choice === 'drive') {
     const drv = await drive.getDriveStatus(db);
     if (drv.connected) return 'drive';
@@ -36,6 +38,7 @@ export async function getActiveProvider(db, env) {
   // Configured backend isn't available — pick anything that works.
   if (d1Available(env)) return 'd1';
   if (r2Available(env)) return 'r2';
+  if (await b2Available(env)) return 'b2';
   const drv = await drive.getDriveStatus(db);
   if (drv.connected) return 'drive';
   return 'none';
@@ -45,11 +48,13 @@ export async function getActiveProvider(db, env) {
 export async function storageStatus(db, env) {
   const cfg = await db.prepare("SELECT value FROM settings WHERE key = 'storage_provider'").first();
   const drv = await drive.getDriveStatus(db);
+  const b2 = await b2Status(env);
   return {
     configuredProvider: cfg?.value || 'd1',
     activeProvider: await getActiveProvider(db, env),
     d1: { available: d1Available(env) },
     r2: { available: r2Available(env) },
+    b2: { available: b2.configured, bucketName: b2.bucketName, endpoint: b2.endpoint },
     drive: { connected: !!drv.connected, accountEmail: drv.accountEmail || null, folderId: drv.folderId || null },
   };
 }
@@ -85,6 +90,14 @@ export async function uploadDoc(db, env, docId, file) {
     const bytes = await file.arrayBuffer();
     await d1Put(db, docId, bytes);
     return { storage: 'd1', driveFileId: '', r2Key: null };
+  }
+  if (provider === 'b2') {
+    const key = b2Key(docId, file.name);
+    // b2Put returns "fileId|fileName" — we stash that in r2_key (used
+    // generically as the "object reference" column) so b2Delete can
+    // recover both pieces.
+    const marker = await b2Put(env, key, file, file.type);
+    return { storage: 'b2', driveFileId: '', r2Key: marker };
   }
   if (provider === 'drive') {
     const { accessToken, folderId } = await drive.getAccessToken(db, env);
@@ -134,6 +147,15 @@ export async function downloadDoc(db, env, docId) {
       meta,
     };
   }
+  if (meta.storage === 'b2') {
+    const res = await b2Get(env, meta.r2Key);
+    return {
+      body: res.body,
+      contentType: res.headers.get('content-type') || meta.mimeType,
+      contentLength: res.headers.get('content-length'),
+      meta,
+    };
+  }
   const { accessToken } = await drive.getAccessToken(db, env);
   const res = await drive.downloadFile(accessToken, meta.driveFileId);
   return {
@@ -155,6 +177,8 @@ export async function deleteDocBlob(db, env, docId) {
       await r2Delete(env, meta.r2Key);
     } else if (meta.storage === 'd1') {
       await d1Delete(db, docId);
+    } else if (meta.storage === 'b2') {
+      await b2Delete(env, meta.r2Key);
     } else {
       const { accessToken } = await drive.getAccessToken(db, env);
       await drive.deleteFile(accessToken, meta.driveFileId);

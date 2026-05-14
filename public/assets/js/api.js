@@ -243,9 +243,15 @@ export const api = {
   driveAuthInit: () => call('/api/drive/auth-init', opts('POST', {})),
   driveDisconnect: () => call('/api/drive/disconnect', opts('POST', {})),
 
-  // Storage (R2 vs Drive)
+  // Storage (D1 / R2 / B2 / Drive)
   storageStatus: () => call('/api/storage/status'),
   setStorageProvider: (provider) => call('/api/settings/storage', opts('POST', { provider })),
+
+  // Backblaze B2 (encrypted credentials in settings)
+  b2Status: () => call('/api/settings/b2'),
+  b2Save: (keyId, applicationKey, bucketName, endpoint) =>
+    call('/api/settings/b2', opts('POST', { action: 'save', keyId, applicationKey, bucketName, endpoint })),
+  b2Remove: () => call('/api/settings/b2', opts('POST', { action: 'remove' })),
 
   // Admin
   resetSystem: () => call('/api/admin/reset', opts('POST', { confirm: 'I-AGREE-TO-WIPE' })),

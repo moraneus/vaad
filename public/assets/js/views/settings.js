@@ -589,21 +589,20 @@ function drawSettings() {
       try { await api.resendRemove(); toast(t('settings.resend.removed'), 'success'); drawSettings(); }
       catch (err) { toast(err.message || t('common.error'), 'danger'); }
     });
-    // Storage-provider switch — admin picks the backend for NEW uploads.
-    // Existing documents stay on whichever backend they were uploaded with.
-    document.querySelectorAll('input[name="storage-provider"]').forEach(radio => {
-      radio.addEventListener('change', async (e) => {
-        const provider = e.target.value;
-        try {
-          const r = await api.setStorageProvider(provider);
-          storageStatusData = r;
-          toast(t('settings.storage.switched', { provider: t(`settings.storage.${provider}.title`) }), 'success');
-          drawSettings();
-        } catch (err) {
-          toast(err.message || t('common.error'), 'danger');
-          drawSettings(); // revert the radio
-        }
-      });
+    // Storage-provider dropdown: changes only the VIEW (the config panel
+    // shown below). Activating a provider is a separate explicit action so
+    // an admin can inspect a backend's config without accidentally
+    // switching the active one.
+    const refreshStoragePanel = (chosen) => {
+      const panel = document.getElementById('storage-provider-panel');
+      if (!panel) return;
+      setHTML(panel, renderStorageProviderPanel(chosen, storageStatusData));
+      wireStorageProviderPanel(chosen);
+    };
+    const initialChoice = (storageStatusData?.configuredProvider) || 'd1';
+    refreshStoragePanel(initialChoice);
+    document.getElementById('storage-provider-select')?.addEventListener('change', (e) => {
+      refreshStoragePanel(e.target.value);
     });
     // ----- Unified users card (owners + nested apartments) -----
     // Per-owner expand/collapse — clicking the chevron shows that owner's
@@ -1257,76 +1256,209 @@ function openMonthlyReportDialog() {
   });
 }
 
-// ----- Storage backend card (D1 / R2 / Drive) -----
-// Lets the admin see which backends are wired up and pick which one new
-// uploads land in. Existing documents always stay on their original
-// backend — that data is per-row in document_storage.
+// ----- Storage backend card (D1 / R2 / B2 / Drive) -----
+//
+// Collapsible: shows the currently-active provider + a single dropdown.
+// Picking a provider from the dropdown reveals JUST that backend's
+// configuration so the admin isn't drowning in four config panels at once.
+// Existing documents always stay on their original backend — that data is
+// per-row in document_storage.
 function renderStorageCard(s) {
-  const d1Available = !!s?.d1?.available;
-  const r2Available = !!s?.r2?.available;
-  const driveConnected = !!s?.drive?.connected;
   const configured = s?.configuredProvider || 'd1';
   const active = s?.activeProvider || 'd1';
-  const d1Badge = d1Available
-    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.available'))}</span>`
-    : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`;
-  const r2Badge = r2Available
-    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.available'))}</span>`
-    : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`;
-  const driveBadge = driveConnected
-    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.connected'))}</span>`
-    : `<span class="badge">${esc(t('settings.storage.notConnected'))}</span>`;
-  // "Recommended" tag goes to R2 when it's wired (best limits + zero
-  // egress); otherwise D1 (zero setup, always works).
-  const recommendedProvider = r2Available ? 'r2' : 'd1';
-  const recBadge = `<span class="badge badge--info">${esc(t('settings.storage.recommended'))}</span>`;
-  // When configured doesn't equal active, surface a small notice — the
-  // chosen backend isn't actually usable so we fell back.
+
+  const providers = {
+    d1:    { available: !!s?.d1?.available, label: t('settings.storage.d1.title'),    hint: t('settings.storage.d1.hint') },
+    r2:    { available: !!s?.r2?.available, label: t('settings.storage.r2.title'),    hint: t('settings.storage.r2.hint') },
+    b2:    { available: !!s?.b2?.available, label: t('settings.storage.b2.title'),    hint: t('settings.storage.b2.hint') },
+    drive: { available: !!s?.drive?.connected, label: t('settings.storage.drive.title'), hint: t('settings.storage.drive.hint') },
+  };
+  const activeMeta = providers[active] || providers.d1;
   const mismatch = configured !== active && active !== 'none'
     ? `<div class="callout callout--warning" style="margin-top:10px; font-size:13px">${esc(t('settings.storage.fallbackNotice', { configured, active }))}</div>`
     : '';
+
+  const optHTML = (id) => {
+    const p = providers[id];
+    const dot = p.available ? '✓ ' : '○ ';
+    return `<option value="${id}" ${configured === id ? 'selected' : ''}>${dot}${esc(p.label)}</option>`;
+  };
+
   return `
-    <div class="card" style="margin-bottom:18px">
-      <h3 style="margin-top:0; font-size:15px">${esc(t('settings.storage.title'))}</h3>
+    <div class="card" id="storage-card" style="margin-bottom:18px">
+      <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px">
+        <h3 style="margin:0; font-size:15px">${esc(t('settings.storage.title'))}</h3>
+        <span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.activeNow', { provider: activeMeta.label }))}</span>
+      </div>
       <p class="muted" style="font-size:13px; margin-bottom:14px">${esc(t('settings.storage.hint'))}</p>
 
-      <div class="vstack" style="gap:10px">
-        <label class="hstack" style="gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; cursor:${d1Available ? 'pointer' : 'not-allowed'}; opacity:${d1Available ? 1 : 0.6}">
-          <input type="radio" name="storage-provider" value="d1" ${configured === 'd1' ? 'checked' : ''} ${d1Available ? '' : 'disabled'} />
-          <div style="flex:1">
-            <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap">
-              <strong>${esc(t('settings.storage.d1.title'))}</strong>
-              ${d1Badge}
-              ${recommendedProvider === 'd1' ? recBadge : ''}
-            </div>
-            <div class="muted" style="font-size:12px; margin-top:4px">${esc(t('settings.storage.d1.hint'))}</div>
-          </div>
-        </label>
-        <label class="hstack" style="gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; cursor:${r2Available ? 'pointer' : 'not-allowed'}; opacity:${r2Available ? 1 : 0.6}">
-          <input type="radio" name="storage-provider" value="r2" ${configured === 'r2' ? 'checked' : ''} ${r2Available ? '' : 'disabled'} />
-          <div style="flex:1">
-            <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap">
-              <strong>${esc(t('settings.storage.r2.title'))}</strong>
-              ${r2Badge}
-              ${recommendedProvider === 'r2' ? recBadge : ''}
-            </div>
-            <div class="muted" style="font-size:12px; margin-top:4px">${esc(t('settings.storage.r2.hint'))}</div>
-          </div>
-        </label>
-        <label class="hstack" style="gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; cursor:${driveConnected ? 'pointer' : 'not-allowed'}; opacity:${driveConnected ? 1 : 0.6}">
-          <input type="radio" name="storage-provider" value="drive" ${configured === 'drive' ? 'checked' : ''} ${driveConnected ? '' : 'disabled'} />
-          <div style="flex:1">
-            <div class="hstack" style="gap:8px; align-items:center; flex-wrap:wrap">
-              <strong>${esc(t('settings.storage.drive.title'))}</strong>
-              ${driveBadge}
-            </div>
-            <div class="muted" style="font-size:12px; margin-top:4px">${esc(t('settings.storage.drive.hint'))}</div>
-          </div>
-        </label>
+      <div class="hstack" style="gap:10px; align-items:center; flex-wrap:wrap">
+        <label class="muted" style="font-size:13px">${esc(t('settings.storage.pickLabel'))}</label>
+        <select class="select" id="storage-provider-select" style="min-width:240px">
+          ${optHTML('d1')}
+          ${optHTML('r2')}
+          ${optHTML('b2')}
+          ${optHTML('drive')}
+        </select>
       </div>
+
+      <div id="storage-provider-panel" style="margin-top:14px"></div>
       ${mismatch}
     </div>
   `;
+}
+
+// Per-provider config block injected into #storage-provider-panel when the
+// dropdown changes. Kept as a separate function so each backend's setup
+// fields live in one place.
+function renderStorageProviderPanel(provider, s) {
+  const isActive = (s?.configuredProvider || 'd1') === provider;
+  const activateBtn = isActive
+    ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.activeProvider'))}</span>`
+    : `<button class="btn btn--primary btn--sm" id="storage-activate-btn" data-provider="${esc(provider)}">${esc(t('settings.storage.activateBtn'))}</button>`;
+
+  if (provider === 'd1') {
+    const ok = !!s?.d1?.available;
+    return `
+      <div class="vstack" style="gap:10px; padding:14px; border:1px solid var(--c-border); border-radius:8px; background:var(--c-surface-alt)">
+        <div class="hstack" style="gap:8px; flex-wrap:wrap">
+          <strong>${esc(t('settings.storage.d1.title'))}</strong>
+          ${ok ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.available'))}</span>` : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`}
+        </div>
+        <div class="muted" style="font-size:12px">${esc(t('settings.storage.d1.hint'))}</div>
+        <div class="hstack">${ok ? activateBtn : ''}</div>
+      </div>
+    `;
+  }
+  if (provider === 'r2') {
+    const ok = !!s?.r2?.available;
+    return `
+      <div class="vstack" style="gap:10px; padding:14px; border:1px solid var(--c-border); border-radius:8px; background:var(--c-surface-alt)">
+        <div class="hstack" style="gap:8px; flex-wrap:wrap">
+          <strong>${esc(t('settings.storage.r2.title'))}</strong>
+          ${ok ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.available'))}</span>` : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`}
+        </div>
+        <div class="muted" style="font-size:12px">${esc(t('settings.storage.r2.hint'))}</div>
+        ${!ok ? `<div class="callout callout--warning" style="font-size:13px">${esc(t('settings.storage.r2.howToWire'))}</div>` : ''}
+        <div class="hstack">${ok ? activateBtn : ''}</div>
+      </div>
+    `;
+  }
+  if (provider === 'b2') {
+    const ok = !!s?.b2?.available;
+    return `
+      <div class="vstack" style="gap:10px; padding:14px; border:1px solid var(--c-border); border-radius:8px; background:var(--c-surface-alt)">
+        <div class="hstack" style="gap:8px; flex-wrap:wrap">
+          <strong>${esc(t('settings.storage.b2.title'))}</strong>
+          ${ok ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.b2.configured'))}</span>` : `<span class="badge">${esc(t('settings.storage.notWired'))}</span>`}
+        </div>
+        <div class="muted" style="font-size:12px">${esc(t('settings.storage.b2.hint'))}</div>
+        ${ok ? `
+          <div class="vstack" style="gap:4px; font-size:13px; background:var(--c-bg-elevated); padding:10px; border-radius:6px">
+            <div><span class="muted">${esc(t('settings.storage.b2.field.bucketName'))}:</span> <strong>${esc(s?.b2?.bucketName || '')}</strong></div>
+            ${s?.b2?.endpoint ? `<div><span class="muted">${esc(t('settings.storage.b2.field.endpoint'))}:</span> <strong>${esc(s.b2.endpoint)}</strong></div>` : ''}
+            <div><span class="muted">${esc(t('settings.storage.b2.field.apiKey'))}:</span> <strong>${esc(t('settings.storage.b2.maskedKey'))}</strong></div>
+          </div>
+        ` : ''}
+        <div class="form-grid" style="margin-top:8px">
+          <div class="field" style="grid-column:1/-1">
+            <label class="field__label">${esc(t('settings.storage.b2.field.keyId'))}</label>
+            <input class="input" id="b2-keyid" type="text" placeholder="${esc(t('settings.storage.b2.field.keyIdPlaceholder'))}" autocomplete="off" />
+            <div class="field__hint">${esc(t('settings.storage.b2.field.keyIdHint'))}</div>
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label class="field__label">${esc(t('settings.storage.b2.field.applicationKey'))}</label>
+            <input class="input" id="b2-appkey" type="password" placeholder="${esc(ok ? t('settings.storage.b2.field.applicationKeyMasked') : t('settings.storage.b2.field.applicationKeyPlaceholder'))}" autocomplete="new-password" />
+            <div class="field__hint">${esc(t('settings.storage.b2.field.applicationKeyHint'))}</div>
+          </div>
+          <div class="field">
+            <label class="field__label">${esc(t('settings.storage.b2.field.bucketName'))}</label>
+            <input class="input" id="b2-bucket" type="text" value="${esc(s?.b2?.bucketName || '')}" placeholder="vaad-bayit" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label class="field__label">${esc(t('settings.storage.b2.field.endpoint'))}</label>
+            <input class="input" id="b2-endpoint" type="text" value="${esc(s?.b2?.endpoint || '')}" placeholder="s3.us-west-004.backblazeb2.com" autocomplete="off" />
+            <div class="field__hint">${esc(t('settings.storage.b2.field.endpointHint'))}</div>
+          </div>
+        </div>
+        <div class="hstack" style="gap:8px; flex-wrap:wrap; margin-top:6px">
+          <button class="btn btn--primary" id="b2-save-btn">${esc(ok ? t('settings.storage.b2.replaceBtn') : t('settings.storage.b2.saveBtn'))}</button>
+          ${ok ? `<button class="btn btn--danger" id="b2-remove-btn">${esc(t('settings.storage.b2.removeBtn'))}</button>` : ''}
+          ${ok ? activateBtn : ''}
+        </div>
+      </div>
+    `;
+  }
+  if (provider === 'drive') {
+    const ok = !!s?.drive?.connected;
+    return `
+      <div class="vstack" style="gap:10px; padding:14px; border:1px solid var(--c-border); border-radius:8px; background:var(--c-surface-alt)">
+        <div class="hstack" style="gap:8px; flex-wrap:wrap">
+          <strong>${esc(t('settings.storage.drive.title'))}</strong>
+          ${ok ? `<span class="badge badge--success">${Icon.check} ${esc(t('settings.storage.connected'))}</span>` : `<span class="badge">${esc(t('settings.storage.notConnected'))}</span>`}
+        </div>
+        <div class="muted" style="font-size:12px">${esc(t('settings.storage.drive.hint'))}</div>
+        ${ok && s?.drive?.accountEmail ? `<div style="font-size:13px"><span class="muted">${esc(t('drive.connectedAs', { email: s.drive.accountEmail }))}</span></div>` : ''}
+        <div class="muted" style="font-size:12px">${esc(t('settings.storage.drive.manageHint'))}</div>
+        <div class="hstack">${ok ? activateBtn : ''}</div>
+      </div>
+    `;
+  }
+  return '';
+}
+
+// Wires the buttons inside the dynamic storage-provider panel. Called after
+// each render of the panel (initial + after every dropdown change).
+function wireStorageProviderPanel(provider) {
+  // Activate = persist the selected provider as the active one for new
+  // uploads. Same endpoint as the old radios used.
+  document.getElementById('storage-activate-btn')?.addEventListener('click', async (e) => {
+    const p = e.target.dataset.provider || provider;
+    try {
+      storageStatusData = await api.setStorageProvider(p);
+      toast(t('settings.storage.switched', { provider: t(`settings.storage.${p}.title`) }), 'success');
+      drawSettings();
+    } catch (err) {
+      toast(err.message || t('common.error'), 'danger');
+    }
+  });
+
+  if (provider === 'b2') {
+    document.getElementById('b2-save-btn')?.addEventListener('click', async () => {
+      const keyId = document.getElementById('b2-keyid').value.trim();
+      const appKey = document.getElementById('b2-appkey').value.trim();
+      const bucket = document.getElementById('b2-bucket').value.trim();
+      const endpoint = document.getElementById('b2-endpoint').value.trim();
+      if (!keyId || !appKey || !bucket) {
+        toast(t('settings.storage.b2.fillRequired'), 'warning');
+        return;
+      }
+      const btn = document.getElementById('b2-save-btn');
+      btn.disabled = true;
+      try {
+        await api.b2Save(keyId, appKey, bucket, endpoint);
+        toast(t('settings.storage.b2.saved'), 'success');
+        drawSettings();
+      } catch (err) {
+        toast(err.message || t('common.error'), 'danger');
+        btn.disabled = false;
+      }
+    });
+    document.getElementById('b2-remove-btn')?.addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: t('settings.storage.b2.remove.title'),
+        message: t('settings.storage.b2.remove.message'),
+        danger: true,
+        confirmText: t('common.delete'),
+      });
+      if (!ok) return;
+      try {
+        await api.b2Remove();
+        toast(t('settings.storage.b2.removed'), 'success');
+        drawSettings();
+      } catch (err) { toast(err.message || t('common.error'), 'danger'); }
+    });
+  }
 }
 
 function renderDriveCard(status) {

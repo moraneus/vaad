@@ -904,11 +904,25 @@ CREATE TABLE IF NOT EXISTS document_d1_blobs (
 
 -- Seed: storage_provider controls which backend NEW uploads use. D1 is the
 -- default — no extra binding, no third-party account, no credit card on
--- file. R2 is preferred when actually wired up (10 GB free, zero egress)
--- and the admin can opt into it from Settings. Drive remains available as
--- a third option for installations that already use it.
+-- file. R2, Backblaze B2, and Google Drive are also supported and can be
+-- chosen from the Settings UI once configured.
 INSERT OR IGNORE INTO settings (key, value) VALUES
   ('storage_provider', 'd1');
+
+-- Seed settings keys for the Backblaze B2 storage backend. The keyID +
+-- applicationKey are stored encrypted at rest (same AES-GCM scheme used
+-- for the Resend key and Drive refresh token). bucket name + endpoint are
+-- plain so the admin can verify them at a glance.
+--   bucket_name : Backblaze bucket the app will write to
+--   endpoint    : S3-compatible endpoint URL (e.g. s3.us-west-004.backblazeb2.com)
+--                 — used for downloads via the native API's downloadUrl
+INSERT OR IGNORE INTO settings (key, value) VALUES
+  ('b2_key_id_enc',           ''),
+  ('b2_key_id_iv',            ''),
+  ('b2_application_key_enc',  ''),
+  ('b2_application_key_iv',   ''),
+  ('b2_bucket_name',          ''),
+  ('b2_endpoint',             '');
 
 -- One-time normalization (idempotent): the new model has only two derived
 -- statuses (in_progress / done). Legacy 'closed' and 'paused' expense rows are

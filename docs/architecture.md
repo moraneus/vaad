@@ -22,22 +22,22 @@
 │  • drive (OAuth init / callback / status / disconnect)       │
 │  • identity OAuth (recovery + sign-in-with-google)           │
 └──────┬───────────────────────────────┬──────────────────────┘
-       │              ┌────────────┼────────────┐
-       │              │            │            │
-┌──────▼───────────┐ ┌▼──────────┐┌▼──────────┐┌▼─────────────────┐
-│  Cloudflare D1   │ │ D1 BLOBs   ││ R2         ││ Google Drive     │
-│  (SQLite)        │ │ table:     ││ bucket:    ││ (admin account)  │
-│  • app tables    │ │ document_  ││ vaad-docs  ││ folder: vaad-docs│
-│  • sessions      │ │ d1_blobs   ││            ││                  │
-│  • audit log     │ │            ││ binding:   ││ OAuth: drive.file│
-│  • PBKDF2 hashes │ │ DEFAULT.   ││ DOCS_      ││                  │
-│  • encrypted     │ │ Zero setup.││ BUCKET.    ││ Encrypted token  │
-│    secrets       │ │ ~5MB cap   ││ 10GB free, ││ stored in D1     │
-│                  │ │ per doc    ││ zero egress││                  │
-└──────────────────┘ └────────────┘└────────────┘└──────────────────┘
+       │          ┌──────────┼──────────┬──────────┐
+       │          │          │          │          │
+┌──────▼───────┐ ┌▼────────┐┌▼────────┐┌▼────────┐┌▼─────────────┐
+│ Cloudflare   │ │ D1 BLOBs ││ R2       ││ Backblaze││ Google Drive │
+│ D1 (SQLite)  │ │ table:   ││ bucket:  ││ B2       ││ (admin acct) │
+│ • app tables │ │ document_││ vaad-docs││ bucket   ││ folder:      │
+│ • sessions   │ │ d1_blobs ││          ││ via      ││ vaad-docs    │
+│ • audit log  │ │          ││ binding: ││ native   ││              │
+│ • PBKDF2     │ │ DEFAULT  ││ DOCS_    ││ API +    ││ OAuth:       │
+│ • encrypted  │ │ ~5MB cap ││ BUCKET   ││ encrypted││ drive.file   │
+│   secrets    │ │ per doc  ││ 10GB     ││ keys     ││ encrypted    │
+│              │ │          ││ free     ││ 10GB free││ token in D1  │
+└──────────────┘ └──────────┘└──────────┘└──────────┘└──────────────┘
 ```
 
-**Document storage** is **three-backend**. New uploads go to whichever provider the admin picked (default: **D1**, since it requires no setup and no credit card). Each row in the `documents` table is paired with a `document_storage` row (or, for D1, a `document_d1_blobs` row keyed by document_id) recording its backend — so downloads and deletes route to the right place regardless of which provider was active when the file was uploaded. Switching providers in Settings affects only *future* uploads; old documents stay where they are.
+**Document storage** is **four-backend**. New uploads go to whichever provider the admin picked (default: **D1**, since it requires no setup and no credit card). Each row in the `documents` table is paired with a `document_storage` row (or, for D1, a `document_d1_blobs` row keyed by document_id) recording its backend — so downloads and deletes route to the right place regardless of which provider was active when the file was uploaded. Switching providers in Settings affects only *future* uploads; old documents stay where they are. **Backblaze B2** uses the native B2 API (auth → get_upload_url → upload; no SigV4 implementation needed in the Worker); its credentials are stored encrypted under `SESSION_SECRET`-derived AES-GCM, never readable back.
 
 ## Roles
 

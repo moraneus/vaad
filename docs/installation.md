@@ -161,27 +161,33 @@ npx wrangler d1 execute <your-d1-name> --remote --file=./schema.sql
 
 **What this does:** Creates all the tables (apartments, owners, payments, expenses, sessions, audit_log, reminders, receipts, …) and seeds initial values. The schema is fully idempotent (`CREATE TABLE IF NOT EXISTS`, `INSERT OR IGNORE`) — running it again is safe and is exactly how you'll apply future updates.
 
-### Step 4.5 — (Optional) Create the R2 bucket for larger document storage
+### Step 4.5 — (Optional) Pick an object-storage backend for larger documents
 
-Document storage supports **three backends** — pick whichever you prefer in Settings → אחסון מסמכים after first login. Existing documents always stay on whichever backend they were uploaded with, so switching is safe.
+Document storage supports **four backends** — pick whichever you prefer in Settings → אחסון מסמכים after first login. Existing documents always stay on whichever backend they were uploaded with, so switching is safe.
 
 | Backend | Free tier | Setup | Per-doc cap | Notes |
 |---------|-----------|-------|-------------|-------|
 | **Cloudflare D1** (default) | 5 GB total | none — works immediately | ~5 MB | Bytes stored as BLOBs in the same D1 already running the app. **No credit card required.** Best for small files. |
-| **Cloudflare R2** | 10 GB / month + zero egress | bucket + R2 enabled in dashboard | up to 20 MB | Requires a payment method on file (even though free tier is $0). Best for larger files. |
+| **Cloudflare R2** | 10 GB / month + zero egress | bucket + R2 enabled in dashboard | up to 20 MB | Requires a payment method on file (even though free tier is $0). Best for larger files when you're already on Cloudflare. |
+| **Backblaze B2** | 10 GB / month | sign up + Application Key, configured from Settings UI | up to 20 MB | **No credit card required for the free tier.** Recommended when you want object storage but don't want to give Cloudflare a card. |
 | **Google Drive** | 15 GB per account | OAuth (Step 6 + Step 9) | up to 20 MB | Depends on the Google account staying healthy. |
 
-The **default is D1** — it works the second the schema is applied, no extra steps. If you want R2 too (recommended for larger files), do this now:
+The **default is D1** — it works the second the schema is applied, no extra steps. Setup for the others happens after first login:
 
+**R2 (if you want it):**
 ```bash
 npx wrangler r2 bucket create vaad-docs
 ```
+If you get `Please enable R2 through the Cloudflare Dashboard`: open https://dash.cloudflare.com → R2 Object Storage → click **Purchase R2** (asks for a payment method even though the free tier is $0). Uncomment the `[[r2_buckets]]` block in `wrangler.toml` and redeploy.
 
-If you get `Please enable R2 through the Cloudflare Dashboard`: open https://dash.cloudflare.com → R2 Object Storage → click **Purchase R2**. You'll be asked for a payment method but the free tier is $0; if you'd rather not provide a card, skip R2 and let D1 (and optionally Drive) handle storage.
+**Backblaze B2 (if you want it):**
+1. Sign up at https://www.backblaze.com/cloud-storage (no card required for the free tier).
+2. Create a private bucket — note the exact name.
+3. App Keys → "Add a New Application Key" with read+write access to that bucket. Copy the **keyID** and **applicationKey** (the key is shown only once).
+4. After first login: Settings → אחסון מסמכים → dropdown → **Backblaze B2** → paste the keyID, applicationKey, bucket name, and (optionally) the S3 endpoint shown next to the bucket in Backblaze. Click **שמור והגדר** — the server makes a real round trip to B2 and rejects bad credentials before saving.
+5. Click **הפעל ספק זה** to make B2 the active backend for new uploads.
 
-(The bucket name `vaad-docs` is referenced from `wrangler.toml` under the `DOCS_BUCKET` binding. Pick a different name if you like, just keep them in sync.)
-
-If you skip R2, comment out (or remove) the `[[r2_buckets]]` block in `wrangler.toml` — otherwise the deploy step will fail trying to bind a nonexistent bucket.
+If you don't add any of R2/B2/Drive, D1 continues to handle everything — that's the supported zero-config path.
 
 ### Step 5 — Initial deployment (no secrets yet)
 

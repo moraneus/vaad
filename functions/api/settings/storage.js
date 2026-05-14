@@ -8,10 +8,11 @@ import { requireAdmin } from '../../lib/guard.js';
 import { logAudit } from '../../lib/audit.js';
 import { r2Available } from '../../lib/r2.js';
 import { d1Available } from '../../lib/d1-blob.js';
+import { b2Available } from '../../lib/b2.js';
 import { getDriveStatus } from '../../lib/drive.js';
 import { storageStatus } from '../../lib/storage.js';
 
-const VALID = new Set(['r2', 'drive', 'd1']);
+const VALID = new Set(['r2', 'drive', 'd1', 'b2']);
 
 export const onRequestPost = async ({ request, env }) => {
   const r = await requireAdmin(env, request); if (r.error) return r.error;
@@ -28,6 +29,9 @@ export const onRequestPost = async ({ request, env }) => {
     // Shouldn't happen in practice — D1 is required to run the app — but
     // belt-and-braces in case the binding is missing for some reason.
     return error('D1 לא זמין', 412);
+  }
+  if (provider === 'b2' && !(await b2Available(env))) {
+    return error('Backblaze B2 לא מוגדר — הזן מפתחות בהגדרות', 412);
   }
   if (provider === 'drive') {
     const drv = await getDriveStatus(env.DB);
