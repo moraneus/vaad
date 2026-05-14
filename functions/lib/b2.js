@@ -96,17 +96,24 @@ async function resolveBucketId(auth, bucketName) {
     }
     return auth.bucketId;
   }
-  // Account-wide key: list buckets to find the one with the matching name.
+  // Account-wide key: list buckets (no name filter) so we can both find
+  // the requested one AND surface a helpful error listing the buckets the
+  // key DOES see when there's no match. Filtering by name on the request
+  // would hide that diagnostic.
   const res = await fetch(`${auth.apiUrl}/b2api/v3/b2_list_buckets`, {
     method: 'POST',
     headers: { Authorization: auth.authorizationToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accountId: auth.accountId, bucketName }),
+    body: JSON.stringify({ accountId: auth.accountId }),
   });
   if (!res.ok) throw new Error(`B2 list buckets failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
+  const available = (data.buckets || []).map(b => b.bucketName);
   const bucket = (data.buckets || []).find(b => b.bucketName === bucketName);
   if (!bucket) {
-    throw new Error(`B2 bucket "${bucketName}" not found for this key (key may be account-wide but the bucket doesn't exist, or you typed the wrong name)`);
+    if (available.length === 0) {
+      throw new Error(`לא נמצאו buckets בחשבון Backblaze. צור bucket חדש ב-Backblaze (Buckets → Create a Bucket) ואז חזור והגדר כאן.`);
+    }
+    throw new Error(`bucket "${bucketName}" לא נמצא. ה-buckets שזמינים למפתח הזה: ${available.join(', ')}`);
   }
   return bucket.bucketId;
 }

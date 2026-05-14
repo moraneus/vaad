@@ -183,9 +183,10 @@ function openContactDialog(c = null) {
             <span class="muted" style="font-size:12px">${esc(t('contacts.field.bank.hint'))}</span>
           </div>
           <div class="form-grid" style="margin-top:6px">
-            <div class="field">
+            <div class="field" style="position:relative" id="bank-name-field">
               <label class="field__label">${esc(t('contacts.field.bank.bankName'))}</label>
-              <input class="input" name="bankName" value="${esc(c?.bank?.bankName || '')}" placeholder="${esc(t('contacts.field.bank.bankNamePlaceholder'))}" />
+              <input class="input" id="bank-name-input" name="bankName" value="${esc(c?.bank?.bankName || '')}" placeholder="${esc(t('contacts.field.bank.bankNamePlaceholder'))}" autocomplete="off" />
+              <div id="bank-name-suggestions" class="combo-suggestions" style="display:none; position:absolute; top:100%; inset-inline-start:0; right:0; left:0; z-index:50; max-height:200px; overflow-y:auto; background:var(--c-bg-elevated); border:1px solid var(--c-border); border-top:none; border-radius:0 0 6px 6px; box-shadow:0 4px 12px rgba(0,0,0,0.08); margin-top:2px"></div>
             </div>
             <div class="field">
               <label class="field__label">${esc(t('contacts.field.bank.branchNumber'))}</label>
@@ -249,6 +250,72 @@ function openContactDialog(c = null) {
   else renderPhoneRow({ phone: '', label: '' }); // start with one empty row
   m.bodyEl.querySelector('#c-phones-add').addEventListener('click', () => {
     renderPhoneRow({ phone: '', label: '' });
+  });
+
+  // Bank-name combobox: a real, in-flow dropdown attached to the input
+  // (rather than the browser's <datalist>, which Chrome floats to the side
+  // and won't let us scroll-cap). Behaviour:
+  //   • Focus or click → show full list (with current value highlighted).
+  //   • Type → filter in real time; free text is fine — what's typed wins.
+  //   • Click an item → fill the input, close the panel.
+  //   • Blur (after a short delay so a click on an item still registers)
+  //     or Escape → close.
+  //   • Arrow up/down navigate, Enter selects the highlighted item.
+  const BANKS = [
+    'בנק לאומי', 'בנק הפועלים', 'בנק דיסקונט', 'בנק מזרחי טפחות',
+    'הבנק הבינלאומי', 'בנק יהב', 'בנק מרכנתיל דיסקונט', 'בנק ירושלים',
+    'בנק יובנק', 'בנק מסד', 'בנק פאג״י', 'בנק אוצר החייל', 'One Zero',
+  ];
+  const bankInput = m.bodyEl.querySelector('#bank-name-input');
+  const bankPanel = m.bodyEl.querySelector('#bank-name-suggestions');
+  let bankHighlight = -1;
+  const renderBankList = (filter) => {
+    const q = (filter || '').trim().toLowerCase();
+    const matches = q ? BANKS.filter(b => b.toLowerCase().includes(q)) : BANKS;
+    if (!matches.length) { bankPanel.style.display = 'none'; return; }
+    bankPanel.innerHTML = matches.map((b, i) => `
+      <div class="combo-item" data-idx="${i}" data-value="${esc(b)}"
+           style="padding:8px 12px; cursor:pointer; font-size:13px; ${i === bankHighlight ? 'background:var(--c-primary-soft)' : ''}">${esc(b)}</div>
+    `).join('');
+    bankPanel.style.display = 'block';
+    // mousedown (rather than click) so the input's blur-close doesn't
+    // fire before the selection registers.
+    bankPanel.querySelectorAll('.combo-item').forEach(el => {
+      el.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        bankInput.value = el.dataset.value;
+        bankPanel.style.display = 'none';
+      });
+      el.addEventListener('mouseenter', () => {
+        bankPanel.querySelectorAll('.combo-item').forEach(x => x.style.background = '');
+        el.style.background = 'var(--c-primary-soft)';
+      });
+    });
+  };
+  bankInput.addEventListener('focus', () => { bankHighlight = -1; renderBankList(bankInput.value); });
+  bankInput.addEventListener('click', () => { bankHighlight = -1; renderBankList(bankInput.value); });
+  bankInput.addEventListener('input', () => { bankHighlight = -1; renderBankList(bankInput.value); });
+  bankInput.addEventListener('blur', () => { setTimeout(() => { bankPanel.style.display = 'none'; }, 120); });
+  bankInput.addEventListener('keydown', (ev) => {
+    if (bankPanel.style.display === 'none') return;
+    const items = [...bankPanel.querySelectorAll('.combo-item')];
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      bankHighlight = Math.min(items.length - 1, bankHighlight + 1);
+      renderBankList(bankInput.value);
+      items[bankHighlight]?.scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      bankHighlight = Math.max(0, bankHighlight - 1);
+      renderBankList(bankInput.value);
+      items[bankHighlight]?.scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter' && bankHighlight >= 0) {
+      ev.preventDefault();
+      bankInput.value = items[bankHighlight].dataset.value;
+      bankPanel.style.display = 'none';
+    } else if (ev.key === 'Escape') {
+      bankPanel.style.display = 'none';
+    }
   });
 
   m.footerEl.querySelector('[data-act="cancel"]').addEventListener('click', () => m.close());

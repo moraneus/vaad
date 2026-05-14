@@ -465,6 +465,108 @@ export function cumulativeBalance(year, month) {
   return bal;
 }
 
+// Same math as cumulativeBalance but returns every contributing line item
+// grouped by category, so the UI can show the admin exactly which
+// transactions sum to the on-screen balance — invaluable when
+// reconciling against a bank statement.
+export function cumulativeBalanceBreakdown(year, month) {
+  const s = getSettings();
+  const open = s.openingBalanceDate || `${year}-01-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const cutoff = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const openingBalance = Number(s.openingBalance) || 0;
+
+  const billingFirstISO = (p) => `${p.year}-${String(p.month).padStart(2, '0')}-01`;
+  const cashDate = (p) => p.paidOn || billingFirstISO(p);
+  const inRange = (iso) => iso && iso >= open && iso <= cutoff;
+
+  const aptsById = new Map(getApartments().map(a => [a.id, a]));
+  const expById = new Map(getExpenses().map(e => [e.id, e]));
+
+  const sections = {
+    monthlyFees: [],
+    adjustmentPayments: [],
+    infrastructurePayments: [],
+    expensePayments: [],
+    frozenExpensePayments: [],
+  };
+
+  for (const p of getPayments()) {
+    const d = cashDate(p);
+    if (!inRange(d)) continue;
+    const apt = aptsById.get(p.apartmentId);
+    sections.monthlyFees.push({
+      id: p.id,
+      date: d,
+      amount: Number(p.amount) || 0,
+      label: apt ? `דירה ${apt.number}` : '—',
+      sublabel: `${p.year}/${String(p.month).padStart(2, '0')}`,
+    });
+  }
+  for (const p of getAdjustmentPayments()) {
+    if (!inRange(p.paidOn)) continue;
+    sections.adjustmentPayments.push({
+      id: p.id,
+      date: p.paidOn,
+      amount: Number(p.amount) || 0,
+      label: p.notes || '—',
+    });
+  }
+  for (const p of getInfrastructurePayments()) {
+    if (!inRange(p.paidOn)) continue;
+    sections.infrastructurePayments.push({
+      id: p.id,
+      date: p.paidOn,
+      amount: Number(p.amount) || 0,
+      label: p.notes || '—',
+    });
+  }
+  for (const p of getExpensePayments()) {
+    const d = cashDate(p);
+    if (!inRange(d)) continue;
+    const exp = expById.get(p.expenseId);
+    const item = {
+      id: p.id,
+      date: d,
+      amount: Number(p.amount) || 0,
+      label: exp?.name || p.notes || '—',
+      sublabel: `${p.year}/${String(p.month).padStart(2, '0')}`,
+      frozen: !!p.frozen,
+    };
+    if (p.frozen) sections.frozenExpensePayments.push(item);
+    else sections.expensePayments.push(item);
+  }
+
+  // Sort every section newest-first — matches how a bank statement reads.
+  const byDateDesc = (a, b) => String(b.date).localeCompare(String(a.date));
+  for (const k of Object.keys(sections)) sections[k].sort(byDateDesc);
+
+  const sum = (arr) => arr.reduce((s, x) => s + x.amount, 0);
+  const incomeMonthly = sum(sections.monthlyFees);
+  const incomeAdjustments = sum(sections.adjustmentPayments);
+  const incomeInfrastructure = sum(sections.infrastructurePayments);
+  const totalIncome = incomeMonthly + incomeAdjustments + incomeInfrastructure;
+  const totalExpenses = sum(sections.expensePayments);
+  // Frozen are tracked separately for visibility — they DON'T affect balance.
+  const totalFrozen = sum(sections.frozenExpensePayments);
+
+  return {
+    openingBalance,
+    openingDate: open,
+    cutoff,
+    sections,
+    totals: {
+      incomeMonthly,
+      incomeAdjustments,
+      incomeInfrastructure,
+      totalIncome,
+      totalExpenses,
+      totalFrozen,
+      balance: openingBalance + totalIncome - totalExpenses,
+    },
+  };
+}
+
 // Derived status of an expense:
 //   'done'        — no unpaid expected period exists (fully reconciled)
 //   'in_progress' — at least one expected period is unpaid in full
