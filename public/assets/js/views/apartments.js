@@ -1,6 +1,6 @@
 // Apartments management + per-apartment ledger
 
-import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword, refreshAll, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, createInfrastructurePayment, deleteInfrastructurePayment } from '../store.js';
+import { getApartments, getPayments, getSettings, getOwners, upsertApartment, deleteApartment, deleteApartmentWithResult, upsertPayment, deletePayment, getAdjustments, getAdjustmentPayments, createAdjustment, deleteAdjustment, createAdjustmentPayment, deleteAdjustmentPayment, setFeeOverride, clearFeeOverride, createOwner, updateOwner, deleteOwner, adminResetApartmentPassword, adminResetOwnerPassword, refreshAll, getInfrastructureExpenses, getInfrastructureDemands, getInfrastructurePayments, createInfrastructurePayment, deleteInfrastructurePayment } from '../store.js';
 import { wireLiveValidator, validatePassword } from '../password.js';
 import { api } from '../api.js';
 import { fmtCurrency, esc, fmtDate, valueAtMonth, todayISO, monthKey, parseMonthKey } from '../utils.js';
@@ -28,9 +28,19 @@ export function renderApartments() {
   // footer can split the net into a one-line "X debt − Y credit = net".
   let totalYearExpected = 0;
   let totalYearPaid = 0;
+  let totalInfraExpected = 0;
+  let totalInfraPaid = 0;
+  let totalChargePaid = 0;
   let totalOutstandingNet = 0;
   let totalDebt = 0;
   let totalCredit = 0;
+  // Pre-build the lookup maps once for the whole footer pass (cheaper than
+  // recomputing per apartment).
+  const expensesByIdAll = new Map(getInfrastructureExpenses().map(e => [e.id, e]));
+  const allDemands = getInfrastructureDemands();
+  const allInfraPays = getInfrastructurePayments();
+  const allAdjPays = getAdjustmentPayments();
+  const allAdjs = getAdjustments();
   for (const a of apts) {
     let ye = 0, yp = 0;
     for (let m = 1; m <= 12; m++) {
@@ -40,11 +50,39 @@ export function renderApartments() {
     }
     totalYearExpected += ye;
     totalYearPaid += yp;
+    // Infrastructure: expected = sum of demands whose parent expense is
+    // dated in currentYear; paid = sum of payments against those demands
+    // dated in currentYear.
+    const myDemandIds = new Set();
+    for (const d of allDemands) {
+      if (d.apartmentId !== a.id) continue;
+      const exp = expensesByIdAll.get(d.expenseId);
+      if (!exp || !exp.expenseDate) continue;
+      if (new Date(exp.expenseDate).getFullYear() !== currentYear) continue;
+      myDemandIds.add(d.id);
+      totalInfraExpected += Number(d.amount) || 0;
+    }
+    for (const p of allInfraPays) {
+      if (!myDemandIds.has(p.demandId)) continue;
+      if (!p.paidOn) continue;
+      if (new Date(p.paidOn).getFullYear() !== currentYear) continue;
+      totalInfraPaid += Number(p.amount) || 0;
+    }
+    // Charge payments by this apt in currentYear.
+    const myChargeIds = new Set(allAdjs.filter(x => x.apartmentId === a.id && x.kind === 'charge').map(x => x.id));
+    for (const p of allAdjPays) {
+      if (!myChargeIds.has(p.adjustmentId)) continue;
+      if (!p.paidOn) continue;
+      if (new Date(p.paidOn).getFullYear() !== currentYear) continue;
+      totalChargePaid += Number(p.amount) || 0;
+    }
     const o = apartmentOutstanding(a.id, currentYear, 12);
     totalOutstandingNet += o;
     if (o > 0) totalDebt += o;
     else if (o < 0) totalCredit += -o;
   }
+  const grandExpected = totalYearExpected + totalInfraExpected;
+  const grandPaid = totalYearPaid + totalInfraPaid + totalChargePaid;
 
   setHTML(main, `
     ${renderPageHeader({
@@ -112,8 +150,17 @@ export function renderApartments() {
               <tr style="background:var(--c-surface-2); font-weight:600">
                 <td class="bulk-paid-col" style="display:none"></td>
                 <td colspan="4">${esc(t('apt.totals.label'))}</td>
-                <td class="num">${fmtCurrency(totalYearExpected)}</td>
-                <td class="num text-success">${fmtCurrency(totalYearPaid)}</td>
+                <td class="num">
+                  <div>${fmtCurrency(totalYearExpected)}</div>
+                  ${totalInfraExpected > 0 ? `<div class="muted" style="font-size:11px; font-weight:400">+${fmtCurrency(totalInfraExpected)} ${esc(t('apt.col.infraShort'))}</div>` : ''}
+                  ${totalInfraExpected > 0 ? `<div class="muted" style="font-size:10px; font-weight:600; margin-top:2px">${esc(t('apt.col.totalShort'))} ${fmtCurrency(grandExpected)}</div>` : ''}
+                </td>
+                <td class="num text-success">
+                  <div>${fmtCurrency(totalYearPaid)}</div>
+                  ${totalInfraPaid > 0 ? `<div style="font-size:11px; color:var(--c-info); font-weight:500">+${fmtCurrency(totalInfraPaid)} ${esc(t('apt.col.infraShort'))}</div>` : ''}
+                  ${totalChargePaid > 0 ? `<div style="font-size:11px; color:var(--c-accent-hover); font-weight:500">+${fmtCurrency(totalChargePaid)} ${esc(t('apt.col.chargeShort'))}</div>` : ''}
+                  ${(totalInfraPaid > 0 || totalChargePaid > 0) ? `<div class="muted" style="font-size:10px; font-weight:600; margin-top:2px">${esc(t('apt.col.totalShort'))} ${fmtCurrency(grandPaid)}</div>` : ''}
+                </td>
                 <td class="num">
                   ${totalOutstandingNet > 0
                     ? `<span class="text-danger">${fmtCurrency(totalOutstandingNet)}</span><div class="muted" style="font-size:11px; font-weight:400">${esc(t('apt.totals.debtLabel'))}</div>`
@@ -301,6 +348,46 @@ function renderAptRow(apt, year, isAdmin) {
     yearPaid += st.paid;
   }
   const outstanding = apartmentOutstanding(apt.id, year, 12);
+
+  // ---- Per-apartment infrastructure + charge aggregates for `year` ----
+  // Infrastructure demands billed to this apartment in `year` (expected
+  // contribution) and the payments against them dated in `year` (actual).
+  // Helps the resident see "the building wants X from me for infrastructure
+  // this year, and I've covered Y of it".
+  const expensesById = new Map(getInfrastructureExpenses().map(e => [e.id, e]));
+  const aptDemands = getInfrastructureDemands().filter(d => d.apartmentId === apt.id);
+  let infraExpected = 0;
+  const aptDemandIds = new Set();
+  for (const d of aptDemands) {
+    const exp = expensesById.get(d.expenseId);
+    if (!exp || !exp.expenseDate) continue;
+    const expDate = new Date(exp.expenseDate);
+    if (expDate.getFullYear() !== year) continue;
+    infraExpected += Number(d.amount) || 0;
+    aptDemandIds.add(d.id);
+  }
+  let infraPaid = 0;
+  for (const p of getInfrastructurePayments()) {
+    if (!aptDemandIds.has(p.demandId)) continue;
+    if (!p.paidOn) continue;
+    const d = new Date(p.paidOn);
+    if (d.getFullYear() !== year) continue;
+    infraPaid += Number(p.amount) || 0;
+  }
+  // Adjustment-charge payments by this apartment in `year`.
+  const aptChargeIds = new Set(
+    getAdjustments().filter(a => a.apartmentId === apt.id && a.kind === 'charge').map(a => a.id)
+  );
+  let chargePaid = 0;
+  for (const p of getAdjustmentPayments()) {
+    if (!aptChargeIds.has(p.adjustmentId)) continue;
+    if (!p.paidOn) continue;
+    const d = new Date(p.paidOn);
+    if (d.getFullYear() !== year) continue;
+    chargePaid += Number(p.amount) || 0;
+  }
+  const totalExpectedAll = yearExpected + infraExpected;
+  const totalPaidAll = yearPaid + infraPaid + chargePaid;
   const dotsRow = [];
   for (let m = 1; m <= 12; m++) {
     const st = apartmentMonthStatus(apt.id, year, m);
@@ -361,8 +448,27 @@ function renderAptRow(apt, year, isAdmin) {
       <td>${residentCell}</td>
       <td>${residentPhones.length ? residentPhones.map(p => `<div><a href="tel:${esc(p.phone)}" class="muted">${esc(p.phone)}</a>${p.label ? `<span class="muted" style="font-size:11px"> · ${esc(p.label)}</span>` : ''}</div>`).join('') : '<span class="muted">—</span>'}${apt.email ? `<div class="muted" style="font-size:11px; direction:ltr; text-align:start"><a href="mailto:${esc(apt.email)}" class="muted">${esc(apt.email)}</a></div>` : ''}</td>
       <td><div style="display:flex; gap:3px">${dotsRow.join('')}</div></td>
-      <td class="num">${fmtCurrency(yearExpected)}</td>
-      <td class="num text-success">${fmtCurrency(yearPaid)}</td>
+      <td class="num">
+        <div>${fmtCurrency(yearExpected)}</div>
+        ${infraExpected > 0
+          ? `<div class="muted" style="font-size:11px">+${fmtCurrency(infraExpected)} ${esc(t('apt.col.infraShort'))}</div>`
+          : ''}
+        ${infraExpected > 0
+          ? `<div class="muted" style="font-size:10px; margin-top:2px">${esc(t('apt.col.totalShort'))} ${fmtCurrency(totalExpectedAll)}</div>`
+          : ''}
+      </td>
+      <td class="num text-success">
+        <div>${fmtCurrency(yearPaid)}</div>
+        ${infraPaid > 0
+          ? `<div style="font-size:11px; color:var(--c-info); font-weight:500">+${fmtCurrency(infraPaid)} ${esc(t('apt.col.infraShort'))}</div>`
+          : ''}
+        ${chargePaid > 0
+          ? `<div style="font-size:11px; color:var(--c-accent-hover); font-weight:500">+${fmtCurrency(chargePaid)} ${esc(t('apt.col.chargeShort'))}</div>`
+          : ''}
+        ${(infraPaid > 0 || chargePaid > 0)
+          ? `<div class="muted" style="font-size:10px; margin-top:2px">${esc(t('apt.col.totalShort'))} ${fmtCurrency(totalPaidAll)}</div>`
+          : ''}
+      </td>
       <td class="num ${outstanding > 0 ? 'text-danger' : outstanding < 0 ? 'text-success' : 'muted'}">
         ${fmtCurrency(Math.abs(outstanding))}
         <div class="muted" style="font-size:11px">

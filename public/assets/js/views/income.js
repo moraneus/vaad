@@ -1,9 +1,9 @@
 // Income — apartments × months grid + quick payment recording
 
-import { getApartments, getPayments, getSettings, deletePayment, getAdjustmentPayments, getInfrastructurePayments } from '../store.js';
+import { getApartments, getPayments, getSettings, deletePayment, getAdjustmentPayments, getAdjustments, getInfrastructurePayments, getInfrastructureDemands } from '../store.js';
 import { fmtCurrency, esc, fmtDate, todayISO, downloadBlob } from '../utils.js';
 import { t, monthName } from '../i18n.js';
-import { apartmentMonthStatus, expectedIncomeForMonth, actualIncomeForMonth, availableYears, lastMonthInScope } from '../calc.js';
+import { apartmentMonthStatus, apartmentOutstanding, expectedIncomeForMonth, actualIncomeForMonth, availableYears, lastMonthInScope } from '../calc.js';
 import { setHTML, renderPageHeader, renderEmpty, openModal, confirmDialog, toast, requireAdmin, Icon } from '../ui.js';
 import { getSession } from '../store.js';
 import { openPaymentDialog } from './apartments.js';
@@ -235,24 +235,133 @@ export function renderIncome() {
 }
 
 function renderRow(apt, isAdmin) {
+  // ---- Per-month aggregates for THIS apartment (pre-computed once) ----
+  // 1. Infrastructure payments — sum, bucketed by paid_on calendar month.
+  const aptDemandIds = new Set(
+    getInfrastructureDemands().filter(d => d.apartmentId === apt.id).map(d => d.id)
+  );
+  const infraByMonth = new Array(13).fill(0);
+  for (const p of getInfrastructurePayments()) {
+    if (!p.paidOn) continue;
+    if (!aptDemandIds.has(p.demandId)) continue;
+    const d = new Date(p.paidOn);
+    if (d.getFullYear() !== curYear) continue;
+    infraByMonth[d.getMonth() + 1] += Number(p.amount) || 0;
+  }
+  // 2. Adjustment-charge payments — same idea. adjustment_payments carry
+  //    adjustmentId; chase that to the parent adjustment for the apartment
+  //    filter.
+  const aptAdjIds = new Set(
+    getAdjustments().filter(a => a.apartmentId === apt.id && a.kind === 'charge').map(a => a.id)
+  );
+  const adjByMonth = new Array(13).fill(0);
+  for (const p of getAdjustmentPayments()) {
+    if (!p.paidOn) continue;
+    if (!aptAdjIds.has(p.adjustmentId)) continue;
+    const d = new Date(p.paidOn);
+    if (d.getFullYear() !== curYear) continue;
+    adjByMonth[d.getMonth() + 1] += Number(p.amount) || 0;
+  }
+
+  // ---- Future-month detection ----
+  // For the displayed curYear, anything strictly after the current calendar
+  // month is "future" and shouldn't show a red חוב — it's just an expected
+  // upcoming payment. Years entirely in the past treat every month as past;
+  // years entirely in the future treat every month as future.
+  const now = new Date();
+  const todayY = now.getFullYear();
+  const todayM = now.getMonth() + 1;
+  const isFutureMonth = (m) => {
+    if (curYear > todayY) return true;
+    if (curYear < todayY) return false;
+    return m > todayM;
+  };
+
   const cells = [];
   let rowPaid = 0;
+  let rowInfra = 0;
+  let rowAdj = 0;
   for (let m = 1; m <= 12; m++) {
     const st = apartmentMonthStatus(apt.id, curYear, m);
     rowPaid += st.paid;
+    const infra = infraByMonth[m];
+    rowInfra += infra;
+    const adj = adjByMonth[m];
+    rowAdj += adj;
+    const shortfall = Math.max(0, st.expected - st.paid);
+    const future = isFutureMonth(m);
     const bg = st.status === 'paid' ? 'var(--c-success-soft)' : st.status === 'partial' ? 'var(--c-warning-soft)' : 'transparent';
     const color = st.status === 'paid' ? 'var(--c-success)' : st.status === 'partial' ? 'var(--c-warning)' : 'var(--c-text-subtle)';
+
+    // Tooltip — plain-text breakdown of every contribution to this cell.
+    const tip = [
+      `${monthName(m)} ${curYear}`,
+      `${t('income.cell.tooltip.monthly')}: ${fmtCurrency(st.paid)} / ${fmtCurrency(st.expected)}`,
+      ...(infra > 0 ? [`${t('income.cell.tooltip.infrastructure')}: ${fmtCurrency(infra)}`] : []),
+      ...(adj > 0 ? [`${t('income.cell.tooltip.charges')}: ${fmtCurrency(adj)}`] : []),
+      ...(shortfall > 0 ? [`${future ? t('income.cell.tooltip.upcoming') : t('income.cell.tooltip.debt')}: ${fmtCurrency(shortfall)}`] : []),
+    ].join('\n');
+
+    // Visual layout:
+    //   ₪280.00              ← monthly paid (or — if none)
+    //   +₪400 תשתית         ← infra paid in this calendar month
+    //   +₪520 חיוב          ← adjustment-charge paid in this month
+    //   חוב ₪40 / צפוי ₪40  ← debt (past/current → red) or upcoming (future → muted)
+    const monthlyLine = st.paid > 0 ? fmtCurrency(st.paid) : '—';
+    const infraLine = infra > 0
+      ? `<div style="font-size:10px; color:var(--c-info); font-weight:500; margin-top:2px">+${fmtCurrency(infra)} ${esc(t('income.cell.infraShort'))}</div>`
+      : '';
+    const adjLine = adj > 0
+      ? `<div style="font-size:10px; color:var(--c-accent-hover); font-weight:500; margin-top:2px">+${fmtCurrency(adj)} ${esc(t('income.cell.chargeShort'))}</div>`
+      : '';
+    let shortfallLine = '';
+    if (shortfall > 0) {
+      // Past/current month → real debt, red. Future month → softer "צפוי"
+      // in muted grey so a year-view doesn't look like a wall of debt.
+      const stylePast = 'font-size:10px; color:var(--c-danger); font-weight:500; margin-top:2px';
+      const styleFuture = 'font-size:10px; color:var(--c-text-subtle); font-weight:400; margin-top:2px';
+      const label = future ? t('income.cell.upcomingShort') : t('income.cell.debtShort');
+      shortfallLine = `<div style="${future ? styleFuture : stylePast}">${esc(label)} ${fmtCurrency(shortfall)}</div>`;
+    }
     cells.push(`
-      <td class="num" data-act="cell" data-aid="${apt.id}" data-m="${m}" style="background:${bg}; color:${color}; cursor:pointer; font-weight:600" title="${monthName(m)}: ${fmtCurrency(st.paid)} / ${fmtCurrency(st.expected)}">
-        ${st.paid > 0 ? fmtCurrency(st.paid) : '—'}
+      <td class="num" data-act="cell" data-aid="${apt.id}" data-m="${m}" style="background:${bg}; color:${color}; cursor:pointer; font-weight:600; vertical-align:top" title="${esc(tip)}">
+        <div>${monthlyLine}</div>
+        ${infraLine}
+        ${adjLine}
+        ${shortfallLine}
       </td>
     `);
   }
+
+  // Row total reflects every cash inflow attributed to this apartment in
+  // the displayed year (monthly + infra + charges). When any of the
+  // non-monthly streams are non-zero, surface the split as a small note.
+  const rowTotal = rowPaid + rowInfra + rowAdj;
+  const splitNote = (rowInfra > 0 || rowAdj > 0)
+    ? `<div class="muted" style="font-size:10px">${esc(t('income.cell.totalSplit2', { monthly: fmtCurrency(rowPaid), infra: fmtCurrency(rowInfra), charges: fmtCurrency(rowAdj) }))}</div>`
+    : '';
+  const totalCell = `<td class="num"><strong>${fmtCurrency(rowTotal)}</strong>${splitNote}</td>`;
+
+  // Apartment-level outstanding shown subtly under the owner name so the
+  // admin can see who's actually behind without scanning every cell. Uses
+  // apartmentOutstanding which already nets monthly + charges + infra and
+  // respects the opening date.
+  const out = apartmentOutstanding(apt.id, curYear, 12);
+  const outLabel = out > 0
+    ? `<div style="font-size:11px; color:var(--c-danger); font-weight:500">${esc(t('income.row.totalDebt', { amount: fmtCurrency(out) }))}</div>`
+    : (out < 0
+        ? `<div style="font-size:11px; color:var(--c-success); font-weight:500">${esc(t('income.row.totalCredit', { amount: fmtCurrency(Math.abs(out)) }))}</div>`
+        : '');
+
   return `
     <tr>
-      <td class="nowrap"><strong>${esc(String(apt.number))}</strong>${apt.owner ? `<div class="muted" style="font-size:12px">${esc(apt.owner)}</div>` : ''}</td>
+      <td class="nowrap">
+        <strong>${esc(String(apt.number))}</strong>
+        ${apt.owner ? `<div class="muted" style="font-size:12px">${esc(apt.owner)}</div>` : ''}
+        ${outLabel}
+      </td>
       ${cells.join('')}
-      <td class="num"><strong>${fmtCurrency(rowPaid)}</strong></td>
+      ${totalCell}
     </tr>
   `;
 }
