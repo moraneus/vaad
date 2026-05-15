@@ -1,6 +1,6 @@
 // Income — apartments × months grid + quick payment recording
 
-import { getApartments, getPayments, getSettings, deletePayment, getAdjustmentPayments } from '../store.js';
+import { getApartments, getPayments, getSettings, deletePayment, getAdjustmentPayments, getInfrastructurePayments } from '../store.js';
 import { fmtCurrency, esc, fmtDate, todayISO, downloadBlob } from '../utils.js';
 import { t, monthName } from '../i18n.js';
 import { apartmentMonthStatus, expectedIncomeForMonth, actualIncomeForMonth, availableYears, lastMonthInScope } from '../calc.js';
@@ -26,6 +26,19 @@ function adjustmentIncomeForMonth(year, month) {
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 }
 
+// Infrastructure-payment income for a given calendar (year, month) based
+// on paid_on date. Mirrors adjustmentIncomeForMonth so the two flows can
+// be summed symmetrically.
+function infrastructureIncomeForMonth(year, month) {
+  return getInfrastructurePayments()
+    .filter(p => {
+      if (!p.paidOn) return false;
+      const d = new Date(p.paidOn);
+      return d.getFullYear() === year && (d.getMonth() + 1) === month;
+    })
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+}
+
 export function renderIncome() {
   const main = document.getElementById('app-main');
   const session = getSession();
@@ -39,6 +52,7 @@ export function renderIncome() {
       .filter(p => p.year === curYear && p.month === (i + 1))
       .reduce((s, p) => s + (Number(p.amount) || 0), 0),
     adjustmentPaid: adjustmentIncomeForMonth(curYear, i + 1),
+    infrastructurePaid: infrastructureIncomeForMonth(curYear, i + 1),
   }));
   // Top stats: only count up to today (year-to-date), so the gap reflects
   // reality, not "what's expected for the rest of the year".
@@ -47,10 +61,15 @@ export function renderIncome() {
   for (let i = 0; i < 12; i++) {
     if (i + 1 > lastM) continue;
     totalExpected += monthTotals[i].expected;
-    totalPaid += monthTotals[i].monthlyPaid + monthTotals[i].adjustmentPaid;
+    // expectedIncomeForMonth already includes infra demands billed in that
+    // month — keep "paid" symmetric by adding infra payments too. Without
+    // this the gap shows a fake debt: residents that paid their infra
+    // share are counted in expected but not in paid.
+    totalPaid += monthTotals[i].monthlyPaid + monthTotals[i].adjustmentPaid + monthTotals[i].infrastructurePaid;
   }
   const collectionRate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
   const hasAdjIncome = monthTotals.some(x => x.adjustmentPaid > 0);
+  const hasInfraIncome = monthTotals.some(x => x.infrastructurePaid > 0);
 
   setHTML(main, `
     ${renderPageHeader({
@@ -133,6 +152,13 @@ export function renderIncome() {
                   <td>${esc(t('income.adjustmentPayments'))}</td>
                   ${monthTotals.map(x => `<td class="num text-success">${x.adjustmentPaid > 0 ? '+' + fmtCurrency(x.adjustmentPaid) : '—'}</td>`).join('')}
                   <td class="num text-success">+${fmtCurrency(monthTotals.reduce((s, x) => s + x.adjustmentPaid, 0))}</td>
+                </tr>
+              ` : ''}
+              ${hasInfraIncome ? `
+                <tr>
+                  <td>${esc(t('income.infrastructurePayments'))}</td>
+                  ${monthTotals.map(x => `<td class="num text-success">${x.infrastructurePaid > 0 ? '+' + fmtCurrency(x.infrastructurePaid) : '—'}</td>`).join('')}
+                  <td class="num text-success">+${fmtCurrency(monthTotals.reduce((s, x) => s + x.infrastructurePaid, 0))}</td>
                 </tr>
               ` : ''}
               <tr>
@@ -331,12 +357,14 @@ function computeIncomeReport(range) {
     const expected = rows.reduce((s, r) => s + (r.cells.find(c => c.year === year && c.month === month)?.expected || 0), 0);
     const paid = rows.reduce((s, r) => s + (r.cells.find(c => c.year === year && c.month === month)?.paid || 0), 0);
     const adjustments = adjustmentIncomeForMonth(year, month);
-    return { year, month, expected, paid, adjustments };
+    const infrastructure = infrastructureIncomeForMonth(year, month);
+    return { year, month, expected, paid, adjustments, infrastructure };
   });
   const grandExpected = monthlyTotals.reduce((s, x) => s + x.expected, 0);
   const grandPaid = monthlyTotals.reduce((s, x) => s + x.paid, 0);
   const grandAdj = monthlyTotals.reduce((s, x) => s + x.adjustments, 0);
-  return { rows, monthlyTotals, grandExpected, grandPaid, grandAdj };
+  const grandInfra = monthlyTotals.reduce((s, x) => s + x.infrastructure, 0);
+  return { rows, monthlyTotals, grandExpected, grandPaid, grandAdj, grandInfra };
 }
 
 // CSV export of the income report. UTF-8 BOM keeps Excel happy with Hebrew.
@@ -382,6 +410,13 @@ function exportIncomeCSV(range) {
     for (const m of data.monthlyTotals) { adj.push(''); adj.push(m.adjustments.toFixed(2)); }
     adj.push('', data.grandAdj.toFixed(2), '');
     lines.push(adj.map(q).join(','));
+  }
+  // Infrastructure-payment line (if any) — same shape as the adjustment line.
+  if (data.grandInfra > 0) {
+    const infra = ['', t('income.infrastructurePayments')];
+    for (const m of data.monthlyTotals) { infra.push(''); infra.push(m.infrastructure.toFixed(2)); }
+    infra.push('', data.grandInfra.toFixed(2), '');
+    lines.push(infra.map(q).join(','));
   }
   const BOM = '﻿';
   const filename = `income_${range.from}_to_${range.to}.csv`;
@@ -470,6 +505,15 @@ function exportIncomePDF(range) {
           ${data.monthlyTotals.map(m => `<td class="num"></td><td class="num paid">${m.adjustments > 0 ? '+' + esc(fmtCurrency(m.adjustments)) : '—'}</td>`).join('')}
           <td class="num"></td>
           <td class="num paid">+${esc(fmtCurrency(data.grandAdj))}</td>
+          <td class="num"></td>
+        </tr>
+      ` : ''}
+      ${data.grandInfra > 0 ? `
+        <tr>
+          <td colspan="2">${esc(t('income.infrastructurePayments'))}</td>
+          ${data.monthlyTotals.map(m => `<td class="num"></td><td class="num paid">${m.infrastructure > 0 ? '+' + esc(fmtCurrency(m.infrastructure)) : '—'}</td>`).join('')}
+          <td class="num"></td>
+          <td class="num paid">+${esc(fmtCurrency(data.grandInfra))}</td>
           <td class="num"></td>
         </tr>
       ` : ''}

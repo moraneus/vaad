@@ -267,9 +267,14 @@ function openDemandsDialog(exp) {
     title: t('infra.demands.title', { name: exp.name }),
     size: 'lg',
     body: '<div id="demands-content"></div>',
-    footer: `<button class="btn" data-act="close">${esc(t('common.close'))}</button>`,
+    footer: `
+      <button class="btn btn--sm" data-act="export-pdf">${Icon.document} ${esc(t('infra.demands.export.pdf'))}</button>
+      <div class="spacer"></div>
+      <button class="btn" data-act="close">${esc(t('common.close'))}</button>
+    `,
   });
   m.footerEl.querySelector('[data-act="close"]').addEventListener('click', () => m.close());
+  m.footerEl.querySelector('[data-act="export-pdf"]').addEventListener('click', () => exportInfraDemandsPDF(exp, apts));
 
   const refresh = () => {
     const container = m.bodyEl.querySelector('#demands-content');
@@ -404,4 +409,99 @@ function openAmountEditor({ demandId, current, onDone }) {
       onDone && onDone();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
   });
+}
+
+// Print-friendly PDF of the per-apartment demands for one infrastructure
+// expense. Shows the expense header + a row per apartment with name,
+// amount demanded, amount paid, remaining, status, and each individual
+// payment date. Same popup+print pattern as exportContactsPDF.
+function exportInfraDemandsPDF(exp, apts) {
+  const dir = document.documentElement.getAttribute('dir') || 'rtl';
+  const title = t('infra.demands.export.pdfTitle', { name: exp.name });
+  const demands = getInfrastructureDemands().filter(d => d.expenseId === exp.id);
+  const demandsByApt = new Map(demands.map(d => [d.apartmentId, d]));
+  let sumDemand = 0, sumPaid = 0;
+  const rows = apts.map(apt => {
+    const d = demandsByApt.get(apt.id);
+    const ownerName = apt.ownerName || apt.owner || '—';
+    if (!d) {
+      return `<tr>
+        <td>${esc(apt.number)}</td>
+        <td>${esc(ownerName)}</td>
+        <td colspan="5" style="color:#888">${esc(t('infra.demands.noDemand'))}</td>
+      </tr>`;
+    }
+    const st = infrastructureDemandStatus(d.id);
+    sumDemand += Number(d.amount) || 0;
+    sumPaid += st.paid;
+    const statusLabel = st.status === 'paid' ? t('apt.status.paid')
+                      : st.status === 'partial' ? t('apt.status.partial')
+                      : t('apt.status.unpaid');
+    const paymentDates = st.payments.map(p => `${fmtDate(p.paidOn)} · ${fmtCurrency(p.amount)}`).join('<br>');
+    return `<tr>
+      <td>${esc(apt.number)}</td>
+      <td>${esc(ownerName)}</td>
+      <td class="num">${esc(fmtCurrency(d.amount))}</td>
+      <td class="num">${esc(fmtCurrency(st.paid))}</td>
+      <td class="num">${esc(fmtCurrency(st.remaining))}</td>
+      <td>${esc(statusLabel)}</td>
+      <td style="font-size:10px">${paymentDates || '—'}</td>
+    </tr>`;
+  }).join('');
+  const html = `<!doctype html>
+<html lang="he" dir="${dir}">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(title)}</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:24px;color:#111}
+    h1{font-size:18px;margin:0 0 6px}
+    .meta{color:#555;font-size:12px;margin-bottom:14px}
+    table{border-collapse:collapse;width:100%;font-size:11px}
+    th,td{border:1px solid #ccc;padding:5px 7px;text-align:start;vertical-align:top}
+    th{background:#f3f3f3;font-weight:600}
+    tfoot td{background:#fafafa;font-weight:600}
+    .num{text-align:end}
+    @media print{body{margin:12px}}
+  </style>
+</head>
+<body>
+  <h1>${esc(title)}</h1>
+  <div class="meta">${esc(t('infra.demands.export.meta', { total: fmtCurrency(exp.totalAmount), date: fmtDate(exp.expenseDate), printed: fmtDate(todayISO()) }))}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>${esc(t('apt.col.number'))}</th>
+        <th>${esc(t('infra.col.payer'))}</th>
+        <th class="num">${esc(t('infra.col.amount'))}</th>
+        <th class="num">${esc(t('apt.col.paid'))}</th>
+        <th class="num">${esc(t('infra.col.remaining'))}</th>
+        <th>${esc(t('common.status'))}</th>
+        <th>${esc(t('apt.ledger.payments'))}</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">${esc(t('apt.totals.label'))}</td>
+        <td class="num">${esc(fmtCurrency(sumDemand))}</td>
+        <td class="num">${esc(fmtCurrency(sumPaid))}</td>
+        <td class="num">${esc(fmtCurrency(sumDemand - sumPaid))}</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  const w = window.open(url, '_blank');
+  if (!w) {
+    URL.revokeObjectURL(url);
+    toast(t('exp.export.pdfPopupBlocked'), 'warning');
+    return;
+  }
+  setTimeout(() => {
+    try { w.focus(); w.print(); } catch (_) { /* user can re-print manually */ }
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }, 350);
 }

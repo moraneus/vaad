@@ -355,6 +355,7 @@ const dicts = {
     'income.export.pdfTitle': 'דוח הכנסות',
     'income.expected': 'צפי',
     'income.adjustmentPayments': 'תשלומי חיובים',
+    'income.infrastructurePayments': 'תשלומי תשתיות',
     'income.diff.surplus': 'עודף',
     'income.diff.debt': 'חוב',
 
@@ -598,6 +599,10 @@ const dicts = {
     'contacts.subtitle': 'מאגר ספקים, נותני שירות ובעלי מקצוע של הבניין',
     'contacts.add': 'הוספת איש קשר',
     'contacts.search': 'חיפוש לפי חברה / שם / טלפון',
+    'contacts.export.pdf': 'ייצוא PDF',
+    'contacts.export.pdfHint': 'הדפסה / שמירה כ-PDF של רשימת אנשי הקשר',
+    'contacts.export.pdfTitle': 'אנשי קשר',
+    'contacts.export.rowsCount': '{n} אנשי קשר',
     'contacts.empty.title': 'עדיין אין אנשי קשר',
     'contacts.empty.hint': 'הוסיפו ספקים, אנשי תחזוקה וגורמים שבקשר עם הבניין',
     'contacts.empty.none': 'לא נמצאו תוצאות',
@@ -1396,7 +1401,11 @@ const dicts = {
     'infra.demands.editAmount': 'עריכת הסכום הנדרש מדירה זו',
     'infra.demands.noDemand': 'אין דרישת תשלום (הדירה נוספה אחרי יצירת ההוצאה)',
     'infra.demands.renterNote': 'בדירה גר שוכר: {name} (לא משלם על תשתית)',
+    'infra.demands.export.pdf': 'ייצוא PDF',
+    'infra.demands.export.pdfTitle': 'דרישות תשלום · {name}',
+    'infra.demands.export.meta': 'סכום כולל: {total} · תאריך הוצאה: {date} · הודפס: {printed}',
     'infra.col.payer': 'משלם (בעל הדירה)',
+    'infra.col.remaining': 'נותר',
 
     // Owners management
     'owners.create.title': 'בעלים חדש',
@@ -1832,6 +1841,7 @@ const dicts = {
     'income.export.pdfTitle': 'Income report',
     'income.expected': 'Expected',
     'income.adjustmentPayments': 'Charge payments',
+    'income.infrastructurePayments': 'Infrastructure payments',
     'income.diff.surplus': 'Surplus',
     'income.diff.debt': 'Debt',
 
@@ -2075,6 +2085,10 @@ const dicts = {
     'contacts.subtitle': 'Suppliers, service providers and professionals',
     'contacts.add': 'Add contact',
     'contacts.search': 'Search by company / name / phone',
+    'contacts.export.pdf': 'Export PDF',
+    'contacts.export.pdfHint': 'Print / Save as PDF of the contacts list',
+    'contacts.export.pdfTitle': 'Contacts',
+    'contacts.export.rowsCount': '{n} contacts',
     'contacts.empty.title': 'No contacts yet',
     'contacts.empty.hint': 'Add suppliers, technicians and other building contacts',
     'contacts.empty.none': 'No matches',
@@ -2873,7 +2887,11 @@ const dicts = {
     'infra.demands.editAmount': 'Edit this apartment\'s required amount',
     'infra.demands.noDemand': 'No demand (apartment was added after the expense was created)',
     'infra.demands.renterNote': 'Renter lives here: {name} (does not pay infrastructure)',
+    'infra.demands.export.pdf': 'Export PDF',
+    'infra.demands.export.pdfTitle': 'Payment demands · {name}',
+    'infra.demands.export.meta': 'Total: {total} · Expense date: {date} · Printed: {printed}',
     'infra.col.payer': 'Payer (property owner)',
+    'infra.col.remaining': 'Remaining',
 
     // Owners management
     'owners.create.title': 'New owner',

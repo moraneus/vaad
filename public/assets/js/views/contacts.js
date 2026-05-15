@@ -1,7 +1,7 @@
 // Contacts directory
 
 import { getContacts, upsertContact, deleteContact } from '../store.js';
-import { esc } from '../utils.js';
+import { esc, fmtDate, todayISO } from '../utils.js';
 import { t } from '../i18n.js';
 import { setHTML, renderPageHeader, renderEmpty, openModal, confirmDialog, toast, requireAdmin, Icon } from '../ui.js';
 import { getSession } from '../store.js';
@@ -38,6 +38,7 @@ export function renderContacts() {
     <div class="toolbar">
       <input class="input" id="search" placeholder="${esc(t('contacts.search'))}" value="${esc(searchTerm)}" style="width:280px" />
       <div class="spacer"></div>
+      <button class="btn btn--sm" id="contacts-export-pdf" title="${esc(t('contacts.export.pdfHint'))}" style="white-space:nowrap">${Icon.document} ${esc(t('contacts.export.pdf'))}</button>
       <div class="muted">${list.length} ${esc(t('common.outOf', { n: all.length }))}</div>
     </div>
 
@@ -70,6 +71,7 @@ export function renderContacts() {
   `);
 
   document.getElementById('search').addEventListener('input', (e) => { searchTerm = e.target.value; renderContacts(); });
+  document.getElementById('contacts-export-pdf')?.addEventListener('click', () => exportContactsPDF(list));
   document.getElementById('add-c')?.addEventListener('click', () => openContactDialog());
   document.getElementById('add-c-empty')?.addEventListener('click', () => openContactDialog());
   document.querySelectorAll('[data-act="edit-c"]').forEach(b => b.addEventListener('click', () => {
@@ -348,4 +350,86 @@ function openContactDialog(c = null) {
       renderContacts();
     } catch (err) { toast(err.message || t('common.error'), 'danger'); }
   });
+}
+
+// Print-friendly PDF export of the contacts list. Self-contained HTML
+// opened in a popup; the browser's print dialog → "Save as PDF" produces
+// the file. Mirrors the pattern used by exportExpensesPDF.
+function exportContactsPDF(rows) {
+  const dir = document.documentElement.getAttribute('dir') || 'rtl';
+  const title = t('contacts.export.pdfTitle');
+  const phonesText = (c) => {
+    const phs = Array.isArray(c.phones) && c.phones.length
+      ? c.phones
+      : (c.phone ? [{ phone: c.phone, label: '' }] : []);
+    return phs.map(p => p.label ? `${p.phone} (${p.label})` : p.phone).join(' · ') || '—';
+  };
+  const bankText = (c) => {
+    const b = c.bank;
+    if (!b) return '';
+    const parts = [];
+    if (b.bankName) parts.push(b.bankName);
+    if (b.branchNumber) parts.push(`${t('contacts.field.bank.branchShort')} ${b.branchNumber}`);
+    if (b.accountNumber) parts.push(`${t('contacts.field.bank.accountShort')} ${b.accountNumber}`);
+    if (b.beneficiary) parts.push(`${t('contacts.field.bank.beneficiaryShort')} ${b.beneficiary}`);
+    return parts.join(' · ');
+  };
+  const html = `<!doctype html>
+<html lang="he" dir="${dir}">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(title)}</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:24px;color:#111}
+    h1{font-size:20px;margin:0 0 4px}
+    .meta{color:#555;font-size:12px;margin-bottom:14px}
+    table{border-collapse:collapse;width:100%;font-size:11px}
+    th,td{border:1px solid #ccc;padding:5px 7px;text-align:start;vertical-align:top}
+    th{background:#f3f3f3;font-weight:600}
+    .bank{color:#555;font-size:10px;margin-top:2px}
+    @media print{body{margin:12px}}
+  </style>
+</head>
+<body>
+  <h1>${esc(title)}</h1>
+  <div class="meta">${esc(t('contacts.export.rowsCount', { n: rows.length }))} · ${esc(fmtDate(todayISO()))}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>${esc(t('contacts.col.company'))}</th>
+        <th>${esc(t('contacts.col.name'))}</th>
+        <th>${esc(t('contacts.col.role'))}</th>
+        <th>${esc(t('contacts.col.phone'))}</th>
+        <th>${esc(t('contacts.col.email'))}</th>
+        <th>${esc(t('contacts.col.notes'))}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(c => {
+        const bank = bankText(c);
+        return `
+        <tr>
+          <td>${esc(c.company || '—')}${bank ? `<div class="bank">🏦 ${esc(bank)}</div>` : ''}</td>
+          <td>${esc(c.name || '—')}</td>
+          <td>${esc(c.role || '—')}</td>
+          <td>${esc(phonesText(c))}</td>
+          <td>${esc(c.email || '—')}</td>
+          <td>${esc(c.notes || '')}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  const w = window.open(url, '_blank');
+  if (!w) {
+    URL.revokeObjectURL(url);
+    toast(t('exp.export.pdfPopupBlocked'), 'warning');
+    return;
+  }
+  setTimeout(() => {
+    try { w.focus(); w.print(); } catch (_) { /* user can re-print manually */ }
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }, 350);
 }
