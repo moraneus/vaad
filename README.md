@@ -28,6 +28,45 @@ A taste of what's inside (full list in [docs/features.md](./docs/features.md)):
 - **Documents** — uploaded to the admin's Google Drive (drive.file scope only), attachable to expenses, payments, *and* infrastructure expenses.
 - **Auth** — admin-generated initial passwords (kept encrypted, re-displayable), bulk initial-password set, sign-in-with-Google for residents and admin, password recovery via Google OAuth, optional TOTP 2FA for the master admin.
 
+## Screenshots
+
+Captured from the public demo at **[demo-vaad-bayit.pages.dev](https://demo-vaad-bayit.pages.dev/)** — fake data, runs against a separate D1 database. Sign in as **Admin** (password `1qaz@WSX`) for the full management view, or as **Apartment 1 → owner** (password `1qaz@WSX3e`) for the resident view. The app ships with a one-click EN ⇄ HE switch; Hebrew RTL screenshots live in [docs/screenshots/he](./docs/screenshots/he/).
+
+### Admin view
+
+| | |
+|---|---|
+| ![Sign-in screen](./docs/screenshots/en/01-landing.png) | ![Admin dashboard](./docs/screenshots/en/02-admin-dashboard.png) |
+| Sign-in screen — admin / tenant / owner | Dashboard — monthly balance, expected vs collected, 12-month trend |
+| ![Apartments & charges](./docs/screenshots/en/03-admin-apartments.png) | ![Owners](./docs/screenshots/en/04-admin-owners.png) |
+| Apartments — yearly status dots, balance per unit, owners vs renters | Owners — first-class entity, one login can hold multiple apartments |
+| ![Income grid](./docs/screenshots/en/05-admin-income.png) | ![Expenses](./docs/screenshots/en/06-admin-expenses.png) |
+| Income — apartment × month grid, with infra demands and per-cell debt notes | Expenses — monthly / annual / one-off with default payment method per item |
+| ![Infrastructure expenses](./docs/screenshots/en/07-admin-infrastructure.png) | ![Contacts](./docs/screenshots/en/08-admin-contacts.png) |
+| Infrastructure expenses — one-time costs split across all apartments | Contacts — vendors / service providers with bank details and notes |
+| ![Tickets](./docs/screenshots/en/09-admin-tickets.png) | ![Reports](./docs/screenshots/en/10-admin-reports.png) |
+| Tickets — resident-reported issues with comments and expense linking | Reports — monthly / yearly with cash-flow vs accounting modes |
+
+#### Recording payments
+
+The admin can mark payments **per apartment** (a year-grid modal with one row per month) or **in bulk** (pick a month, tick several apartments, record one click).
+
+| | |
+|---|---|
+| ![Per-apartment payment ledger](./docs/screenshots/en/11-admin-payment-detail.png) | ![Bulk mark paid](./docs/screenshots/en/12-admin-bulk-mark-paid.png) |
+| Per-apartment ledger — receipts attach inline, partial / unpaid / paid states | Bulk mark paid — pick a month, tick apartments, record in one action |
+
+### Resident view (Apartment 1)
+
+Same look-and-feel as the admin, but with management actions removed. A yellow "DEMO MODE" banner is fixed to every page on the demo deployment.
+
+| | |
+|---|---|
+| ![Resident dashboard](./docs/screenshots/en/13-owner-dashboard.png) | ![Resident income view](./docs/screenshots/en/14-owner-income.png) |
+| Dashboard for an apartment owner — same KPIs, no write actions | Income view — sees everyone's payment status (transparency by design) |
+| ![Resident expenses](./docs/screenshots/en/15-owner-expenses.png) | ![Resident tickets](./docs/screenshots/en/16-owner-tickets.png) |
+| Expenses — read-only ledger with linked vendor contacts | Tickets — residents can open new tickets and follow status |
+
 ## Documentation
 
 | Topic | Read it in |

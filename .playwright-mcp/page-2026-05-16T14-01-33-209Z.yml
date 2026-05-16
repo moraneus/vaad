@@ -1,0 +1,54 @@
+- generic [ref=e1]:
+  - generic [ref=e51]:
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]: V
+        - generic [ref=e55]: Building Committee
+      - generic [ref=e56]:
+        - heading "Full transparency for every resident." [level=1] [ref=e57]
+        - paragraph [ref=e58]: Manage income, expenses, debts and reports. Clear, accessible and organized — for every resident in the building.
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e61]: ₪
+            - text: Track income vs expected dues
+          - generic [ref=e62]:
+            - generic [ref=e63]: ⚖
+            - text: Cash flow + accounting view
+          - generic [ref=e64]:
+            - generic [ref=e65]: 📊
+            - text: Monthly & yearly reports
+          - generic [ref=e66]:
+            - generic [ref=e67]: 🔒
+            - text: Private user per apartment
+      - generic [ref=e68]: © Building Committee · Secured by Cloudflare
+    - generic [ref=e70]:
+      - generic [ref=e72]:
+        - button "עברית" [ref=e73] [cursor=pointer]
+        - button "EN" [ref=e74] [cursor=pointer]
+      - heading "Welcome" [level=2] [ref=e75]
+      - paragraph [ref=e76]: Choose how to sign in
+      - generic [ref=e77]:
+        - button "Resident / Apartment" [ref=e78] [cursor=pointer]
+        - button "Admin" [ref=e79] [cursor=pointer]
+      - generic [ref=e80]:
+        - generic [ref=e99]:
+          - button "Sign in with Google" [ref=e100] [cursor=pointer]:
+            - img [ref=e101]
+            - text: Sign in with Google
+          - generic [ref=e107]:
+            - separator [ref=e108]
+            - generic [ref=e109]: or
+            - separator [ref=e110]
+        - generic [ref=e111]:
+          - generic [ref=e112]: Admin password *
+          - textbox "Admin password *" [active] [ref=e113]
+          - generic [ref=e114]:
+            - text: "Default initial password:"
+            - generic [ref=e115]: "1234"
+            - text: · change it in Settings right after first login.
+        - button "Forgot password" [ref=e117] [cursor=pointer]
+      - button "Sign in" [ref=e96] [cursor=pointer]
+      - generic [ref=e97]:
+        - strong [ref=e98]: "About:"
+        - text: Each resident signs in by apartment number and sets a personal password on first use. If forgotten — the admin can reset it in Settings.
+  - status

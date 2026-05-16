@@ -1,0 +1,174 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e1737]:
+    - status [ref=e1738]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e1739]:
+      - generic [ref=e1741]:
+        - generic [ref=e1742]: ו
+        - generic [ref=e1743]:
+          - text: ועד הבית
+          - generic [ref=e1744]: ניהול ושיקוף לדיירים
+      - generic [ref=e1745]:
+        - generic [ref=e1746]:
+          - button "עברית" [ref=e1747] [cursor=pointer]
+          - button "EN" [ref=e1748] [cursor=pointer]
+        - button "פתיחת תזכורות" [ref=e1750] [cursor=pointer]:
+          - img [ref=e1751]
+        - 'generic "מחובר/ת בתור: מנהל" [ref=e1754]':
+          - generic [ref=e1755]: מ
+          - generic [ref=e1756]:
+            - generic [ref=e1757]: מנהל
+            - generic [ref=e1758]: מנהל ראשי
+        - button "יציאה" [ref=e1759] [cursor=pointer]:
+          - img [ref=e1760]
+          - generic [ref=e1762]: יציאה
+    - complementary [ref=e1763]:
+      - navigation [ref=e1764]:
+        - generic [ref=e1765]: תפריט
+        - button "דשבורד" [ref=e1766] [cursor=pointer]:
+          - img [ref=e1767]
+          - generic [ref=e1772]: דשבורד
+        - button "דירות וחיובים" [ref=e1773] [cursor=pointer]:
+          - img [ref=e1774]
+          - generic [ref=e1777]: דירות וחיובים
+        - button "בעלי דירות" [ref=e1778] [cursor=pointer]:
+          - img [ref=e1779]
+          - generic [ref=e1783]: בעלי דירות
+        - button "הכנסות" [ref=e1784] [cursor=pointer]:
+          - img [ref=e1785]
+          - generic [ref=e1787]: הכנסות
+        - button "הוצאות" [ref=e1788] [cursor=pointer]:
+          - img [ref=e1789]
+          - generic [ref=e1791]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e1792] [cursor=pointer]:
+          - img [ref=e1793]
+          - generic [ref=e1795]: הוצאות תשתיתיות
+        - button "אנשי קשר" [ref=e1796] [cursor=pointer]:
+          - img [ref=e1797]
+          - generic [ref=e1801]: אנשי קשר
+        - button "מסמכים" [ref=e1802] [cursor=pointer]:
+          - img [ref=e1803]
+          - generic [ref=e1806]: מסמכים
+        - button "תזכורות" [ref=e1807] [cursor=pointer]:
+          - img [ref=e1808]
+          - generic [ref=e1811]: תזכורות
+        - button "פניות" [ref=e1812] [cursor=pointer]:
+          - img [ref=e1813]
+          - generic [ref=e1815]: פניות
+        - button "דוחות" [ref=e1816] [cursor=pointer]:
+          - img [ref=e1817]
+          - generic [ref=e1820]: דוחות
+        - button "אודות" [ref=e1821] [cursor=pointer]:
+          - img [ref=e1822]
+          - generic [ref=e1825]: אודות
+        - button "הגדרות" [ref=e1826] [cursor=pointer]:
+          - img [ref=e1827]
+          - generic [ref=e1830]: הגדרות
+    - main [ref=e1831]:
+      - generic [ref=e1832]:
+        - generic [ref=e1833]:
+          - heading "אנשי קשר" [level=1] [ref=e1834]
+          - paragraph [ref=e1835]: מאגר ספקים, נותני שירות ובעלי מקצוע של הבניין
+        - button "הוספת איש קשר" [ref=e1837] [cursor=pointer]:
+          - img [ref=e1838]
+          - text: הוספת איש קשר
+      - generic [ref=e1840]:
+        - textbox "חיפוש לפי חברה / שם / טלפון" [ref=e1841]
+        - button "ייצוא PDF" [ref=e1842] [cursor=pointer]:
+          - img [ref=e1843]
+          - text: ייצוא PDF
+        - generic [ref=e1846]: 5 מתוך 5
+      - table [ref=e1849]:
+        - rowgroup [ref=e1850]:
+          - row "חברה / עסק שם איש קשר תפקיד / תחום טלפון דוא״ל הערות פעולות" [ref=e1851]:
+            - columnheader "חברה / עסק" [ref=e1852]
+            - columnheader "שם איש קשר" [ref=e1853]
+            - columnheader "תפקיד / תחום" [ref=e1854]
+            - columnheader "טלפון" [ref=e1855]
+            - columnheader "דוא״ל" [ref=e1856]
+            - columnheader "הערות" [ref=e1857]
+            - columnheader "פעולות" [ref=e1858]
+        - rowgroup [ref=e1859]:
+          - row "אלקטרון מעליות 🏦 בנק הפועלים · סניף 544 · חשבון 8765432 · מוטב אלקטרון מעליות בע״מ אריאל טכנאי ראשי 052-9990002 service@elevator-demo.example אחזקה חודשית למעלית" [ref=e1860]:
+            - cell "אלקטרון מעליות 🏦 בנק הפועלים · סניף 544 · חשבון 8765432 · מוטב אלקטרון מעליות בע״מ" [ref=e1861]:
+              - strong [ref=e1862]: אלקטרון מעליות
+              - generic [ref=e1863]: 🏦 בנק הפועלים · סניף 544 · חשבון 8765432 · מוטב אלקטרון מעליות בע״מ
+            - cell "אריאל" [ref=e1864]
+            - cell "טכנאי ראשי" [ref=e1865]
+            - cell "052-9990002" [ref=e1866]:
+              - link "052-9990002" [ref=e1869] [cursor=pointer]:
+                - /url: tel:052-9990002
+            - cell "service@elevator-demo.example" [ref=e1870]:
+              - link "service@elevator-demo.example" [ref=e1871] [cursor=pointer]:
+                - /url: mailto:service@elevator-demo.example
+            - cell "אחזקה חודשית למעלית" [ref=e1872]
+            - cell [ref=e1873]:
+              - button "עריכה" [ref=e1874] [cursor=pointer]:
+                - img [ref=e1875]
+              - button "מחיקה" [ref=e1878] [cursor=pointer]:
+                - img [ref=e1879]
+          - row "חברת חשמל לישראל — ספק *103 — חיוב חודשי משתנה" [ref=e1881]:
+            - cell "חברת חשמל לישראל" [ref=e1882]:
+              - strong [ref=e1883]: חברת חשמל לישראל
+            - cell "—" [ref=e1884]
+            - cell "ספק" [ref=e1885]
+            - cell "*103" [ref=e1886]:
+              - link "*103" [ref=e1889] [cursor=pointer]:
+                - /url: tel:*103
+            - cell "—" [ref=e1890]
+            - cell "חיוב חודשי משתנה" [ref=e1891]
+            - cell [ref=e1892]:
+              - button "עריכה" [ref=e1893] [cursor=pointer]:
+                - img [ref=e1894]
+              - button "מחיקה" [ref=e1897] [cursor=pointer]:
+                - img [ref=e1898]
+          - row "מערכות אש Z.K 🏦 בנק לאומי · סניף 673 · חשבון 4312087 · מוטב Z.K Fire Systems דניאל טכנאי שטח 054-9990003 — בדיקה שנתית" [ref=e1900]:
+            - cell "מערכות אש Z.K 🏦 בנק לאומי · סניף 673 · חשבון 4312087 · מוטב Z.K Fire Systems" [ref=e1901]:
+              - strong [ref=e1902]: מערכות אש Z.K
+              - generic [ref=e1903]: 🏦 בנק לאומי · סניף 673 · חשבון 4312087 · מוטב Z.K Fire Systems
+            - cell "דניאל" [ref=e1904]
+            - cell "טכנאי שטח" [ref=e1905]
+            - cell "054-9990003" [ref=e1906]:
+              - link "054-9990003" [ref=e1909] [cursor=pointer]:
+                - /url: tel:054-9990003
+            - cell "—" [ref=e1910]
+            - cell "בדיקה שנתית" [ref=e1911]
+            - cell [ref=e1912]:
+              - button "עריכה" [ref=e1913] [cursor=pointer]:
+                - img [ref=e1914]
+              - button "מחיקה" [ref=e1917] [cursor=pointer]:
+                - img [ref=e1918]
+          - row "ניקיון רעננה בע״מ גבי כהן מנהל אזור 050-9990001 office@cleaning-demo.example ניקיון שבועי — ימים א, ד" [ref=e1920]:
+            - cell "ניקיון רעננה בע״מ" [ref=e1921]:
+              - strong [ref=e1922]: ניקיון רעננה בע״מ
+            - cell "גבי כהן" [ref=e1923]
+            - cell "מנהל אזור" [ref=e1924]
+            - cell "050-9990001" [ref=e1925]:
+              - link "050-9990001" [ref=e1928] [cursor=pointer]:
+                - /url: tel:050-9990001
+            - cell "office@cleaning-demo.example" [ref=e1929]:
+              - link "office@cleaning-demo.example" [ref=e1930] [cursor=pointer]:
+                - /url: mailto:office@cleaning-demo.example
+            - cell "ניקיון שבועי — ימים א, ד" [ref=e1931]
+            - cell [ref=e1932]:
+              - button "עריכה" [ref=e1933] [cursor=pointer]:
+                - img [ref=e1934]
+              - button "מחיקה" [ref=e1937] [cursor=pointer]:
+                - img [ref=e1938]
+          - row "סוכנות ביטוח שלם יעל אבני סוכן 03-9990005 yael@insurance-demo.example ביטוח מבנה שנתי" [ref=e1940]:
+            - cell "סוכנות ביטוח שלם" [ref=e1941]:
+              - strong [ref=e1942]: סוכנות ביטוח שלם
+            - cell "יעל אבני" [ref=e1943]
+            - cell "סוכן" [ref=e1944]
+            - cell "03-9990005" [ref=e1945]:
+              - link "03-9990005" [ref=e1948] [cursor=pointer]:
+                - /url: tel:03-9990005
+            - cell "yael@insurance-demo.example" [ref=e1949]:
+              - link "yael@insurance-demo.example" [ref=e1950] [cursor=pointer]:
+                - /url: mailto:yael@insurance-demo.example
+            - cell "ביטוח מבנה שנתי" [ref=e1951]
+            - cell [ref=e1952]:
+              - button "עריכה" [ref=e1953] [cursor=pointer]:
+                - img [ref=e1954]
+              - button "מחיקה" [ref=e1957] [cursor=pointer]:
+                - img [ref=e1958]
+  - status

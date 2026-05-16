@@ -1,0 +1,94 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e960]:
+    - status [ref=e961]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e962]:
+      - generic [ref=e964]:
+        - generic [ref=e965]: ו
+        - generic [ref=e966]:
+          - text: ועד הבית
+          - generic [ref=e967]: ניהול ושיקוף לדיירים
+      - generic [ref=e968]:
+        - generic [ref=e969]:
+          - button "עברית" [ref=e970] [cursor=pointer]
+          - button "EN" [ref=e971] [cursor=pointer]
+        - 'generic "מחובר/ת בתור: דנה כהן (בעלים)" [ref=e972]':
+          - generic [ref=e973]: ד
+          - generic [ref=e974]:
+            - generic [ref=e975]: דנה כהן
+            - generic [ref=e976]: בעל דירה
+        - button "יציאה" [ref=e977] [cursor=pointer]:
+          - img [ref=e978]
+          - generic [ref=e980]: יציאה
+    - complementary [ref=e981]:
+      - navigation [ref=e982]:
+        - generic [ref=e983]: תפריט
+        - button "דשבורד" [ref=e984] [cursor=pointer]:
+          - img [ref=e985]
+          - generic [ref=e990]: דשבורד
+        - button "הכנסות" [ref=e991] [cursor=pointer]:
+          - img [ref=e992]
+          - generic [ref=e994]: הכנסות
+        - button "הוצאות" [ref=e995] [cursor=pointer]:
+          - img [ref=e996]
+          - generic [ref=e998]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e999] [cursor=pointer]:
+          - img [ref=e1000]
+          - generic [ref=e1002]: הוצאות תשתיתיות
+        - button "פניות" [ref=e1003] [cursor=pointer]:
+          - img [ref=e1004]
+          - generic [ref=e1006]: פניות
+        - button "דוחות" [ref=e1007] [cursor=pointer]:
+          - img [ref=e1008]
+          - generic [ref=e1011]: דוחות
+        - button "אודות" [ref=e1012] [cursor=pointer]:
+          - img [ref=e1013]
+          - generic [ref=e1016]: אודות
+        - button "הגדרות" [ref=e1017] [cursor=pointer]:
+          - img [ref=e1018]
+          - generic [ref=e1021]: הגדרות
+    - main [ref=e1022]:
+      - generic [ref=e1023]:
+        - generic [ref=e1024]:
+          - heading "פניות" [level=1] [ref=e1025]
+          - paragraph [ref=e1026]: סה״כ 2 פניות במערכת
+        - button "פתיחת פנייה" [ref=e1028] [cursor=pointer]:
+          - img [ref=e1029]
+          - text: פתיחת פנייה
+      - generic [ref=e1031]:
+        - textbox "חיפוש בכותרת / תיאור" [ref=e1032]
+        - combobox [ref=e1033]:
+          - option "כל הקטגוריות" [selected]
+          - option "חשמל ותאורה"
+          - option "אינסטלציה"
+          - option "ביוב"
+          - option "מעלית"
+          - option "ניקיון"
+          - option "גינון"
+          - option "חניה"
+          - option "מצלמות ואבטחה"
+          - option "אינטרקום"
+          - option "שיפוץ / מבנה"
+          - option "אחר"
+        - combobox [ref=e1034]:
+          - option "כל הסטטוסים"
+          - option "פתוחה" [selected]
+          - option "סגורה"
+        - generic [ref=e1035]: "1"
+      - generic [ref=e1036]:
+        - combobox [ref=e1037]:
+          - option "תקופה מותאמת" [selected]
+          - option "שנה נוכחית"
+          - option "3 חודשים אחרונים"
+          - option "שנה קודמת"
+          - option "הכל"
+        - textbox [ref=e1038]: 2026-01-01
+        - textbox [ref=e1039]: 2026-12-31
+      - generic [ref=e1042]:
+        - generic [ref=e1043]:
+          - generic [ref=e1044]:
+            - strong [ref=e1045]: נורה שרופה בקומה 3
+            - generic [ref=e1046]: חשמל ותאורה
+            - generic [ref=e1047]: פתוחה
+          - generic [ref=e1048]: "פתח: דיירת דירה 3 — שרה מזרחי · 08.05.2026"
+        - button "▾ פרטים" [ref=e1050] [cursor=pointer]
+  - status

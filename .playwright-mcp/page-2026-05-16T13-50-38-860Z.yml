@@ -1,0 +1,286 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e1289]:
+    - status [ref=e1290]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e1291]:
+      - generic [ref=e1293]:
+        - generic [ref=e1294]: ו
+        - generic [ref=e1295]:
+          - text: ועד הבית
+          - generic [ref=e1296]: ניהול ושיקוף לדיירים
+      - generic [ref=e1297]:
+        - generic [ref=e1298]:
+          - button "עברית" [ref=e1299] [cursor=pointer]
+          - button "EN" [ref=e1300] [cursor=pointer]
+        - button "פתיחת תזכורות" [ref=e1302] [cursor=pointer]:
+          - img [ref=e1303]
+        - 'generic "מחובר/ת בתור: מנהל" [ref=e1306]':
+          - generic [ref=e1307]: מ
+          - generic [ref=e1308]:
+            - generic [ref=e1309]: מנהל
+            - generic [ref=e1310]: מנהל ראשי
+        - button "יציאה" [ref=e1311] [cursor=pointer]:
+          - img [ref=e1312]
+          - generic [ref=e1314]: יציאה
+    - complementary [ref=e1315]:
+      - navigation [ref=e1316]:
+        - generic [ref=e1317]: תפריט
+        - button "דשבורד" [ref=e1318] [cursor=pointer]:
+          - img [ref=e1319]
+          - generic [ref=e1324]: דשבורד
+        - button "דירות וחיובים" [ref=e1325] [cursor=pointer]:
+          - img [ref=e1326]
+          - generic [ref=e1329]: דירות וחיובים
+        - button "בעלי דירות" [ref=e1330] [cursor=pointer]:
+          - img [ref=e1331]
+          - generic [ref=e1335]: בעלי דירות
+        - button "הכנסות" [ref=e1336] [cursor=pointer]:
+          - img [ref=e1337]
+          - generic [ref=e1339]: הכנסות
+        - button "הוצאות" [ref=e1340] [cursor=pointer]:
+          - img [ref=e1341]
+          - generic [ref=e1343]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e1344] [cursor=pointer]:
+          - img [ref=e1345]
+          - generic [ref=e1347]: הוצאות תשתיתיות
+        - button "אנשי קשר" [ref=e1348] [cursor=pointer]:
+          - img [ref=e1349]
+          - generic [ref=e1353]: אנשי קשר
+        - button "מסמכים" [ref=e1354] [cursor=pointer]:
+          - img [ref=e1355]
+          - generic [ref=e1358]: מסמכים
+        - button "תזכורות" [ref=e1359] [cursor=pointer]:
+          - img [ref=e1360]
+          - generic [ref=e1363]: תזכורות
+        - button "פניות" [ref=e1364] [cursor=pointer]:
+          - img [ref=e1365]
+          - generic [ref=e1367]: פניות
+        - button "דוחות" [ref=e1368] [cursor=pointer]:
+          - img [ref=e1369]
+          - generic [ref=e1372]: דוחות
+        - button "אודות" [ref=e1373] [cursor=pointer]:
+          - img [ref=e1374]
+          - generic [ref=e1377]: אודות
+        - button "הגדרות" [ref=e1378] [cursor=pointer]:
+          - img [ref=e1379]
+          - generic [ref=e1382]: הגדרות
+    - main [ref=e1383]:
+      - generic [ref=e1384]:
+        - generic [ref=e1385]:
+          - heading "הוצאות" [level=1] [ref=e1386]
+          - paragraph [ref=e1387]: סה״כ 6 הוצאות במערכת
+        - button "הוספת הוצאה" [ref=e1389] [cursor=pointer]:
+          - img [ref=e1390]
+          - text: הוספת הוצאה
+      - generic [ref=e1392]:
+        - textbox "חיפוש בשם / הערות" [ref=e1393]
+        - combobox [ref=e1394]:
+          - option "כל הסוגים" [selected]
+          - option "חודשית קבועה"
+          - option "שנתית קבועה"
+          - option "חד-פעמית"
+          - option "חודשית משתנה"
+        - combobox [ref=e1395]:
+          - option "כל הסטטוסים" [selected]
+          - option "בטיפול"
+          - option "הסתיים"
+          - option "מוקפא"
+        - combobox [ref=e1396]:
+          - option "כל הקטגוריות" [selected]
+          - option "ביטוח"
+          - option "חשמל"
+          - option "מנוי"
+          - option "מעלית"
+          - option "ניקיון"
+        - generic [ref=e1397]: "6"
+      - generic [ref=e1398]:
+        - combobox "תקופה" [ref=e1399]:
+          - option "תקופה מותאמת" [selected]
+          - option "שנה נוכחית"
+          - option "3 חודשים אחרונים"
+          - option "שנה קודמת"
+          - option "הכל"
+        - textbox "מתאריך:" [ref=e1400]: 2026-01-01
+        - textbox "עד תאריך:" [ref=e1401]: 2026-12-31
+        - button "ייצוא CSV" [ref=e1402] [cursor=pointer]:
+          - img [ref=e1403]
+          - text: ייצוא CSV
+        - button "ייצוא PDF" [ref=e1405] [cursor=pointer]:
+          - img [ref=e1406]
+          - text: ייצוא PDF
+      - table [ref=e1411]:
+        - rowgroup [ref=e1412]:
+          - row "שם קטגוריה סוג סכום תקופה סטטוס מסמכים פעולות" [ref=e1413]:
+            - columnheader "שם" [ref=e1414]
+            - columnheader "קטגוריה" [ref=e1415]
+            - columnheader "סוג" [ref=e1416]
+            - columnheader "סכום" [ref=e1417]
+            - columnheader "תקופה" [ref=e1418]
+            - columnheader "סטטוס" [ref=e1419]
+            - columnheader "מסמכים" [ref=e1420]
+            - columnheader "פעולות" [ref=e1421]
+        - rowgroup [ref=e1422]:
+          - row "ניקיון שבועי ▾ ניקיון רעננה בע״מ · 050-9990001 ניקיון חודשית קבועה ‏780 ‏₪ לחודש 01.01.2026 מתעדכן אוטומטית בטיפול 0 ביצוע" [ref=e1423]:
+            - cell "ניקיון שבועי ▾ ניקיון רעננה בע״מ · 050-9990001" [ref=e1424]:
+              - generic [ref=e1425]:
+                - strong [ref=e1426]: ניקיון שבועי
+                - button "▾" [ref=e1427] [cursor=pointer]
+              - link "ניקיון רעננה בע״מ · 050-9990001" [ref=e1429] [cursor=pointer]:
+                - /url: "#contacts?id=c-1"
+            - cell "ניקיון" [ref=e1430]
+            - cell "חודשית קבועה" [ref=e1431]:
+              - generic [ref=e1432]: חודשית קבועה
+            - cell "‏780 ‏₪ לחודש" [ref=e1433]:
+              - text: ‏780 ‏₪
+              - generic [ref=e1434]: לחודש
+            - cell "01.01.2026 מתעדכן אוטומטית" [ref=e1435]:
+              - text: 01.01.2026
+              - generic [ref=e1436]: מתעדכן אוטומטית
+            - cell "בטיפול" [ref=e1437]:
+              - generic [ref=e1438]: בטיפול
+            - cell "0" [ref=e1439]:
+              - button "0" [ref=e1440] [cursor=pointer]:
+                - img [ref=e1441]
+                - text: "0"
+            - cell "ביצוע" [ref=e1444]:
+              - button "ביצוע" [ref=e1445] [cursor=pointer]
+              - button "עריכה" [ref=e1446] [cursor=pointer]:
+                - img [ref=e1447]
+              - button "מחיקה" [ref=e1450] [cursor=pointer]:
+                - img [ref=e1451]
+          - row "אחזקת מעלית ▾ אלקטרון מעליות · 052-9990002 מעלית חודשית קבועה ‏450 ‏₪ לחודש 01.01.2026 מתעדכן אוטומטית הסתיים 0 ביצוע" [ref=e1453]:
+            - cell "אחזקת מעלית ▾ אלקטרון מעליות · 052-9990002" [ref=e1454]:
+              - generic [ref=e1455]:
+                - strong [ref=e1456]: אחזקת מעלית
+                - button "▾" [ref=e1457] [cursor=pointer]
+              - link "אלקטרון מעליות · 052-9990002" [ref=e1459] [cursor=pointer]:
+                - /url: "#contacts?id=c-2"
+            - cell "מעלית" [ref=e1460]
+            - cell "חודשית קבועה" [ref=e1461]:
+              - generic [ref=e1462]: חודשית קבועה
+            - cell "‏450 ‏₪ לחודש" [ref=e1463]:
+              - text: ‏450 ‏₪
+              - generic [ref=e1464]: לחודש
+            - cell "01.01.2026 מתעדכן אוטומטית" [ref=e1465]:
+              - text: 01.01.2026
+              - generic [ref=e1466]: מתעדכן אוטומטית
+            - cell "הסתיים" [ref=e1467]:
+              - generic [ref=e1468]:
+                - img [ref=e1469]
+                - text: הסתיים
+            - cell "0" [ref=e1471]:
+              - button "0" [ref=e1472] [cursor=pointer]:
+                - img [ref=e1473]
+                - text: "0"
+            - cell "ביצוע" [ref=e1476]:
+              - button "ביצוע" [ref=e1477] [cursor=pointer]
+              - button "עריכה" [ref=e1478] [cursor=pointer]:
+                - img [ref=e1479]
+              - button "מחיקה" [ref=e1482] [cursor=pointer]:
+                - img [ref=e1483]
+          - row "חשמל אזורים משותפים חברת חשמל לישראל · *103 חיוב משתנה — דו-חודשי חשמל חודשית משתנה ‏350 ‏₪ 10.05.2026 בטיפול 0 ביצוע ❄" [ref=e1485]:
+            - cell "חשמל אזורים משותפים חברת חשמל לישראל · *103 חיוב משתנה — דו-חודשי" [ref=e1486]:
+              - strong [ref=e1488]: חשמל אזורים משותפים
+              - link "חברת חשמל לישראל · *103" [ref=e1490] [cursor=pointer]:
+                - /url: "#contacts?id=c-4"
+              - generic [ref=e1491]: חיוב משתנה — דו-חודשי
+            - cell "חשמל" [ref=e1492]
+            - cell "חודשית משתנה" [ref=e1493]:
+              - generic [ref=e1494]: חודשית משתנה
+            - cell "‏350 ‏₪" [ref=e1495]
+            - cell "10.05.2026" [ref=e1496]
+            - cell "בטיפול" [ref=e1497]:
+              - generic [ref=e1498]: בטיפול
+            - cell "0" [ref=e1499]:
+              - button "0" [ref=e1500] [cursor=pointer]:
+                - img [ref=e1501]
+                - text: "0"
+            - cell "ביצוע ❄" [ref=e1504]:
+              - button "ביצוע" [ref=e1505] [cursor=pointer]
+              - button "❄" [ref=e1506] [cursor=pointer]
+              - button "עריכה" [ref=e1507] [cursor=pointer]:
+                - img [ref=e1508]
+              - button "מחיקה" [ref=e1511] [cursor=pointer]:
+                - img [ref=e1512]
+          - row "ביטוח מבנה סוכנות ביטוח שלם · 03-9990005 ביטוח שנתית קבועה ‏2,400 ‏₪ לשנה 01.01.2026 → 01.01.2027 · 01.03.2026 הסתיים 0 ביצוע תעריפים ❄" [ref=e1514]:
+            - cell "ביטוח מבנה סוכנות ביטוח שלם · 03-9990005" [ref=e1515]:
+              - strong [ref=e1517]: ביטוח מבנה
+              - link "סוכנות ביטוח שלם · 03-9990005" [ref=e1519] [cursor=pointer]:
+                - /url: "#contacts?id=c-5"
+            - cell "ביטוח" [ref=e1520]
+            - cell "שנתית קבועה" [ref=e1521]:
+              - generic [ref=e1522]: שנתית קבועה
+            - cell "‏2,400 ‏₪ לשנה" [ref=e1523]:
+              - text: ‏2,400 ‏₪
+              - generic [ref=e1524]: לשנה
+            - cell "01.01.2026 → 01.01.2027 · 01.03.2026" [ref=e1525]
+            - cell "הסתיים" [ref=e1526]:
+              - generic [ref=e1527]:
+                - img [ref=e1528]
+                - text: הסתיים
+            - cell "0" [ref=e1530]:
+              - button "0" [ref=e1531] [cursor=pointer]:
+                - img [ref=e1532]
+                - text: "0"
+            - cell "ביצוע תעריפים ❄" [ref=e1535]:
+              - button "ביצוע" [ref=e1536] [cursor=pointer]
+              - button "תעריפים" [ref=e1537] [cursor=pointer]
+              - button "❄" [ref=e1538] [cursor=pointer]
+              - button "עריכה" [ref=e1539] [cursor=pointer]:
+                - img [ref=e1540]
+              - button "מחיקה" [ref=e1543] [cursor=pointer]:
+                - img [ref=e1544]
+          - row "בזק - תקשורת למעלית ▾ מעלית חודשית קבועה ‏25 ‏₪ לחודש 01.01.2026 מתעדכן אוטומטית הסתיים 0 ביצוע" [ref=e1546]:
+            - cell "בזק - תקשורת למעלית ▾" [ref=e1547]:
+              - generic [ref=e1548]:
+                - strong [ref=e1549]: בזק - תקשורת למעלית
+                - button "▾" [ref=e1550] [cursor=pointer]
+            - cell "מעלית" [ref=e1551]
+            - cell "חודשית קבועה" [ref=e1552]:
+              - generic [ref=e1553]: חודשית קבועה
+            - cell "‏25 ‏₪ לחודש" [ref=e1554]:
+              - text: ‏25 ‏₪
+              - generic [ref=e1555]: לחודש
+            - cell "01.01.2026 מתעדכן אוטומטית" [ref=e1556]:
+              - text: 01.01.2026
+              - generic [ref=e1557]: מתעדכן אוטומטית
+            - cell "הסתיים" [ref=e1558]:
+              - generic [ref=e1559]:
+                - img [ref=e1560]
+                - text: הסתיים
+            - cell "0" [ref=e1562]:
+              - button "0" [ref=e1563] [cursor=pointer]:
+                - img [ref=e1564]
+                - text: "0"
+            - cell "ביצוע" [ref=e1567]:
+              - button "ביצוע" [ref=e1568] [cursor=pointer]
+              - button "עריכה" [ref=e1569] [cursor=pointer]:
+                - img [ref=e1570]
+              - button "מחיקה" [ref=e1573] [cursor=pointer]:
+                - img [ref=e1574]
+          - row "האגודה לתרבות הדיור מערכות אש Z.K · 054-9990003 מנוי שנתי מנוי חד-פעמית ‏279 ‏₪ 15.04.2026 הסתיים 0 ביצוע ❄" [ref=e1576]:
+            - cell "האגודה לתרבות הדיור מערכות אש Z.K · 054-9990003 מנוי שנתי" [ref=e1577]:
+              - strong [ref=e1579]: האגודה לתרבות הדיור
+              - link "מערכות אש Z.K · 054-9990003" [ref=e1581] [cursor=pointer]:
+                - /url: "#contacts?id=c-3"
+              - generic [ref=e1582]: מנוי שנתי
+            - cell "מנוי" [ref=e1583]
+            - cell "חד-פעמית" [ref=e1584]:
+              - generic [ref=e1585]: חד-פעמית
+            - cell "‏279 ‏₪" [ref=e1586]
+            - cell "15.04.2026" [ref=e1587]
+            - cell "הסתיים" [ref=e1588]:
+              - generic [ref=e1589]:
+                - img [ref=e1590]
+                - text: הסתיים
+            - cell "0" [ref=e1592]:
+              - button "0" [ref=e1593] [cursor=pointer]:
+                - img [ref=e1594]
+                - text: "0"
+            - cell "ביצוע ❄" [ref=e1597]:
+              - button "ביצוע" [ref=e1598] [cursor=pointer]
+              - button "❄" [ref=e1599] [cursor=pointer]
+              - button "עריכה" [ref=e1600] [cursor=pointer]:
+                - img [ref=e1601]
+              - button "מחיקה" [ref=e1604] [cursor=pointer]:
+                - img [ref=e1605]
+  - status

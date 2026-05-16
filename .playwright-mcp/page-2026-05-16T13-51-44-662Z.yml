@@ -1,0 +1,208 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2094]:
+    - status [ref=e2095]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e2096]:
+      - generic [ref=e2098]:
+        - generic [ref=e2099]: ו
+        - generic [ref=e2100]:
+          - text: ועד הבית
+          - generic [ref=e2101]: ניהול ושיקוף לדיירים
+      - generic [ref=e2102]:
+        - generic [ref=e2103]:
+          - button "עברית" [ref=e2104] [cursor=pointer]
+          - button "EN" [ref=e2105] [cursor=pointer]
+        - button "פתיחת תזכורות" [ref=e2107] [cursor=pointer]:
+          - img [ref=e2108]
+        - 'generic "מחובר/ת בתור: מנהל" [ref=e2111]':
+          - generic [ref=e2112]: מ
+          - generic [ref=e2113]:
+            - generic [ref=e2114]: מנהל
+            - generic [ref=e2115]: מנהל ראשי
+        - button "יציאה" [ref=e2116] [cursor=pointer]:
+          - img [ref=e2117]
+          - generic [ref=e2119]: יציאה
+    - complementary [ref=e2120]:
+      - navigation [ref=e2121]:
+        - generic [ref=e2122]: תפריט
+        - button "דשבורד" [ref=e2123] [cursor=pointer]:
+          - img [ref=e2124]
+          - generic [ref=e2129]: דשבורד
+        - button "דירות וחיובים" [ref=e2130] [cursor=pointer]:
+          - img [ref=e2131]
+          - generic [ref=e2134]: דירות וחיובים
+        - button "בעלי דירות" [ref=e2135] [cursor=pointer]:
+          - img [ref=e2136]
+          - generic [ref=e2140]: בעלי דירות
+        - button "הכנסות" [ref=e2141] [cursor=pointer]:
+          - img [ref=e2142]
+          - generic [ref=e2144]: הכנסות
+        - button "הוצאות" [ref=e2145] [cursor=pointer]:
+          - img [ref=e2146]
+          - generic [ref=e2148]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e2149] [cursor=pointer]:
+          - img [ref=e2150]
+          - generic [ref=e2152]: הוצאות תשתיתיות
+        - button "אנשי קשר" [ref=e2153] [cursor=pointer]:
+          - img [ref=e2154]
+          - generic [ref=e2158]: אנשי קשר
+        - button "מסמכים" [ref=e2159] [cursor=pointer]:
+          - img [ref=e2160]
+          - generic [ref=e2163]: מסמכים
+        - button "תזכורות" [ref=e2164] [cursor=pointer]:
+          - img [ref=e2165]
+          - generic [ref=e2168]: תזכורות
+        - button "פניות" [ref=e2169] [cursor=pointer]:
+          - img [ref=e2170]
+          - generic [ref=e2172]: פניות
+        - button "דוחות" [ref=e2173] [cursor=pointer]:
+          - img [ref=e2174]
+          - generic [ref=e2177]: דוחות
+        - button "אודות" [ref=e2178] [cursor=pointer]:
+          - img [ref=e2179]
+          - generic [ref=e2182]: אודות
+        - button "הגדרות" [ref=e2183] [cursor=pointer]:
+          - img [ref=e2184]
+          - generic [ref=e2187]: הגדרות
+    - main [ref=e2188]:
+      - generic [ref=e2189]:
+        - generic [ref=e2190]:
+          - heading "דוחות" [level=1] [ref=e2191]
+          - paragraph [ref=e2192]: דוחות חודשיים ושנתיים · תזרים בפועל ותמונה חשבונאית
+        - generic [ref=e2193]:
+          - button "ייצוא CSV" [ref=e2194] [cursor=pointer]:
+            - img [ref=e2195]
+            - text: ייצוא CSV
+          - button "הדפסה / PDF" [ref=e2197] [cursor=pointer]:
+            - img [ref=e2198]
+            - text: הדפסה / PDF
+      - generic [ref=e2201]:
+        - combobox [ref=e2202]:
+          - option "דוח חודשי" [selected]
+          - option "דוח שנתי"
+          - option "תקופה מותאמת"
+        - combobox [ref=e2203]:
+          - option "2036"
+          - option "2035"
+          - option "2034"
+          - option "2033"
+          - option "2032"
+          - option "2031"
+          - option "2030"
+          - option "2029"
+          - option "2028"
+          - option "2027"
+          - option "2026" [selected]
+          - option "2025"
+          - option "2024"
+        - combobox [ref=e2204]:
+          - option "ינואר"
+          - option "פברואר"
+          - option "מרץ"
+          - option "אפריל"
+          - option "מאי" [selected]
+          - option "יוני"
+          - option "יולי"
+          - option "אוגוסט"
+          - option "ספטמבר"
+          - option "אוקטובר"
+          - option "נובמבר"
+          - option "דצמבר"
+        - generic [ref=e2205]:
+          - button "תזרים בפועל" [ref=e2206] [cursor=pointer]
+          - button "תמונה חשבונאית" [ref=e2207] [cursor=pointer]
+          - generic "שני המודים מתנהגים זהה כשאין הוצאות שנתיות. ההבדל מתבטא רק בהוצאות מסוג \"שנתית\"." [ref=e2208]: ⓘ
+      - generic [ref=e2209]:
+        - generic [ref=e2210]: הסכומים בפועל מבוססים על תשלומים שנרשמו במערכת. חודשים שלא הוזן בהם תשלום מוצגים כ-0 בפועל גם אם ההוצאה הוגדרה כפעילה.
+        - generic [ref=e2211]:
+          - generic [ref=e2212]:
+            - generic [ref=e2213]: הכנסות · צפוי / בפועל
+            - generic [ref=e2214]: ‏3,680 ‏₪
+            - generic [ref=e2215]: "צפי: ‏5,720 ‏₪"
+            - generic [ref=e2218]: גבייה 64%
+          - generic [ref=e2219]:
+            - generic [ref=e2220]: הוצאות · צפוי / בפועל
+            - generic [ref=e2221]: ‏823 ‏₪
+            - generic [ref=e2222]: "נותר לתשלום: ‏782 ‏₪"
+            - generic [ref=e2225]: ביצוע 51%
+          - generic [ref=e2226]:
+            - generic [ref=e2227]: מאזן
+            - generic [ref=e2228]: ‏2,857 ‏₪
+            - generic [ref=e2229]: הכנסות פחות הוצאות בתקופה זו
+            - generic [ref=e2230]: "מאזן צפוי: ‏4,115 ‏₪"
+          - generic [ref=e2231]:
+            - generic [ref=e2232]: יתרה מצטברת (עו״ש)
+            - generic [ref=e2233]: ‏9,118 ‏₪
+            - generic [ref=e2234]: סכום הכסף שיש כרגע בחשבון העובר ושב של הבנק
+            - generic [ref=e2235]: לסוף מאי 2026
+        - generic [ref=e2236]:
+          - heading "פירוט לפי הוצאה" [level=3] [ref=e2238]
+          - table [ref=e2240]:
+            - rowgroup [ref=e2241]:
+              - row "שם קטגוריה סוג צפוי בפועל סטטוס" [ref=e2242]:
+                - columnheader "שם" [ref=e2243]
+                - columnheader "קטגוריה" [ref=e2244]
+                - columnheader "סוג" [ref=e2245]
+                - columnheader "צפוי" [ref=e2246]
+                - columnheader "בפועל" [ref=e2247]
+                - columnheader "סטטוס" [ref=e2248]
+            - rowgroup [ref=e2249]:
+              - row "ניקיון שבועי ניקיון חודשית קבועה ‏780 ‏₪ — בטיפול" [ref=e2250]:
+                - cell "ניקיון שבועי" [ref=e2251]
+                - cell "ניקיון" [ref=e2252]
+                - cell "חודשית קבועה" [ref=e2253]
+                - cell "‏780 ‏₪" [ref=e2254]
+                - cell "—" [ref=e2255]
+                - cell "בטיפול" [ref=e2256]:
+                  - generic [ref=e2257]: בטיפול
+              - row "אחזקת מעלית מעלית חודשית קבועה — ‏450 ‏₪ הסתיים" [ref=e2258]:
+                - cell "אחזקת מעלית" [ref=e2259]
+                - cell "מעלית" [ref=e2260]
+                - cell "חודשית קבועה" [ref=e2261]
+                - cell "—" [ref=e2262]
+                - cell "‏450 ‏₪" [ref=e2263]
+                - cell "הסתיים" [ref=e2264]:
+                  - generic [ref=e2265]:
+                    - img [ref=e2266]
+                    - text: הסתיים
+              - row "חשמל אזורים משותפים חשמל חודשית משתנה ‏2 ‏₪ ‏348 ‏₪ בטיפול" [ref=e2268]:
+                - cell "חשמל אזורים משותפים" [ref=e2269]
+                - cell "חשמל" [ref=e2270]
+                - cell "חודשית משתנה" [ref=e2271]
+                - cell "‏2 ‏₪" [ref=e2272]
+                - cell "‏348 ‏₪" [ref=e2273]
+                - cell "בטיפול" [ref=e2274]:
+                  - generic [ref=e2275]: בטיפול
+              - row "בזק - תקשורת למעלית מעלית חודשית קבועה — ‏25 ‏₪ הסתיים" [ref=e2276]:
+                - cell "בזק - תקשורת למעלית" [ref=e2277]
+                - cell "מעלית" [ref=e2278]
+                - cell "חודשית קבועה" [ref=e2279]
+                - cell "—" [ref=e2280]
+                - cell "‏25 ‏₪" [ref=e2281]
+                - cell "הסתיים" [ref=e2282]:
+                  - generic [ref=e2283]:
+                    - img [ref=e2284]
+                    - text: הסתיים
+            - rowgroup [ref=e2286]:
+              - row "סה״כ ‏782 ‏₪ ‏823 ‏₪" [ref=e2287]:
+                - cell "סה״כ" [ref=e2288]
+                - cell "‏782 ‏₪" [ref=e2289]
+                - cell "‏823 ‏₪" [ref=e2290]
+                - cell [ref=e2291]
+        - generic [ref=e2292]:
+          - heading "פירוט לפי קטגוריה · בפועל" [level=3] [ref=e2294]
+          - table [ref=e2296]:
+            - rowgroup [ref=e2297]:
+              - row "קטגוריה סכום אחוז" [ref=e2298]:
+                - columnheader "קטגוריה" [ref=e2299]
+                - columnheader "סכום" [ref=e2300]
+                - columnheader "אחוז" [ref=e2301]
+            - rowgroup [ref=e2302]:
+              - row "מעלית ‏475 ‏₪ 57.7%" [ref=e2303]:
+                - cell "מעלית" [ref=e2304]
+                - cell "‏475 ‏₪" [ref=e2305]
+                - cell "57.7%" [ref=e2306]
+              - row "חשמל ‏348 ‏₪ 42.3%" [ref=e2307]:
+                - cell "חשמל" [ref=e2308]
+                - cell "‏348 ‏₪" [ref=e2309]
+                - cell "42.3%" [ref=e2310]
+  - status

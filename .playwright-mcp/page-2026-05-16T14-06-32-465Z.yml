@@ -1,0 +1,145 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - status [ref=e4]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: ו
+        - generic [ref=e9]:
+          - text: ועד הבית
+          - generic [ref=e10]: ניהול ושיקוף לדיירים
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - button "עברית" [ref=e13] [cursor=pointer]
+          - button "EN" [ref=e14] [cursor=pointer]
+        - button "פתיחת תזכורות" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+        - 'generic "מחובר/ת בתור: מנהל" [ref=e20]':
+          - generic [ref=e21]: מ
+          - generic [ref=e22]:
+            - generic [ref=e23]: מנהל
+            - generic [ref=e24]: מנהל ראשי
+        - button "יציאה" [ref=e25] [cursor=pointer]:
+          - img [ref=e26]
+          - generic [ref=e28]: יציאה
+    - complementary [ref=e29]:
+      - navigation [ref=e30]:
+        - generic [ref=e31]: תפריט
+        - button "דשבורד" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - generic [ref=e38]: דשבורד
+        - button "דירות וחיובים" [ref=e39] [cursor=pointer]:
+          - img [ref=e40]
+          - generic [ref=e43]: דירות וחיובים
+        - button "בעלי דירות" [ref=e44] [cursor=pointer]:
+          - img [ref=e45]
+          - generic [ref=e49]: בעלי דירות
+        - button "הכנסות" [ref=e50] [cursor=pointer]:
+          - img [ref=e51]
+          - generic [ref=e53]: הכנסות
+        - button "הוצאות" [ref=e54] [cursor=pointer]:
+          - img [ref=e55]
+          - generic [ref=e57]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e58] [cursor=pointer]:
+          - img [ref=e59]
+          - generic [ref=e61]: הוצאות תשתיתיות
+        - button "אנשי קשר" [ref=e62] [cursor=pointer]:
+          - img [ref=e63]
+          - generic [ref=e67]: אנשי קשר
+        - button "מסמכים" [ref=e68] [cursor=pointer]:
+          - img [ref=e69]
+          - generic [ref=e72]: מסמכים
+        - button "תזכורות" [ref=e73] [cursor=pointer]:
+          - img [ref=e74]
+          - generic [ref=e77]: תזכורות
+        - button "פניות" [ref=e78] [cursor=pointer]:
+          - img [ref=e79]
+          - generic [ref=e81]: פניות
+        - button "דוחות" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e86]: דוחות
+        - button "אודות" [ref=e87] [cursor=pointer]:
+          - img [ref=e88]
+          - generic [ref=e91]: אודות
+        - button "הגדרות" [ref=e92] [cursor=pointer]:
+          - img [ref=e93]
+          - generic [ref=e96]: הגדרות
+    - main [ref=e97]:
+      - generic [ref=e99]:
+        - heading "דשבורד" [level=1] [ref=e100]
+        - paragraph [ref=e101]: בית ההדגמה · רחוב הדמו 12, תל אביב · מאי 2026
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - generic [ref=e104]: דירות פעילות
+          - generic [ref=e105]: "9"
+          - generic [ref=e106]: "תשלום חודשי: ‏280 ‏₪"
+        - generic [ref=e107]:
+          - generic [ref=e108]: הכנסות החודש
+          - generic [ref=e109]: ‏3,680 ‏₪
+          - generic [ref=e110]: "צפי: ‏5,720 ‏₪ · גבייה 64%"
+        - generic [ref=e111]:
+          - generic [ref=e112]: הוצאות החודש
+          - generic [ref=e113]: ‏823 ‏₪
+          - generic [ref=e114]: תזרים בפועל
+        - generic [ref=e115]:
+          - generic [ref=e116]: מאזן החודש
+          - generic [ref=e117]: ‏2,857 ‏₪
+          - generic [ref=e118]: עודף
+        - generic [ref=e119]:
+          - generic [ref=e120]: יתרה מצטברת (עו״ש)
+          - generic [ref=e121]: ‏9,118 ‏₪
+          - generic [ref=e122]: הכסף בעובר ושב כעת — כולל יתרת פתיחה
+          - button "פירוט יתרה" [ref=e123] [cursor=pointer]
+        - generic [ref=e124]:
+          - generic [ref=e125]: מאזן דירות
+          - generic [ref=e126]: ‏1,910 ‏₪
+          - generic [ref=e127]:
+            - text: הדיירים חייבים נטו
+            - generic [ref=e128]: "חוב: ‏2,190 ‏₪ · זכות: ‏280 ‏₪"
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - heading "תזרים 12 חודשים אחרונים" [level=3] [ref=e132]
+            - generic [ref=e133]:
+              - generic [ref=e134]: הכנסות
+              - generic [ref=e136]: הוצאות
+          - generic [ref=e138]:
+            - generic [ref=e139]:
+              - 'generic "יוני 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e140]'
+              - 'generic "יולי 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e143]'
+              - 'generic "אוג׳ 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e146]'
+              - 'generic "ספט׳ 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e149]'
+              - 'generic "אוק׳ 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e152]'
+              - 'generic "נוב׳ 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e155]'
+              - 'generic "דצמ׳ 2025: הכנסות ‏0 ‏₪ · הוצאות ‏0 ‏₪" [ref=e158]'
+              - 'generic "ינו׳ 2026: הכנסות ‏2,240 ‏₪ · הוצאות ‏1,255 ‏₪" [ref=e161]'
+              - 'generic "פבר׳ 2026: הכנסות ‏2,240 ‏₪ · הוצאות ‏1,255 ‏₪" [ref=e164]'
+              - 'generic "מרץ 2026: הכנסות ‏1,960 ‏₪ · הוצאות ‏3,655 ‏₪" [ref=e167]'
+              - 'generic "אפר׳ 2026: הכנסות ‏2,240 ‏₪ · הוצאות ‏1,534 ‏₪" [ref=e170]'
+              - 'generic "מאי 2026: הכנסות ‏3,680 ‏₪ · הוצאות ‏823 ‏₪" [ref=e173]'
+            - generic [ref=e176]:
+              - generic [ref=e177]: יוני
+              - generic [ref=e178]: יולי
+              - generic [ref=e179]: אוג׳
+              - generic [ref=e180]: ספט׳
+              - generic [ref=e181]: אוק׳
+              - generic [ref=e182]: נוב׳
+              - generic [ref=e183]: דצמ׳
+              - generic [ref=e184]: ינו׳
+              - generic [ref=e185]: פבר׳
+              - generic [ref=e186]: מרץ
+              - generic [ref=e187]: אפר׳
+              - generic [ref=e188]: מאי
+        - generic [ref=e189]:
+          - heading "סיכום שנתי 2026" [level=3] [ref=e191]
+          - generic [ref=e193]:
+            - generic [ref=e194]:
+              - generic [ref=e195]: הכנסות בפועל
+              - generic [ref=e196]: ‏12,640 ‏₪
+              - generic [ref=e197]: מתוך צפי ‏32,470 ‏₪
+            - generic [ref=e198]:
+              - generic [ref=e199]: הוצאות
+              - generic [ref=e200]: ‏8,522 ‏₪
+            - generic [ref=e201]:
+              - generic [ref=e202]: מאזן שנתי
+              - generic [ref=e203]: ‏4,118 ‏₪
+  - status

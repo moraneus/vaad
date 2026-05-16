@@ -1,0 +1,118 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2542]:
+    - status [ref=e2543]: 🧪 DEMO MODE · Fake data — does NOT reflect any real building
+    - banner [ref=e2544]:
+      - generic [ref=e2546]:
+        - generic [ref=e2547]: V
+        - generic [ref=e2548]:
+          - text: Building Committee
+          - generic [ref=e2549]: Management & transparency for residents
+      - generic [ref=e2550]:
+        - generic [ref=e2551]:
+          - button "עברית" [ref=e2552] [cursor=pointer]
+          - button "EN" [ref=e2553] [cursor=pointer]
+        - button "Open reminders" [ref=e2555] [cursor=pointer]:
+          - img [ref=e2556]
+        - generic "Signed in as מנהל" [ref=e2559]:
+          - generic [ref=e2560]: מ
+          - generic [ref=e2561]:
+            - generic [ref=e2562]: מנהל
+            - generic [ref=e2563]: Master admin
+        - button "Sign out" [ref=e2564] [cursor=pointer]:
+          - img [ref=e2565]
+          - generic [ref=e2567]: Sign out
+    - complementary [ref=e2568]:
+      - navigation [ref=e2569]:
+        - generic [ref=e2570]: Menu
+        - button "Dashboard" [ref=e2571] [cursor=pointer]:
+          - img [ref=e2572]
+          - generic [ref=e2577]: Dashboard
+        - button "Apartments" [ref=e2578] [cursor=pointer]:
+          - img [ref=e2579]
+          - generic [ref=e2582]: Apartments
+        - button "Property owners" [ref=e2583] [cursor=pointer]:
+          - img [ref=e2584]
+          - generic [ref=e2588]: Property owners
+        - button "Income" [ref=e2589] [cursor=pointer]:
+          - img [ref=e2590]
+          - generic [ref=e2592]: Income
+        - button "Expenses" [ref=e2593] [cursor=pointer]:
+          - img [ref=e2594]
+          - generic [ref=e2596]: Expenses
+        - button "Infrastructure" [ref=e2597] [cursor=pointer]:
+          - img [ref=e2598]
+          - generic [ref=e2600]: Infrastructure
+        - button "Contacts" [ref=e2601] [cursor=pointer]:
+          - img [ref=e2602]
+          - generic [ref=e2606]: Contacts
+        - button "Documents" [ref=e2607] [cursor=pointer]:
+          - img [ref=e2608]
+          - generic [ref=e2611]: Documents
+        - button "Reminders" [ref=e2612] [cursor=pointer]:
+          - img [ref=e2613]
+          - generic [ref=e2616]: Reminders
+        - button "Tickets" [ref=e2617] [cursor=pointer]:
+          - img [ref=e2618]
+          - generic [ref=e2620]: Tickets
+        - button "Reports" [ref=e2621] [cursor=pointer]:
+          - img [ref=e2622]
+          - generic [ref=e2625]: Reports
+        - button "About" [ref=e2626] [cursor=pointer]:
+          - img [ref=e2627]
+          - generic [ref=e2630]: About
+        - button "Settings" [ref=e2631] [cursor=pointer]:
+          - img [ref=e2632]
+          - generic [ref=e2635]: Settings
+    - main [ref=e2636]:
+      - generic [ref=e2637]:
+        - generic [ref=e2638]:
+          - heading "Tickets" [level=1] [ref=e2639]
+          - paragraph [ref=e2640]: 2 tickets total
+        - button "Open ticket" [ref=e2642] [cursor=pointer]:
+          - img [ref=e2643]
+          - text: Open ticket
+      - generic [ref=e2645]:
+        - textbox "Search title / description" [ref=e2646]
+        - combobox [ref=e2647]:
+          - option "All categories" [selected]
+          - option "Electricity & lighting"
+          - option "Plumbing"
+          - option "Sewage"
+          - option "Elevator"
+          - option "Cleaning"
+          - option "Garden"
+          - option "Parking"
+          - option "Cameras & security"
+          - option "Intercom"
+          - option "Renovation / structure"
+          - option "Other"
+        - combobox [ref=e2648]:
+          - option "All statuses"
+          - option "Open" [selected]
+          - option "Closed"
+        - generic [ref=e2649]: "1"
+      - generic [ref=e2650]:
+        - combobox [ref=e2651]:
+          - option "Custom range" [selected]
+          - option "This year"
+          - option "Last 3 months"
+          - option "Last year"
+          - option "All"
+        - textbox [ref=e2652]: 2026-01-01
+        - textbox [ref=e2653]: 2026-12-31
+      - generic [ref=e2656]:
+        - generic [ref=e2657]:
+          - generic [ref=e2658]:
+            - strong [ref=e2659]: נורה שרופה בקומה 3
+            - generic [ref=e2660]: Electricity & lighting
+            - generic [ref=e2661]: Open
+          - generic [ref=e2662]: Opened by דיירת דירה 3 — שרה מזרחי · 08/05/2026
+        - generic [ref=e2663]:
+          - button "▾ Details" [ref=e2664] [cursor=pointer]
+          - button "Edit" [ref=e2665] [cursor=pointer]:
+            - img [ref=e2666]
+          - button "Close ticket" [ref=e2669] [cursor=pointer]
+          - button "Link expense" [ref=e2670] [cursor=pointer]
+          - button "Delete" [ref=e2671] [cursor=pointer]:
+            - img [ref=e2672]
+  - status

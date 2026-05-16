@@ -1,0 +1,208 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2675]:
+    - status [ref=e2676]: 🧪 DEMO MODE · Fake data — does NOT reflect any real building
+    - banner [ref=e2677]:
+      - generic [ref=e2679]:
+        - generic [ref=e2680]: V
+        - generic [ref=e2681]:
+          - text: Building Committee
+          - generic [ref=e2682]: Management & transparency for residents
+      - generic [ref=e2683]:
+        - generic [ref=e2684]:
+          - button "עברית" [ref=e2685] [cursor=pointer]
+          - button "EN" [ref=e2686] [cursor=pointer]
+        - button "Open reminders" [ref=e2688] [cursor=pointer]:
+          - img [ref=e2689]
+        - generic "Signed in as מנהל" [ref=e2692]:
+          - generic [ref=e2693]: מ
+          - generic [ref=e2694]:
+            - generic [ref=e2695]: מנהל
+            - generic [ref=e2696]: Master admin
+        - button "Sign out" [ref=e2697] [cursor=pointer]:
+          - img [ref=e2698]
+          - generic [ref=e2700]: Sign out
+    - complementary [ref=e2701]:
+      - navigation [ref=e2702]:
+        - generic [ref=e2703]: Menu
+        - button "Dashboard" [ref=e2704] [cursor=pointer]:
+          - img [ref=e2705]
+          - generic [ref=e2710]: Dashboard
+        - button "Apartments" [ref=e2711] [cursor=pointer]:
+          - img [ref=e2712]
+          - generic [ref=e2715]: Apartments
+        - button "Property owners" [ref=e2716] [cursor=pointer]:
+          - img [ref=e2717]
+          - generic [ref=e2721]: Property owners
+        - button "Income" [ref=e2722] [cursor=pointer]:
+          - img [ref=e2723]
+          - generic [ref=e2725]: Income
+        - button "Expenses" [ref=e2726] [cursor=pointer]:
+          - img [ref=e2727]
+          - generic [ref=e2729]: Expenses
+        - button "Infrastructure" [ref=e2730] [cursor=pointer]:
+          - img [ref=e2731]
+          - generic [ref=e2733]: Infrastructure
+        - button "Contacts" [ref=e2734] [cursor=pointer]:
+          - img [ref=e2735]
+          - generic [ref=e2739]: Contacts
+        - button "Documents" [ref=e2740] [cursor=pointer]:
+          - img [ref=e2741]
+          - generic [ref=e2744]: Documents
+        - button "Reminders" [ref=e2745] [cursor=pointer]:
+          - img [ref=e2746]
+          - generic [ref=e2749]: Reminders
+        - button "Tickets" [ref=e2750] [cursor=pointer]:
+          - img [ref=e2751]
+          - generic [ref=e2753]: Tickets
+        - button "Reports" [ref=e2754] [cursor=pointer]:
+          - img [ref=e2755]
+          - generic [ref=e2758]: Reports
+        - button "About" [ref=e2759] [cursor=pointer]:
+          - img [ref=e2760]
+          - generic [ref=e2763]: About
+        - button "Settings" [ref=e2764] [cursor=pointer]:
+          - img [ref=e2765]
+          - generic [ref=e2768]: Settings
+    - main [ref=e2769]:
+      - generic [ref=e2770]:
+        - generic [ref=e2771]:
+          - heading "Reports" [level=1] [ref=e2772]
+          - paragraph [ref=e2773]: Monthly & yearly reports · cash flow + accounting view
+        - generic [ref=e2774]:
+          - button "Export CSV" [ref=e2775] [cursor=pointer]:
+            - img [ref=e2776]
+            - text: Export CSV
+          - button "Print / PDF" [ref=e2778] [cursor=pointer]:
+            - img [ref=e2779]
+            - text: Print / PDF
+      - generic [ref=e2782]:
+        - combobox [ref=e2783]:
+          - option "Monthly report" [selected]
+          - option "Yearly report"
+          - option "Custom range"
+        - combobox [ref=e2784]:
+          - option "2036"
+          - option "2035"
+          - option "2034"
+          - option "2033"
+          - option "2032"
+          - option "2031"
+          - option "2030"
+          - option "2029"
+          - option "2028"
+          - option "2027"
+          - option "2026" [selected]
+          - option "2025"
+          - option "2024"
+        - combobox [ref=e2785]:
+          - option "January"
+          - option "February"
+          - option "March"
+          - option "April"
+          - option "May" [selected]
+          - option "June"
+          - option "July"
+          - option "August"
+          - option "September"
+          - option "October"
+          - option "November"
+          - option "December"
+        - generic [ref=e2786]:
+          - button "Actual cash flow" [ref=e2787] [cursor=pointer]
+          - button "Accounting view" [ref=e2788] [cursor=pointer]
+          - generic "Both modes behave identically when there are no annual expenses. The difference only shows up for expenses of type \"annual\"." [ref=e2789]: ⓘ
+      - generic [ref=e2790]:
+        - generic [ref=e2791]: Actual amounts are based on payments recorded in the system. Months without a recorded payment show 0 actual even if the expense definition is active.
+        - generic [ref=e2792]:
+          - generic [ref=e2793]:
+            - generic [ref=e2794]: Income · Expected / Actual
+            - generic [ref=e2795]: ₪3,680
+            - generic [ref=e2796]: "Expected: ₪5,720"
+            - generic [ref=e2799]: Collection 64%
+          - generic [ref=e2800]:
+            - generic [ref=e2801]: Expenses · Expected / Actual
+            - generic [ref=e2802]: ₪823
+            - generic [ref=e2803]: "Remaining: ₪782"
+            - generic [ref=e2806]: Execution 51%
+          - generic [ref=e2807]:
+            - generic [ref=e2808]: Net
+            - generic [ref=e2809]: ₪2,857
+            - generic [ref=e2810]: Income minus expenses for the period
+            - generic [ref=e2811]: "Expected net: ₪4,115"
+          - generic [ref=e2812]:
+            - generic [ref=e2813]: Bank balance (cumulative)
+            - generic [ref=e2814]: ₪9,118
+            - generic [ref=e2815]: Money currently in the checking account at the bank
+            - generic [ref=e2816]: End of May 2026
+        - generic [ref=e2817]:
+          - heading "Per expense" [level=3] [ref=e2819]
+          - table [ref=e2821]:
+            - rowgroup [ref=e2822]:
+              - row "Name Category Type Expected Actual Status" [ref=e2823]:
+                - columnheader "Name" [ref=e2824]
+                - columnheader "Category" [ref=e2825]
+                - columnheader "Type" [ref=e2826]
+                - columnheader "Expected" [ref=e2827]
+                - columnheader "Actual" [ref=e2828]
+                - columnheader "Status" [ref=e2829]
+            - rowgroup [ref=e2830]:
+              - row "ניקיון שבועי ניקיון Monthly recurring ₪780 — In progress" [ref=e2831]:
+                - cell "ניקיון שבועי" [ref=e2832]
+                - cell "ניקיון" [ref=e2833]
+                - cell "Monthly recurring" [ref=e2834]
+                - cell "₪780" [ref=e2835]
+                - cell "—" [ref=e2836]
+                - cell "In progress" [ref=e2837]:
+                  - generic [ref=e2838]: In progress
+              - row "אחזקת מעלית מעלית Monthly recurring — ₪450 Done" [ref=e2839]:
+                - cell "אחזקת מעלית" [ref=e2840]
+                - cell "מעלית" [ref=e2841]
+                - cell "Monthly recurring" [ref=e2842]
+                - cell "—" [ref=e2843]
+                - cell "₪450" [ref=e2844]
+                - cell "Done" [ref=e2845]:
+                  - generic [ref=e2846]:
+                    - img [ref=e2847]
+                    - text: Done
+              - row "חשמל אזורים משותפים חשמל Variable monthly ₪2 ₪348 In progress" [ref=e2849]:
+                - cell "חשמל אזורים משותפים" [ref=e2850]
+                - cell "חשמל" [ref=e2851]
+                - cell "Variable monthly" [ref=e2852]
+                - cell "₪2" [ref=e2853]
+                - cell "₪348" [ref=e2854]
+                - cell "In progress" [ref=e2855]:
+                  - generic [ref=e2856]: In progress
+              - row "בזק - תקשורת למעלית מעלית Monthly recurring — ₪25 Done" [ref=e2857]:
+                - cell "בזק - תקשורת למעלית" [ref=e2858]
+                - cell "מעלית" [ref=e2859]
+                - cell "Monthly recurring" [ref=e2860]
+                - cell "—" [ref=e2861]
+                - cell "₪25" [ref=e2862]
+                - cell "Done" [ref=e2863]:
+                  - generic [ref=e2864]:
+                    - img [ref=e2865]
+                    - text: Done
+            - rowgroup [ref=e2867]:
+              - row "Total ₪782 ₪823" [ref=e2868]:
+                - cell "Total" [ref=e2869]
+                - cell "₪782" [ref=e2870]
+                - cell "₪823" [ref=e2871]
+                - cell [ref=e2872]
+        - generic [ref=e2873]:
+          - heading "By category · Actual" [level=3] [ref=e2875]
+          - table [ref=e2877]:
+            - rowgroup [ref=e2878]:
+              - row "Category Amount %" [ref=e2879]:
+                - columnheader "Category" [ref=e2880]
+                - columnheader "Amount" [ref=e2881]
+                - columnheader "%" [ref=e2882]
+            - rowgroup [ref=e2883]:
+              - row "מעלית ₪475 57.7%" [ref=e2884]:
+                - cell "מעלית" [ref=e2885]
+                - cell "₪475" [ref=e2886]
+                - cell "57.7%" [ref=e2887]
+              - row "חשמל ₪348 42.3%" [ref=e2888]:
+                - cell "חשמל" [ref=e2889]
+                - cell "₪348" [ref=e2890]
+                - cell "42.3%" [ref=e2891]
+  - status

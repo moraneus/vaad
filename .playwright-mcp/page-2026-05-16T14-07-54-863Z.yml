@@ -1,0 +1,466 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e282]:
+    - status [ref=e283]: 🧪 DEMO MODE · Fake data — does NOT reflect any real building
+    - banner [ref=e284]:
+      - generic [ref=e286]:
+        - generic [ref=e287]: V
+        - generic [ref=e288]:
+          - text: Building Committee
+          - generic [ref=e289]: Management & transparency for residents
+      - generic [ref=e290]:
+        - generic [ref=e291]:
+          - button "עברית" [ref=e292] [cursor=pointer]
+          - button "EN" [ref=e293] [cursor=pointer]
+        - generic "Signed in as דנה כהן (בעלים)" [ref=e294]:
+          - generic [ref=e295]: ד
+          - generic [ref=e296]:
+            - generic [ref=e297]: דנה כהן
+            - generic [ref=e298]: Owner
+        - button "Sign out" [ref=e299] [cursor=pointer]:
+          - img [ref=e300]
+          - generic [ref=e302]: Sign out
+    - complementary [ref=e303]:
+      - navigation [ref=e304]:
+        - generic [ref=e305]: Menu
+        - button "Dashboard" [ref=e306] [cursor=pointer]:
+          - img [ref=e307]
+          - generic [ref=e312]: Dashboard
+        - button "Income" [ref=e313] [cursor=pointer]:
+          - img [ref=e314]
+          - generic [ref=e316]: Income
+        - button "Expenses" [ref=e317] [cursor=pointer]:
+          - img [ref=e318]
+          - generic [ref=e320]: Expenses
+        - button "Infrastructure" [ref=e321] [cursor=pointer]:
+          - img [ref=e322]
+          - generic [ref=e324]: Infrastructure
+        - button "Tickets" [ref=e325] [cursor=pointer]:
+          - img [ref=e326]
+          - generic [ref=e328]: Tickets
+        - button "Reports" [ref=e329] [cursor=pointer]:
+          - img [ref=e330]
+          - generic [ref=e333]: Reports
+        - button "About" [ref=e334] [cursor=pointer]:
+          - img [ref=e335]
+          - generic [ref=e338]: About
+        - button "Settings" [ref=e339] [cursor=pointer]:
+          - img [ref=e340]
+          - generic [ref=e343]: Settings
+    - main [ref=e344]:
+      - generic [ref=e345]:
+        - generic [ref=e346]:
+          - heading "Income" [level=1] [ref=e347]
+          - paragraph [ref=e348]: Collection tracking by apartment & month · 2026
+        - button "My receipts" [ref=e350] [cursor=pointer]:
+          - img [ref=e351]
+          - text: My receipts
+      - generic [ref=e354]:
+        - generic [ref=e355]:
+          - generic [ref=e356]: Expected to date
+          - generic [ref=e357]: ₪14,830
+          - generic [ref=e358]: What should have come in from the start of the year through the current month
+        - generic [ref=e359]:
+          - generic [ref=e360]: Collected
+          - generic [ref=e361]: ₪12,360
+          - generic [ref=e364]: Collection rate 83%
+        - generic [ref=e365]:
+          - generic [ref=e366]: Gap
+          - generic [ref=e367]: "-₪2,470"
+          - generic [ref=e368]: Collection shortfall
+      - generic [ref=e369]:
+        - combobox [ref=e370]:
+          - option "2024"
+          - option "2025"
+          - option "2026" [selected]
+          - option "2027"
+          - option "2028"
+          - option "2029"
+          - option "2030"
+          - option "2031"
+          - option "2032"
+          - option "2033"
+          - option "2034"
+          - option "2035"
+          - option "2036"
+        - generic [ref=e371]:
+          - generic [ref=e372]: Paid
+          - generic [ref=e374]: Partial
+          - generic [ref=e376]: Unpaid
+      - table [ref=e380]:
+        - rowgroup [ref=e381]:
+          - row "Apt Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec Total" [ref=e382]:
+            - columnheader "Apt" [ref=e383]
+            - columnheader "Jan" [ref=e384]
+            - columnheader "Feb" [ref=e385]
+            - columnheader "Mar" [ref=e386]
+            - columnheader "Apr" [ref=e387]
+            - columnheader "May" [ref=e388]
+            - columnheader "Jun" [ref=e389]
+            - columnheader "Jul" [ref=e390]
+            - columnheader "Aug" [ref=e391]
+            - columnheader "Sep" [ref=e392]
+            - columnheader "Oct" [ref=e393]
+            - columnheader "Nov" [ref=e394]
+            - columnheader "Dec" [ref=e395]
+            - columnheader "Total" [ref=e396]
+        - rowgroup [ref=e397]:
+          - row "1 דנה כהן ₪280 ₪280 ₪280 ₪280 ₪280 +₪400 infra — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,800 monthly ₪1,400 · infra ₪400 · charges ₪0" [ref=e398]:
+            - cell "1 דנה כהן" [ref=e399]:
+              - strong [ref=e400]: "1"
+              - generic [ref=e401]: דנה כהן
+            - cell "₪280" [ref=e402] [cursor=pointer]:
+              - generic [ref=e403]: ₪280
+            - cell "₪280" [ref=e404] [cursor=pointer]:
+              - generic [ref=e405]: ₪280
+            - cell "₪280" [ref=e406] [cursor=pointer]:
+              - generic [ref=e407]: ₪280
+            - cell "₪280" [ref=e408] [cursor=pointer]:
+              - generic [ref=e409]: ₪280
+            - cell "₪280 +₪400 infra" [ref=e410] [cursor=pointer]:
+              - generic [ref=e411]: ₪280
+              - generic [ref=e412]: +₪400 infra
+            - cell "— upcoming ₪280" [ref=e413] [cursor=pointer]:
+              - generic [ref=e414]: —
+              - generic [ref=e415]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e416] [cursor=pointer]:
+              - generic [ref=e417]: —
+              - generic [ref=e418]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e419] [cursor=pointer]:
+              - generic [ref=e420]: —
+              - generic [ref=e421]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e422] [cursor=pointer]:
+              - generic [ref=e423]: —
+              - generic [ref=e424]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e425] [cursor=pointer]:
+              - generic [ref=e426]: —
+              - generic [ref=e427]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e428] [cursor=pointer]:
+              - generic [ref=e429]: —
+              - generic [ref=e430]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e431] [cursor=pointer]:
+              - generic [ref=e432]: —
+              - generic [ref=e433]: upcoming ₪280
+            - cell "₪1,800 monthly ₪1,400 · infra ₪400 · charges ₪0" [ref=e434]:
+              - strong [ref=e435]: ₪1,800
+              - generic [ref=e436]: monthly ₪1,400 · infra ₪400 · charges ₪0
+          - row "2 יוסי לוי ₪280 ₪280 ₪280 ₪280 ₪280 +₪400 infra — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,800 monthly ₪1,400 · infra ₪400 · charges ₪0" [ref=e437]:
+            - cell "2 יוסי לוי" [ref=e438]:
+              - strong [ref=e439]: "2"
+              - generic [ref=e440]: יוסי לוי
+            - cell "₪280" [ref=e441] [cursor=pointer]:
+              - generic [ref=e442]: ₪280
+            - cell "₪280" [ref=e443] [cursor=pointer]:
+              - generic [ref=e444]: ₪280
+            - cell "₪280" [ref=e445] [cursor=pointer]:
+              - generic [ref=e446]: ₪280
+            - cell "₪280" [ref=e447] [cursor=pointer]:
+              - generic [ref=e448]: ₪280
+            - cell "₪280 +₪400 infra" [ref=e449] [cursor=pointer]:
+              - generic [ref=e450]: ₪280
+              - generic [ref=e451]: +₪400 infra
+            - cell "— upcoming ₪280" [ref=e452] [cursor=pointer]:
+              - generic [ref=e453]: —
+              - generic [ref=e454]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e455] [cursor=pointer]:
+              - generic [ref=e456]: —
+              - generic [ref=e457]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e458] [cursor=pointer]:
+              - generic [ref=e459]: —
+              - generic [ref=e460]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e461] [cursor=pointer]:
+              - generic [ref=e462]: —
+              - generic [ref=e463]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e464] [cursor=pointer]:
+              - generic [ref=e465]: —
+              - generic [ref=e466]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e467] [cursor=pointer]:
+              - generic [ref=e468]: —
+              - generic [ref=e469]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e470] [cursor=pointer]:
+              - generic [ref=e471]: —
+              - generic [ref=e472]: upcoming ₪280
+            - cell "₪1,800 monthly ₪1,400 · infra ₪400 · charges ₪0" [ref=e473]:
+              - strong [ref=e474]: ₪1,800
+              - generic [ref=e475]: monthly ₪1,400 · infra ₪400 · charges ₪0
+          - 'row "3 תום שוורץ Outstanding: ₪280 ₪280 ₪280 — debt ₪280 ₪280 ₪280 +₪400 infra — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,520 monthly ₪1,120 · infra ₪400 · charges ₪0" [ref=e476]':
+            - 'cell "3 תום שוורץ Outstanding: ₪280" [ref=e477]':
+              - strong [ref=e478]: "3"
+              - generic [ref=e479]: תום שוורץ
+              - generic [ref=e480]: "Outstanding: ₪280"
+            - cell "₪280" [ref=e481] [cursor=pointer]:
+              - generic [ref=e482]: ₪280
+            - cell "₪280" [ref=e483] [cursor=pointer]:
+              - generic [ref=e484]: ₪280
+            - cell "— debt ₪280" [ref=e485] [cursor=pointer]:
+              - generic [ref=e486]: —
+              - generic [ref=e487]: debt ₪280
+            - cell "₪280" [ref=e488] [cursor=pointer]:
+              - generic [ref=e489]: ₪280
+            - cell "₪280 +₪400 infra" [ref=e490] [cursor=pointer]:
+              - generic [ref=e491]: ₪280
+              - generic [ref=e492]: +₪400 infra
+            - cell "— upcoming ₪280" [ref=e493] [cursor=pointer]:
+              - generic [ref=e494]: —
+              - generic [ref=e495]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e496] [cursor=pointer]:
+              - generic [ref=e497]: —
+              - generic [ref=e498]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e499] [cursor=pointer]:
+              - generic [ref=e500]: —
+              - generic [ref=e501]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e502] [cursor=pointer]:
+              - generic [ref=e503]: —
+              - generic [ref=e504]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e505] [cursor=pointer]:
+              - generic [ref=e506]: —
+              - generic [ref=e507]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e508] [cursor=pointer]:
+              - generic [ref=e509]: —
+              - generic [ref=e510]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e511] [cursor=pointer]:
+              - generic [ref=e512]: —
+              - generic [ref=e513]: upcoming ₪280
+            - cell "₪1,520 monthly ₪1,120 · infra ₪400 · charges ₪0" [ref=e514]:
+              - strong [ref=e515]: ₪1,520
+              - generic [ref=e516]: monthly ₪1,120 · infra ₪400 · charges ₪0
+          - 'row "4 אבי פרץ Outstanding: ₪830 ₪280 ₪280 ₪280 ₪280 — debt ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,120" [ref=e517]':
+            - 'cell "4 אבי פרץ Outstanding: ₪830" [ref=e518]':
+              - strong [ref=e519]: "4"
+              - generic [ref=e520]: אבי פרץ
+              - generic [ref=e521]: "Outstanding: ₪830"
+            - cell "₪280" [ref=e522] [cursor=pointer]:
+              - generic [ref=e523]: ₪280
+            - cell "₪280" [ref=e524] [cursor=pointer]:
+              - generic [ref=e525]: ₪280
+            - cell "₪280" [ref=e526] [cursor=pointer]:
+              - generic [ref=e527]: ₪280
+            - cell "₪280" [ref=e528] [cursor=pointer]:
+              - generic [ref=e529]: ₪280
+            - cell "— debt ₪280" [ref=e530] [cursor=pointer]:
+              - generic [ref=e531]: —
+              - generic [ref=e532]: debt ₪280
+            - cell "— upcoming ₪280" [ref=e533] [cursor=pointer]:
+              - generic [ref=e534]: —
+              - generic [ref=e535]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e536] [cursor=pointer]:
+              - generic [ref=e537]: —
+              - generic [ref=e538]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e539] [cursor=pointer]:
+              - generic [ref=e540]: —
+              - generic [ref=e541]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e542] [cursor=pointer]:
+              - generic [ref=e543]: —
+              - generic [ref=e544]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e545] [cursor=pointer]:
+              - generic [ref=e546]: —
+              - generic [ref=e547]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e548] [cursor=pointer]:
+              - generic [ref=e549]: —
+              - generic [ref=e550]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e551] [cursor=pointer]:
+              - generic [ref=e552]: —
+              - generic [ref=e553]: upcoming ₪280
+            - cell "₪1,120" [ref=e554]:
+              - strong [ref=e555]: ₪1,120
+          - 'row "5 מיכל אזולאי Outstanding: ₪400 ₪280 ₪280 ₪280 ₪280 ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,400" [ref=e556]':
+            - 'cell "5 מיכל אזולאי Outstanding: ₪400" [ref=e557]':
+              - strong [ref=e558]: "5"
+              - generic [ref=e559]: מיכל אזולאי
+              - generic [ref=e560]: "Outstanding: ₪400"
+            - cell "₪280" [ref=e561] [cursor=pointer]:
+              - generic [ref=e562]: ₪280
+            - cell "₪280" [ref=e563] [cursor=pointer]:
+              - generic [ref=e564]: ₪280
+            - cell "₪280" [ref=e565] [cursor=pointer]:
+              - generic [ref=e566]: ₪280
+            - cell "₪280" [ref=e567] [cursor=pointer]:
+              - generic [ref=e568]: ₪280
+            - cell "₪280" [ref=e569] [cursor=pointer]:
+              - generic [ref=e570]: ₪280
+            - cell "— upcoming ₪280" [ref=e571] [cursor=pointer]:
+              - generic [ref=e572]: —
+              - generic [ref=e573]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e574] [cursor=pointer]:
+              - generic [ref=e575]: —
+              - generic [ref=e576]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e577] [cursor=pointer]:
+              - generic [ref=e578]: —
+              - generic [ref=e579]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e580] [cursor=pointer]:
+              - generic [ref=e581]: —
+              - generic [ref=e582]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e583] [cursor=pointer]:
+              - generic [ref=e584]: —
+              - generic [ref=e585]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e586] [cursor=pointer]:
+              - generic [ref=e587]: —
+              - generic [ref=e588]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e589] [cursor=pointer]:
+              - generic [ref=e590]: —
+              - generic [ref=e591]: upcoming ₪280
+            - cell "₪1,400" [ref=e592]:
+              - strong [ref=e593]: ₪1,400
+          - 'row "6 איתי גרין Outstanding: ₪680 ₪280 ₪280 ₪280 ₪280 — debt ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,120" [ref=e594]':
+            - 'cell "6 איתי גרין Outstanding: ₪680" [ref=e595]':
+              - strong [ref=e596]: "6"
+              - generic [ref=e597]: איתי גרין
+              - generic [ref=e598]: "Outstanding: ₪680"
+            - cell "₪280" [ref=e599] [cursor=pointer]:
+              - generic [ref=e600]: ₪280
+            - cell "₪280" [ref=e601] [cursor=pointer]:
+              - generic [ref=e602]: ₪280
+            - cell "₪280" [ref=e603] [cursor=pointer]:
+              - generic [ref=e604]: ₪280
+            - cell "₪280" [ref=e605] [cursor=pointer]:
+              - generic [ref=e606]: ₪280
+            - cell "— debt ₪280" [ref=e607] [cursor=pointer]:
+              - generic [ref=e608]: —
+              - generic [ref=e609]: debt ₪280
+            - cell "— upcoming ₪280" [ref=e610] [cursor=pointer]:
+              - generic [ref=e611]: —
+              - generic [ref=e612]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e613] [cursor=pointer]:
+              - generic [ref=e614]: —
+              - generic [ref=e615]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e616] [cursor=pointer]:
+              - generic [ref=e617]: —
+              - generic [ref=e618]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e619] [cursor=pointer]:
+              - generic [ref=e620]: —
+              - generic [ref=e621]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e622] [cursor=pointer]:
+              - generic [ref=e623]: —
+              - generic [ref=e624]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e625] [cursor=pointer]:
+              - generic [ref=e626]: —
+              - generic [ref=e627]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e628] [cursor=pointer]:
+              - generic [ref=e629]: —
+              - generic [ref=e630]: upcoming ₪280
+            - cell "₪1,120" [ref=e631]:
+              - strong [ref=e632]: ₪1,120
+          - row "7 נועה אדלר ₪280 ₪280 ₪280 ₪280 ₪280 +₪400 infra — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪1,800 monthly ₪1,400 · infra ₪400 · charges ₪0" [ref=e633]:
+            - cell "7 נועה אדלר" [ref=e634]:
+              - strong [ref=e635]: "7"
+              - generic [ref=e636]: נועה אדלר
+            - cell "₪280" [ref=e637] [cursor=pointer]:
+              - generic [ref=e638]: ₪280
+            - cell "₪280" [ref=e639] [cursor=pointer]:
+              - generic [ref=e640]: ₪280
+            - cell "₪280" [ref=e641] [cursor=pointer]:
+              - generic [ref=e642]: ₪280
+            - cell "₪280" [ref=e643] [cursor=pointer]:
+              - generic [ref=e644]: ₪280
+            - cell "₪280 +₪400 infra" [ref=e645] [cursor=pointer]:
+              - generic [ref=e646]: ₪280
+              - generic [ref=e647]: +₪400 infra
+            - cell "— upcoming ₪280" [ref=e648] [cursor=pointer]:
+              - generic [ref=e649]: —
+              - generic [ref=e650]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e651] [cursor=pointer]:
+              - generic [ref=e652]: —
+              - generic [ref=e653]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e654] [cursor=pointer]:
+              - generic [ref=e655]: —
+              - generic [ref=e656]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e657] [cursor=pointer]:
+              - generic [ref=e658]: —
+              - generic [ref=e659]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e660] [cursor=pointer]:
+              - generic [ref=e661]: —
+              - generic [ref=e662]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e663] [cursor=pointer]:
+              - generic [ref=e664]: —
+              - generic [ref=e665]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e666] [cursor=pointer]:
+              - generic [ref=e667]: —
+              - generic [ref=e668]: upcoming ₪280
+            - cell "₪1,800 monthly ₪1,400 · infra ₪400 · charges ₪0" [ref=e669]:
+              - strong [ref=e670]: ₪1,800
+              - generic [ref=e671]: monthly ₪1,400 · infra ₪400 · charges ₪0
+          - 'row "8 הילה דהן Credit: ₪280 ₪280 ₪280 ₪280 ₪280 ₪280 +₪400 infra ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 — upcoming ₪280 ₪2,080 monthly ₪1,680 · infra ₪400 · charges ₪0" [ref=e672]':
+            - 'cell "8 הילה דהן Credit: ₪280" [ref=e673]':
+              - strong [ref=e674]: "8"
+              - generic [ref=e675]: הילה דהן
+              - generic [ref=e676]: "Credit: ₪280"
+            - cell "₪280" [ref=e677] [cursor=pointer]:
+              - generic [ref=e678]: ₪280
+            - cell "₪280" [ref=e679] [cursor=pointer]:
+              - generic [ref=e680]: ₪280
+            - cell "₪280" [ref=e681] [cursor=pointer]:
+              - generic [ref=e682]: ₪280
+            - cell "₪280" [ref=e683] [cursor=pointer]:
+              - generic [ref=e684]: ₪280
+            - cell "₪280 +₪400 infra" [ref=e685] [cursor=pointer]:
+              - generic [ref=e686]: ₪280
+              - generic [ref=e687]: +₪400 infra
+            - cell "₪280" [ref=e688] [cursor=pointer]:
+              - generic [ref=e689]: ₪280
+            - cell "— upcoming ₪280" [ref=e690] [cursor=pointer]:
+              - generic [ref=e691]: —
+              - generic [ref=e692]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e693] [cursor=pointer]:
+              - generic [ref=e694]: —
+              - generic [ref=e695]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e696] [cursor=pointer]:
+              - generic [ref=e697]: —
+              - generic [ref=e698]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e699] [cursor=pointer]:
+              - generic [ref=e700]: —
+              - generic [ref=e701]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e702] [cursor=pointer]:
+              - generic [ref=e703]: —
+              - generic [ref=e704]: upcoming ₪280
+            - cell "— upcoming ₪280" [ref=e705] [cursor=pointer]:
+              - generic [ref=e706]: —
+              - generic [ref=e707]: upcoming ₪280
+            - cell "₪2,080 monthly ₪1,680 · infra ₪400 · charges ₪0" [ref=e708]:
+              - strong [ref=e709]: ₪2,080
+              - generic [ref=e710]: monthly ₪1,680 · infra ₪400 · charges ₪0
+        - rowgroup [ref=e711]:
+          - row "Total collected ₪2,240 ₪2,240 ₪1,960 ₪2,240 ₪1,680 ₪280 ₪0 ₪0 ₪0 ₪0 ₪0 ₪0 ₪10,640" [ref=e712]:
+            - cell "Total collected" [ref=e713]
+            - cell "₪2,240" [ref=e714]
+            - cell "₪2,240" [ref=e715]
+            - cell "₪1,960" [ref=e716]
+            - cell "₪2,240" [ref=e717]
+            - cell "₪1,680" [ref=e718]
+            - cell "₪280" [ref=e719]
+            - cell "₪0" [ref=e720]
+            - cell "₪0" [ref=e721]
+            - cell "₪0" [ref=e722]
+            - cell "₪0" [ref=e723]
+            - cell "₪0" [ref=e724]
+            - cell "₪0" [ref=e725]
+            - cell "₪10,640" [ref=e726]
+          - row "Infrastructure payments — — — — +₪2,000 — — — — — — — +₪2,000" [ref=e727]:
+            - cell "Infrastructure payments" [ref=e728]
+            - cell "—" [ref=e729]
+            - cell "—" [ref=e730]
+            - cell "—" [ref=e731]
+            - cell "—" [ref=e732]
+            - cell "+₪2,000" [ref=e733]
+            - cell "—" [ref=e734]
+            - cell "—" [ref=e735]
+            - cell "—" [ref=e736]
+            - cell "—" [ref=e737]
+            - cell "—" [ref=e738]
+            - cell "—" [ref=e739]
+            - cell "—" [ref=e740]
+            - cell "+₪2,000" [ref=e741]
+          - row "Expected ₪2,240 ₪2,240 ₪2,240 ₪2,390 ₪5,720 ₪2,520 ₪2,520 ₪2,520 ₪2,520 ₪2,520 ₪2,520 ₪2,520 ₪32,470" [ref=e742]:
+            - cell "Expected" [ref=e743]
+            - cell "₪2,240" [ref=e744]
+            - cell "₪2,240" [ref=e745]
+            - cell "₪2,240" [ref=e746]
+            - cell "₪2,390" [ref=e747]
+            - cell "₪5,720" [ref=e748]
+            - cell "₪2,520" [ref=e749]
+            - cell "₪2,520" [ref=e750]
+            - cell "₪2,520" [ref=e751]
+            - cell "₪2,520" [ref=e752]
+            - cell "₪2,520" [ref=e753]
+            - cell "₪2,520" [ref=e754]
+            - cell "₪2,520" [ref=e755]
+            - cell "₪32,470" [ref=e756]
+  - status

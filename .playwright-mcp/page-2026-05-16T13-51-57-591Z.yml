@@ -1,0 +1,217 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2312]:
+    - status [ref=e2313]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e2314]:
+      - generic [ref=e2316]:
+        - generic [ref=e2317]: ו
+        - generic [ref=e2318]:
+          - text: ועד הבית
+          - generic [ref=e2319]: ניהול ושיקוף לדיירים
+      - generic [ref=e2320]:
+        - generic [ref=e2321]:
+          - button "עברית" [ref=e2322] [cursor=pointer]
+          - button "EN" [ref=e2323] [cursor=pointer]
+        - button "פתיחת תזכורות" [ref=e2325] [cursor=pointer]:
+          - img [ref=e2326]
+        - 'generic "מחובר/ת בתור: מנהל" [ref=e2329]':
+          - generic [ref=e2330]: מ
+          - generic [ref=e2331]:
+            - generic [ref=e2332]: מנהל
+            - generic [ref=e2333]: מנהל ראשי
+        - button "יציאה" [ref=e2334] [cursor=pointer]:
+          - img [ref=e2335]
+          - generic [ref=e2337]: יציאה
+    - complementary [ref=e2338]:
+      - navigation [ref=e2339]:
+        - generic [ref=e2340]: תפריט
+        - button "דשבורד" [ref=e2341] [cursor=pointer]:
+          - img [ref=e2342]
+          - generic [ref=e2347]: דשבורד
+        - button "דירות וחיובים" [ref=e2348] [cursor=pointer]:
+          - img [ref=e2349]
+          - generic [ref=e2352]: דירות וחיובים
+        - button "בעלי דירות" [ref=e2353] [cursor=pointer]:
+          - img [ref=e2354]
+          - generic [ref=e2358]: בעלי דירות
+        - button "הכנסות" [ref=e2359] [cursor=pointer]:
+          - img [ref=e2360]
+          - generic [ref=e2362]: הכנסות
+        - button "הוצאות" [ref=e2363] [cursor=pointer]:
+          - img [ref=e2364]
+          - generic [ref=e2366]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e2367] [cursor=pointer]:
+          - img [ref=e2368]
+          - generic [ref=e2370]: הוצאות תשתיתיות
+        - button "אנשי קשר" [ref=e2371] [cursor=pointer]:
+          - img [ref=e2372]
+          - generic [ref=e2376]: אנשי קשר
+        - button "מסמכים" [ref=e2377] [cursor=pointer]:
+          - img [ref=e2378]
+          - generic [ref=e2381]: מסמכים
+        - button "תזכורות" [ref=e2382] [cursor=pointer]:
+          - img [ref=e2383]
+          - generic [ref=e2386]: תזכורות
+        - button "פניות" [ref=e2387] [cursor=pointer]:
+          - img [ref=e2388]
+          - generic [ref=e2390]: פניות
+        - button "דוחות" [ref=e2391] [cursor=pointer]:
+          - img [ref=e2392]
+          - generic [ref=e2395]: דוחות
+        - button "אודות" [ref=e2396] [cursor=pointer]:
+          - img [ref=e2397]
+          - generic [ref=e2400]: אודות
+        - button "הגדרות" [ref=e2401] [cursor=pointer]:
+          - img [ref=e2402]
+          - generic [ref=e2405]: הגדרות
+    - main [ref=e2406]:
+      - generic [ref=e2407]:
+        - generic [ref=e2408]:
+          - heading "בעלי דירות" [level=1] [ref=e2409]
+          - paragraph [ref=e2410]: ניהול בעלי הדירות בבניין. בעלים יכול להחזיק כמה דירות ולהיכנס בכניסה אחת.
+        - button "בעלים חדש" [ref=e2412] [cursor=pointer]:
+          - img [ref=e2413]
+          - text: בעלים חדש
+      - generic [ref=e2415]:
+        - generic [ref=e2416]: "מיון:"
+        - combobox [ref=e2417]:
+          - option "לפי מספר דירה" [selected]
+          - option "לפי שם"
+      - table [ref=e2420]:
+        - rowgroup [ref=e2421]:
+          - row "דירות שם טלפון אימייל אימייל לכניסה פעולות" [ref=e2422]:
+            - columnheader "דירות" [ref=e2423]
+            - columnheader "שם" [ref=e2424]
+            - columnheader "טלפון" [ref=e2425]
+            - columnheader "אימייל" [ref=e2426]
+            - columnheader "אימייל לכניסה" [ref=e2427]
+            - columnheader "פעולות" [ref=e2428]
+        - rowgroup [ref=e2429]:
+          - row "1 דנה כהן 050-1110001 dana@example.com לא מוגדר 🔑" [ref=e2430]:
+            - cell "1" [ref=e2431]:
+              - strong [ref=e2432]: "1"
+            - cell "דנה כהן" [ref=e2433]
+            - cell "050-1110001" [ref=e2434]:
+              - link "050-1110001" [ref=e2437] [cursor=pointer]:
+                - /url: tel:050-1110001
+            - cell "dana@example.com" [ref=e2438]:
+              - link "dana@example.com" [ref=e2439] [cursor=pointer]:
+                - /url: mailto:dana@example.com
+            - cell "לא מוגדר" [ref=e2440]
+            - cell "🔑" [ref=e2441]:
+              - button "עריכה" [ref=e2442] [cursor=pointer]:
+                - img [ref=e2443]
+              - button "🔑" [ref=e2446] [cursor=pointer]
+              - button "מחיקה" [ref=e2447] [cursor=pointer]:
+                - img [ref=e2448]
+          - row "2 יוסי לוי 050-1110002 — לא מוגדר 🔑" [ref=e2450]:
+            - cell "2" [ref=e2451]:
+              - strong [ref=e2452]: "2"
+            - cell "יוסי לוי" [ref=e2453]
+            - cell "050-1110002" [ref=e2454]:
+              - link "050-1110002" [ref=e2457] [cursor=pointer]:
+                - /url: tel:050-1110002
+            - cell "—" [ref=e2458]
+            - cell "לא מוגדר" [ref=e2459]
+            - cell "🔑" [ref=e2460]:
+              - button "עריכה" [ref=e2461] [cursor=pointer]:
+                - img [ref=e2462]
+              - button "🔑" [ref=e2465] [cursor=pointer]
+              - button "מחיקה" [ref=e2466] [cursor=pointer]:
+                - img [ref=e2467]
+          - row "3 שרה מזרחי 050-1110003 sara@example.com לא מוגדר 🔑" [ref=e2469]:
+            - cell "3" [ref=e2470]:
+              - strong [ref=e2471]: "3"
+            - cell "שרה מזרחי" [ref=e2472]
+            - cell "050-1110003" [ref=e2473]:
+              - link "050-1110003" [ref=e2476] [cursor=pointer]:
+                - /url: tel:050-1110003
+            - cell "sara@example.com" [ref=e2477]:
+              - link "sara@example.com" [ref=e2478] [cursor=pointer]:
+                - /url: mailto:sara@example.com
+            - cell "לא מוגדר" [ref=e2479]
+            - cell "🔑" [ref=e2480]:
+              - button "עריכה" [ref=e2481] [cursor=pointer]:
+                - img [ref=e2482]
+              - button "🔑" [ref=e2485] [cursor=pointer]
+              - button "מחיקה" [ref=e2486] [cursor=pointer]:
+                - img [ref=e2487]
+          - row "4 אבי פרץ 050-1110004 — לא מוגדר 🔑" [ref=e2489]:
+            - cell "4" [ref=e2490]:
+              - strong [ref=e2491]: "4"
+            - cell "אבי פרץ" [ref=e2492]
+            - cell "050-1110004" [ref=e2493]:
+              - link "050-1110004" [ref=e2496] [cursor=pointer]:
+                - /url: tel:050-1110004
+            - cell "—" [ref=e2497]
+            - cell "לא מוגדר" [ref=e2498]
+            - cell "🔑" [ref=e2499]:
+              - button "עריכה" [ref=e2500] [cursor=pointer]:
+                - img [ref=e2501]
+              - button "🔑" [ref=e2504] [cursor=pointer]
+              - button "מחיקה" [ref=e2505] [cursor=pointer]:
+                - img [ref=e2506]
+          - row "5 מיכל אזולאי 050-1110005 michal@example.com לא מוגדר 🔑" [ref=e2508]:
+            - cell "5" [ref=e2509]:
+              - strong [ref=e2510]: "5"
+            - cell "מיכל אזולאי" [ref=e2511]
+            - cell "050-1110005" [ref=e2512]:
+              - link "050-1110005" [ref=e2515] [cursor=pointer]:
+                - /url: tel:050-1110005
+            - cell "michal@example.com" [ref=e2516]:
+              - link "michal@example.com" [ref=e2517] [cursor=pointer]:
+                - /url: mailto:michal@example.com
+            - cell "לא מוגדר" [ref=e2518]
+            - cell "🔑" [ref=e2519]:
+              - button "עריכה" [ref=e2520] [cursor=pointer]:
+                - img [ref=e2521]
+              - button "🔑" [ref=e2524] [cursor=pointer]
+              - button "מחיקה" [ref=e2525] [cursor=pointer]:
+                - img [ref=e2526]
+          - row "6 רון ביטון 050-1110006 — לא מוגדר 🔑" [ref=e2528]:
+            - cell "6" [ref=e2529]:
+              - strong [ref=e2530]: "6"
+            - cell "רון ביטון" [ref=e2531]
+            - cell "050-1110006" [ref=e2532]:
+              - link "050-1110006" [ref=e2535] [cursor=pointer]:
+                - /url: tel:050-1110006
+            - cell "—" [ref=e2536]
+            - cell "לא מוגדר" [ref=e2537]
+            - cell "🔑" [ref=e2538]:
+              - button "עריכה" [ref=e2539] [cursor=pointer]:
+                - img [ref=e2540]
+              - button "🔑" [ref=e2543] [cursor=pointer]
+              - button "מחיקה" [ref=e2544] [cursor=pointer]:
+                - img [ref=e2545]
+          - row "7 נועה אדלר 050-1110007 — לא מוגדר 🔑" [ref=e2547]:
+            - cell "7" [ref=e2548]:
+              - strong [ref=e2549]: "7"
+            - cell "נועה אדלר" [ref=e2550]
+            - cell "050-1110007" [ref=e2551]:
+              - link "050-1110007" [ref=e2554] [cursor=pointer]:
+                - /url: tel:050-1110007
+            - cell "—" [ref=e2555]
+            - cell "לא מוגדר" [ref=e2556]
+            - cell "🔑" [ref=e2557]:
+              - button "עריכה" [ref=e2558] [cursor=pointer]:
+                - img [ref=e2559]
+              - button "🔑" [ref=e2562] [cursor=pointer]
+              - button "מחיקה" [ref=e2563] [cursor=pointer]:
+                - img [ref=e2564]
+          - row "8 אורי שמש 050-1110008 uri@example.com לא מוגדר 🔑" [ref=e2566]:
+            - cell "8" [ref=e2567]:
+              - strong [ref=e2568]: "8"
+            - cell "אורי שמש" [ref=e2569]
+            - cell "050-1110008" [ref=e2570]:
+              - link "050-1110008" [ref=e2573] [cursor=pointer]:
+                - /url: tel:050-1110008
+            - cell "uri@example.com" [ref=e2574]:
+              - link "uri@example.com" [ref=e2575] [cursor=pointer]:
+                - /url: mailto:uri@example.com
+            - cell "לא מוגדר" [ref=e2576]
+            - cell "🔑" [ref=e2577]:
+              - button "עריכה" [ref=e2578] [cursor=pointer]:
+                - img [ref=e2579]
+              - button "🔑" [ref=e2582] [cursor=pointer]
+              - button "מחיקה" [ref=e2583] [cursor=pointer]:
+                - img [ref=e2584]
+  - status

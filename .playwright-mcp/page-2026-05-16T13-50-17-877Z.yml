@@ -1,0 +1,499 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e769]:
+    - status [ref=e770]: 🧪 מצב הדגמה · הנתונים פיקטיביים בלבד ואינם משקפים בניין אמיתי
+    - banner [ref=e771]:
+      - generic [ref=e773]:
+        - generic [ref=e774]: ו
+        - generic [ref=e775]:
+          - text: ועד הבית
+          - generic [ref=e776]: ניהול ושיקוף לדיירים
+      - generic [ref=e777]:
+        - generic [ref=e778]:
+          - button "עברית" [ref=e779] [cursor=pointer]
+          - button "EN" [ref=e780] [cursor=pointer]
+        - button "פתיחת תזכורות" [ref=e782] [cursor=pointer]:
+          - img [ref=e783]
+        - 'generic "מחובר/ת בתור: מנהל" [ref=e786]':
+          - generic [ref=e787]: מ
+          - generic [ref=e788]:
+            - generic [ref=e789]: מנהל
+            - generic [ref=e790]: מנהל ראשי
+        - button "יציאה" [ref=e791] [cursor=pointer]:
+          - img [ref=e792]
+          - generic [ref=e794]: יציאה
+    - complementary [ref=e795]:
+      - navigation [ref=e796]:
+        - generic [ref=e797]: תפריט
+        - button "דשבורד" [ref=e798] [cursor=pointer]:
+          - img [ref=e799]
+          - generic [ref=e804]: דשבורד
+        - button "דירות וחיובים" [ref=e805] [cursor=pointer]:
+          - img [ref=e806]
+          - generic [ref=e809]: דירות וחיובים
+        - button "בעלי דירות" [ref=e810] [cursor=pointer]:
+          - img [ref=e811]
+          - generic [ref=e815]: בעלי דירות
+        - button "הכנסות" [ref=e816] [cursor=pointer]:
+          - img [ref=e817]
+          - generic [ref=e819]: הכנסות
+        - button "הוצאות" [ref=e820] [cursor=pointer]:
+          - img [ref=e821]
+          - generic [ref=e823]: הוצאות
+        - button "הוצאות תשתיתיות" [ref=e824] [cursor=pointer]:
+          - img [ref=e825]
+          - generic [ref=e827]: הוצאות תשתיתיות
+        - button "אנשי קשר" [ref=e828] [cursor=pointer]:
+          - img [ref=e829]
+          - generic [ref=e833]: אנשי קשר
+        - button "מסמכים" [ref=e834] [cursor=pointer]:
+          - img [ref=e835]
+          - generic [ref=e838]: מסמכים
+        - button "תזכורות" [ref=e839] [cursor=pointer]:
+          - img [ref=e840]
+          - generic [ref=e843]: תזכורות
+        - button "פניות" [ref=e844] [cursor=pointer]:
+          - img [ref=e845]
+          - generic [ref=e847]: פניות
+        - button "דוחות" [ref=e848] [cursor=pointer]:
+          - img [ref=e849]
+          - generic [ref=e852]: דוחות
+        - button "אודות" [ref=e853] [cursor=pointer]:
+          - img [ref=e854]
+          - generic [ref=e857]: אודות
+        - button "הגדרות" [ref=e858] [cursor=pointer]:
+          - img [ref=e859]
+          - generic [ref=e862]: הגדרות
+    - main [ref=e863]:
+      - generic [ref=e864]:
+        - generic [ref=e865]:
+          - heading "הכנסות" [level=1] [ref=e866]
+          - paragraph [ref=e867]: מעקב גבייה לפי דירה וחודש · 2026
+        - button "קבלות במערכת" [ref=e869] [cursor=pointer]:
+          - img [ref=e870]
+          - text: קבלות במערכת
+      - generic [ref=e873]:
+        - generic [ref=e874]:
+          - generic [ref=e875]: צפי עד היום
+          - generic [ref=e876]: ‏14,830 ‏₪
+          - generic [ref=e877]: מה שאמור היה להגיע מתחילת השנה ועד החודש הנוכחי
+        - generic [ref=e878]:
+          - generic [ref=e879]: נגבה בפועל
+          - generic [ref=e880]: ‏12,360 ‏₪
+          - generic [ref=e883]: שיעור גבייה 83%
+        - generic [ref=e884]:
+          - generic [ref=e885]: פער
+          - generic [ref=e886]: ‏‎-2,470 ‏₪
+          - generic [ref=e887]: חוסר בגבייה
+      - generic [ref=e888]:
+        - combobox [ref=e889]:
+          - option "2024"
+          - option "2025"
+          - option "2026" [selected]
+          - option "2027"
+          - option "2028"
+          - option "2029"
+          - option "2030"
+          - option "2031"
+          - option "2032"
+          - option "2033"
+          - option "2034"
+          - option "2035"
+          - option "2036"
+        - generic [ref=e890]:
+          - generic [ref=e891]: שולם
+          - generic [ref=e893]: חלקי
+          - generic [ref=e895]: לא שולם
+      - generic [ref=e897]:
+        - strong [ref=e898]: "ייצוא:"
+        - combobox "תקופה" [ref=e899]:
+          - option "תקופה מותאמת" [selected]
+          - option "שנה נוכחית"
+          - option "3 חודשים אחרונים"
+          - option "שנה קודמת"
+          - option "חודש נוכחי"
+        - textbox "מתאריך:" [ref=e900]: 2026-01-01
+        - textbox "עד תאריך:" [ref=e901]: 2026-12-31
+        - button "ייצוא CSV" [ref=e902] [cursor=pointer]:
+          - img [ref=e903]
+          - text: ייצוא CSV
+        - button "ייצוא PDF" [ref=e905] [cursor=pointer]:
+          - img [ref=e906]
+          - text: ייצוא PDF
+      - table [ref=e911]:
+        - rowgroup [ref=e912]:
+          - row "דירה ינו׳ פבר׳ מרץ אפר׳ מאי יוני יולי אוג׳ ספט׳ אוק׳ נוב׳ דצמ׳ סה״כ" [ref=e913]:
+            - columnheader "דירה" [ref=e914]
+            - columnheader "ינו׳" [ref=e915]
+            - columnheader "פבר׳" [ref=e916]
+            - columnheader "מרץ" [ref=e917]
+            - columnheader "אפר׳" [ref=e918]
+            - columnheader "מאי" [ref=e919]
+            - columnheader "יוני" [ref=e920]
+            - columnheader "יולי" [ref=e921]
+            - columnheader "אוג׳" [ref=e922]
+            - columnheader "ספט׳" [ref=e923]
+            - columnheader "אוק׳" [ref=e924]
+            - columnheader "נוב׳" [ref=e925]
+            - columnheader "דצמ׳" [ref=e926]
+            - columnheader "סה״כ" [ref=e927]
+        - rowgroup [ref=e928]:
+          - row "1 דנה כהן ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ +‏400 ‏₪ תשתית — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,800 ‏₪ חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e929]:
+            - cell "1 דנה כהן" [ref=e930]:
+              - strong [ref=e931]: "1"
+              - generic [ref=e932]: דנה כהן
+            - cell "‏280 ‏₪" [ref=e933] [cursor=pointer]:
+              - generic [ref=e934]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e935] [cursor=pointer]:
+              - generic [ref=e936]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e937] [cursor=pointer]:
+              - generic [ref=e938]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e939] [cursor=pointer]:
+              - generic [ref=e940]: ‏280 ‏₪
+            - cell "‏280 ‏₪ +‏400 ‏₪ תשתית" [ref=e941] [cursor=pointer]:
+              - generic [ref=e942]: ‏280 ‏₪
+              - generic [ref=e943]: +‏400 ‏₪ תשתית
+            - cell "— צפוי ‏280 ‏₪" [ref=e944] [cursor=pointer]:
+              - generic [ref=e945]: —
+              - generic [ref=e946]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e947] [cursor=pointer]:
+              - generic [ref=e948]: —
+              - generic [ref=e949]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e950] [cursor=pointer]:
+              - generic [ref=e951]: —
+              - generic [ref=e952]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e953] [cursor=pointer]:
+              - generic [ref=e954]: —
+              - generic [ref=e955]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e956] [cursor=pointer]:
+              - generic [ref=e957]: —
+              - generic [ref=e958]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e959] [cursor=pointer]:
+              - generic [ref=e960]: —
+              - generic [ref=e961]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e962] [cursor=pointer]:
+              - generic [ref=e963]: —
+              - generic [ref=e964]: צפוי ‏280 ‏₪
+            - cell "‏1,800 ‏₪ חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e965]:
+              - strong [ref=e966]: ‏1,800 ‏₪
+              - generic [ref=e967]: חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪
+          - row "2 יוסי לוי ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ +‏400 ‏₪ תשתית — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,800 ‏₪ חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e968]:
+            - cell "2 יוסי לוי" [ref=e969]:
+              - strong [ref=e970]: "2"
+              - generic [ref=e971]: יוסי לוי
+            - cell "‏280 ‏₪" [ref=e972] [cursor=pointer]:
+              - generic [ref=e973]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e974] [cursor=pointer]:
+              - generic [ref=e975]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e976] [cursor=pointer]:
+              - generic [ref=e977]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e978] [cursor=pointer]:
+              - generic [ref=e979]: ‏280 ‏₪
+            - cell "‏280 ‏₪ +‏400 ‏₪ תשתית" [ref=e980] [cursor=pointer]:
+              - generic [ref=e981]: ‏280 ‏₪
+              - generic [ref=e982]: +‏400 ‏₪ תשתית
+            - cell "— צפוי ‏280 ‏₪" [ref=e983] [cursor=pointer]:
+              - generic [ref=e984]: —
+              - generic [ref=e985]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e986] [cursor=pointer]:
+              - generic [ref=e987]: —
+              - generic [ref=e988]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e989] [cursor=pointer]:
+              - generic [ref=e990]: —
+              - generic [ref=e991]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e992] [cursor=pointer]:
+              - generic [ref=e993]: —
+              - generic [ref=e994]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e995] [cursor=pointer]:
+              - generic [ref=e996]: —
+              - generic [ref=e997]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e998] [cursor=pointer]:
+              - generic [ref=e999]: —
+              - generic [ref=e1000]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1001] [cursor=pointer]:
+              - generic [ref=e1002]: —
+              - generic [ref=e1003]: צפוי ‏280 ‏₪
+            - cell "‏1,800 ‏₪ חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1004]:
+              - strong [ref=e1005]: ‏1,800 ‏₪
+              - generic [ref=e1006]: חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪
+          - 'row "3 תום שוורץ יתרה לתשלום: ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ — חוב ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ +‏400 ‏₪ תשתית — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,520 ‏₪ חודשי ‏1,120 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1007]':
+            - 'cell "3 תום שוורץ יתרה לתשלום: ‏280 ‏₪" [ref=e1008]':
+              - strong [ref=e1009]: "3"
+              - generic [ref=e1010]: תום שוורץ
+              - generic [ref=e1011]: "יתרה לתשלום: ‏280 ‏₪"
+            - cell "‏280 ‏₪" [ref=e1012] [cursor=pointer]:
+              - generic [ref=e1013]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1014] [cursor=pointer]:
+              - generic [ref=e1015]: ‏280 ‏₪
+            - cell "— חוב ‏280 ‏₪" [ref=e1016] [cursor=pointer]:
+              - generic [ref=e1017]: —
+              - generic [ref=e1018]: חוב ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1019] [cursor=pointer]:
+              - generic [ref=e1020]: ‏280 ‏₪
+            - cell "‏280 ‏₪ +‏400 ‏₪ תשתית" [ref=e1021] [cursor=pointer]:
+              - generic [ref=e1022]: ‏280 ‏₪
+              - generic [ref=e1023]: +‏400 ‏₪ תשתית
+            - cell "— צפוי ‏280 ‏₪" [ref=e1024] [cursor=pointer]:
+              - generic [ref=e1025]: —
+              - generic [ref=e1026]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1027] [cursor=pointer]:
+              - generic [ref=e1028]: —
+              - generic [ref=e1029]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1030] [cursor=pointer]:
+              - generic [ref=e1031]: —
+              - generic [ref=e1032]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1033] [cursor=pointer]:
+              - generic [ref=e1034]: —
+              - generic [ref=e1035]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1036] [cursor=pointer]:
+              - generic [ref=e1037]: —
+              - generic [ref=e1038]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1039] [cursor=pointer]:
+              - generic [ref=e1040]: —
+              - generic [ref=e1041]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1042] [cursor=pointer]:
+              - generic [ref=e1043]: —
+              - generic [ref=e1044]: צפוי ‏280 ‏₪
+            - cell "‏1,520 ‏₪ חודשי ‏1,120 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1045]:
+              - strong [ref=e1046]: ‏1,520 ‏₪
+              - generic [ref=e1047]: חודשי ‏1,120 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪
+          - 'row "4 אבי פרץ יתרה לתשלום: ‏830 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ — חוב ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,120 ‏₪" [ref=e1048]':
+            - 'cell "4 אבי פרץ יתרה לתשלום: ‏830 ‏₪" [ref=e1049]':
+              - strong [ref=e1050]: "4"
+              - generic [ref=e1051]: אבי פרץ
+              - generic [ref=e1052]: "יתרה לתשלום: ‏830 ‏₪"
+            - cell "‏280 ‏₪" [ref=e1053] [cursor=pointer]:
+              - generic [ref=e1054]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1055] [cursor=pointer]:
+              - generic [ref=e1056]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1057] [cursor=pointer]:
+              - generic [ref=e1058]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1059] [cursor=pointer]:
+              - generic [ref=e1060]: ‏280 ‏₪
+            - cell "— חוב ‏280 ‏₪" [ref=e1061] [cursor=pointer]:
+              - generic [ref=e1062]: —
+              - generic [ref=e1063]: חוב ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1064] [cursor=pointer]:
+              - generic [ref=e1065]: —
+              - generic [ref=e1066]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1067] [cursor=pointer]:
+              - generic [ref=e1068]: —
+              - generic [ref=e1069]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1070] [cursor=pointer]:
+              - generic [ref=e1071]: —
+              - generic [ref=e1072]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1073] [cursor=pointer]:
+              - generic [ref=e1074]: —
+              - generic [ref=e1075]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1076] [cursor=pointer]:
+              - generic [ref=e1077]: —
+              - generic [ref=e1078]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1079] [cursor=pointer]:
+              - generic [ref=e1080]: —
+              - generic [ref=e1081]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1082] [cursor=pointer]:
+              - generic [ref=e1083]: —
+              - generic [ref=e1084]: צפוי ‏280 ‏₪
+            - cell "‏1,120 ‏₪" [ref=e1085]:
+              - strong [ref=e1086]: ‏1,120 ‏₪
+          - 'row "5 מיכל אזולאי יתרה לתשלום: ‏400 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,400 ‏₪" [ref=e1087]':
+            - 'cell "5 מיכל אזולאי יתרה לתשלום: ‏400 ‏₪" [ref=e1088]':
+              - strong [ref=e1089]: "5"
+              - generic [ref=e1090]: מיכל אזולאי
+              - generic [ref=e1091]: "יתרה לתשלום: ‏400 ‏₪"
+            - cell "‏280 ‏₪" [ref=e1092] [cursor=pointer]:
+              - generic [ref=e1093]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1094] [cursor=pointer]:
+              - generic [ref=e1095]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1096] [cursor=pointer]:
+              - generic [ref=e1097]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1098] [cursor=pointer]:
+              - generic [ref=e1099]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1100] [cursor=pointer]:
+              - generic [ref=e1101]: ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1102] [cursor=pointer]:
+              - generic [ref=e1103]: —
+              - generic [ref=e1104]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1105] [cursor=pointer]:
+              - generic [ref=e1106]: —
+              - generic [ref=e1107]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1108] [cursor=pointer]:
+              - generic [ref=e1109]: —
+              - generic [ref=e1110]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1111] [cursor=pointer]:
+              - generic [ref=e1112]: —
+              - generic [ref=e1113]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1114] [cursor=pointer]:
+              - generic [ref=e1115]: —
+              - generic [ref=e1116]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1117] [cursor=pointer]:
+              - generic [ref=e1118]: —
+              - generic [ref=e1119]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1120] [cursor=pointer]:
+              - generic [ref=e1121]: —
+              - generic [ref=e1122]: צפוי ‏280 ‏₪
+            - cell "‏1,400 ‏₪" [ref=e1123]:
+              - strong [ref=e1124]: ‏1,400 ‏₪
+          - 'row "6 איתי גרין יתרה לתשלום: ‏680 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ — חוב ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,120 ‏₪" [ref=e1125]':
+            - 'cell "6 איתי גרין יתרה לתשלום: ‏680 ‏₪" [ref=e1126]':
+              - strong [ref=e1127]: "6"
+              - generic [ref=e1128]: איתי גרין
+              - generic [ref=e1129]: "יתרה לתשלום: ‏680 ‏₪"
+            - cell "‏280 ‏₪" [ref=e1130] [cursor=pointer]:
+              - generic [ref=e1131]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1132] [cursor=pointer]:
+              - generic [ref=e1133]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1134] [cursor=pointer]:
+              - generic [ref=e1135]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1136] [cursor=pointer]:
+              - generic [ref=e1137]: ‏280 ‏₪
+            - cell "— חוב ‏280 ‏₪" [ref=e1138] [cursor=pointer]:
+              - generic [ref=e1139]: —
+              - generic [ref=e1140]: חוב ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1141] [cursor=pointer]:
+              - generic [ref=e1142]: —
+              - generic [ref=e1143]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1144] [cursor=pointer]:
+              - generic [ref=e1145]: —
+              - generic [ref=e1146]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1147] [cursor=pointer]:
+              - generic [ref=e1148]: —
+              - generic [ref=e1149]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1150] [cursor=pointer]:
+              - generic [ref=e1151]: —
+              - generic [ref=e1152]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1153] [cursor=pointer]:
+              - generic [ref=e1154]: —
+              - generic [ref=e1155]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1156] [cursor=pointer]:
+              - generic [ref=e1157]: —
+              - generic [ref=e1158]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1159] [cursor=pointer]:
+              - generic [ref=e1160]: —
+              - generic [ref=e1161]: צפוי ‏280 ‏₪
+            - cell "‏1,120 ‏₪" [ref=e1162]:
+              - strong [ref=e1163]: ‏1,120 ‏₪
+          - row "7 נועה אדלר ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ +‏400 ‏₪ תשתית — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏1,800 ‏₪ חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1164]:
+            - cell "7 נועה אדלר" [ref=e1165]:
+              - strong [ref=e1166]: "7"
+              - generic [ref=e1167]: נועה אדלר
+            - cell "‏280 ‏₪" [ref=e1168] [cursor=pointer]:
+              - generic [ref=e1169]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1170] [cursor=pointer]:
+              - generic [ref=e1171]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1172] [cursor=pointer]:
+              - generic [ref=e1173]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1174] [cursor=pointer]:
+              - generic [ref=e1175]: ‏280 ‏₪
+            - cell "‏280 ‏₪ +‏400 ‏₪ תשתית" [ref=e1176] [cursor=pointer]:
+              - generic [ref=e1177]: ‏280 ‏₪
+              - generic [ref=e1178]: +‏400 ‏₪ תשתית
+            - cell "— צפוי ‏280 ‏₪" [ref=e1179] [cursor=pointer]:
+              - generic [ref=e1180]: —
+              - generic [ref=e1181]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1182] [cursor=pointer]:
+              - generic [ref=e1183]: —
+              - generic [ref=e1184]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1185] [cursor=pointer]:
+              - generic [ref=e1186]: —
+              - generic [ref=e1187]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1188] [cursor=pointer]:
+              - generic [ref=e1189]: —
+              - generic [ref=e1190]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1191] [cursor=pointer]:
+              - generic [ref=e1192]: —
+              - generic [ref=e1193]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1194] [cursor=pointer]:
+              - generic [ref=e1195]: —
+              - generic [ref=e1196]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1197] [cursor=pointer]:
+              - generic [ref=e1198]: —
+              - generic [ref=e1199]: צפוי ‏280 ‏₪
+            - cell "‏1,800 ‏₪ חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1200]:
+              - strong [ref=e1201]: ‏1,800 ‏₪
+              - generic [ref=e1202]: חודשי ‏1,400 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪
+          - 'row "8 הילה דהן יתרת זכות: ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ ‏280 ‏₪ +‏400 ‏₪ תשתית ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ — צפוי ‏280 ‏₪ ‏2,080 ‏₪ חודשי ‏1,680 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1203]':
+            - 'cell "8 הילה דהן יתרת זכות: ‏280 ‏₪" [ref=e1204]':
+              - strong [ref=e1205]: "8"
+              - generic [ref=e1206]: הילה דהן
+              - generic [ref=e1207]: "יתרת זכות: ‏280 ‏₪"
+            - cell "‏280 ‏₪" [ref=e1208] [cursor=pointer]:
+              - generic [ref=e1209]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1210] [cursor=pointer]:
+              - generic [ref=e1211]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1212] [cursor=pointer]:
+              - generic [ref=e1213]: ‏280 ‏₪
+            - cell "‏280 ‏₪" [ref=e1214] [cursor=pointer]:
+              - generic [ref=e1215]: ‏280 ‏₪
+            - cell "‏280 ‏₪ +‏400 ‏₪ תשתית" [ref=e1216] [cursor=pointer]:
+              - generic [ref=e1217]: ‏280 ‏₪
+              - generic [ref=e1218]: +‏400 ‏₪ תשתית
+            - cell "‏280 ‏₪" [ref=e1219] [cursor=pointer]:
+              - generic [ref=e1220]: ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1221] [cursor=pointer]:
+              - generic [ref=e1222]: —
+              - generic [ref=e1223]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1224] [cursor=pointer]:
+              - generic [ref=e1225]: —
+              - generic [ref=e1226]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1227] [cursor=pointer]:
+              - generic [ref=e1228]: —
+              - generic [ref=e1229]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1230] [cursor=pointer]:
+              - generic [ref=e1231]: —
+              - generic [ref=e1232]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1233] [cursor=pointer]:
+              - generic [ref=e1234]: —
+              - generic [ref=e1235]: צפוי ‏280 ‏₪
+            - cell "— צפוי ‏280 ‏₪" [ref=e1236] [cursor=pointer]:
+              - generic [ref=e1237]: —
+              - generic [ref=e1238]: צפוי ‏280 ‏₪
+            - cell "‏2,080 ‏₪ חודשי ‏1,680 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪" [ref=e1239]:
+              - strong [ref=e1240]: ‏2,080 ‏₪
+              - generic [ref=e1241]: חודשי ‏1,680 ‏₪ · תשתית ‏400 ‏₪ · חיובים ‏0 ‏₪
+        - rowgroup [ref=e1242]:
+          - row "סה״כ נגבה ‏2,240 ‏₪ ‏2,240 ‏₪ ‏1,960 ‏₪ ‏2,240 ‏₪ ‏1,680 ‏₪ ‏280 ‏₪ ‏0 ‏₪ ‏0 ‏₪ ‏0 ‏₪ ‏0 ‏₪ ‏0 ‏₪ ‏0 ‏₪ ‏10,640 ‏₪" [ref=e1243]:
+            - cell "סה״כ נגבה" [ref=e1244]
+            - cell "‏2,240 ‏₪" [ref=e1245]
+            - cell "‏2,240 ‏₪" [ref=e1246]
+            - cell "‏1,960 ‏₪" [ref=e1247]
+            - cell "‏2,240 ‏₪" [ref=e1248]
+            - cell "‏1,680 ‏₪" [ref=e1249]
+            - cell "‏280 ‏₪" [ref=e1250]
+            - cell "‏0 ‏₪" [ref=e1251]
+            - cell "‏0 ‏₪" [ref=e1252]
+            - cell "‏0 ‏₪" [ref=e1253]
+            - cell "‏0 ‏₪" [ref=e1254]
+            - cell "‏0 ‏₪" [ref=e1255]
+            - cell "‏0 ‏₪" [ref=e1256]
+            - cell "‏10,640 ‏₪" [ref=e1257]
+          - row "תשלומי תשתיות — — — — +‏2,000 ‏₪ — — — — — — — +‏2,000 ‏₪" [ref=e1258]:
+            - cell "תשלומי תשתיות" [ref=e1259]
+            - cell "—" [ref=e1260]
+            - cell "—" [ref=e1261]
+            - cell "—" [ref=e1262]
+            - cell "—" [ref=e1263]
+            - cell "+‏2,000 ‏₪" [ref=e1264]
+            - cell "—" [ref=e1265]
+            - cell "—" [ref=e1266]
+            - cell "—" [ref=e1267]
+            - cell "—" [ref=e1268]
+            - cell "—" [ref=e1269]
+            - cell "—" [ref=e1270]
+            - cell "—" [ref=e1271]
+            - cell "+‏2,000 ‏₪" [ref=e1272]
+          - row "צפי ‏2,240 ‏₪ ‏2,240 ‏₪ ‏2,240 ‏₪ ‏2,390 ‏₪ ‏5,720 ‏₪ ‏2,520 ‏₪ ‏2,520 ‏₪ ‏2,520 ‏₪ ‏2,520 ‏₪ ‏2,520 ‏₪ ‏2,520 ‏₪ ‏2,520 ‏₪ ‏32,470 ‏₪" [ref=e1273]:
+            - cell "צפי" [ref=e1274]
+            - cell "‏2,240 ‏₪" [ref=e1275]
+            - cell "‏2,240 ‏₪" [ref=e1276]
+            - cell "‏2,240 ‏₪" [ref=e1277]
+            - cell "‏2,390 ‏₪" [ref=e1278]
+            - cell "‏5,720 ‏₪" [ref=e1279]
+            - cell "‏2,520 ‏₪" [ref=e1280]
+            - cell "‏2,520 ‏₪" [ref=e1281]
+            - cell "‏2,520 ‏₪" [ref=e1282]
+            - cell "‏2,520 ‏₪" [ref=e1283]
+            - cell "‏2,520 ‏₪" [ref=e1284]
+            - cell "‏2,520 ‏₪" [ref=e1285]
+            - cell "‏2,520 ‏₪" [ref=e1286]
+            - cell "‏32,470 ‏₪" [ref=e1287]
+  - status

@@ -1,0 +1,501 @@
+- generic [ref=e1]:
+  - generic [ref=e321]:
+    - status [ref=e322]: 🧪 DEMO MODE · Fake data — does NOT reflect any real building
+    - banner [ref=e323]:
+      - generic [ref=e325]:
+        - generic [ref=e326]: V
+        - generic [ref=e327]:
+          - text: Building Committee
+          - generic [ref=e328]: Management & transparency for residents
+      - generic [ref=e329]:
+        - generic [ref=e330]:
+          - button "עברית" [ref=e331] [cursor=pointer]
+          - button "EN" [ref=e332] [cursor=pointer]
+        - button "Open reminders" [ref=e334] [cursor=pointer]:
+          - img [ref=e335]
+        - generic "Signed in as מנהל" [ref=e338]:
+          - generic [ref=e339]: מ
+          - generic [ref=e340]:
+            - generic [ref=e341]: מנהל
+            - generic [ref=e342]: Master admin
+        - button "Sign out" [ref=e343] [cursor=pointer]:
+          - img [ref=e344]
+          - generic [ref=e346]: Sign out
+    - complementary [ref=e347]:
+      - navigation [ref=e348]:
+        - generic [ref=e349]: Menu
+        - button "Dashboard" [ref=e350] [cursor=pointer]:
+          - img [ref=e351]
+          - generic [ref=e356]: Dashboard
+        - button "Apartments" [ref=e357] [cursor=pointer]:
+          - img [ref=e358]
+          - generic [ref=e361]: Apartments
+        - button "Property owners" [ref=e362] [cursor=pointer]:
+          - img [ref=e363]
+          - generic [ref=e367]: Property owners
+        - button "Income" [ref=e368] [cursor=pointer]:
+          - img [ref=e369]
+          - generic [ref=e371]: Income
+        - button "Expenses" [ref=e372] [cursor=pointer]:
+          - img [ref=e373]
+          - generic [ref=e375]: Expenses
+        - button "Infrastructure" [ref=e376] [cursor=pointer]:
+          - img [ref=e377]
+          - generic [ref=e379]: Infrastructure
+        - button "Contacts" [ref=e380] [cursor=pointer]:
+          - img [ref=e381]
+          - generic [ref=e385]: Contacts
+        - button "Documents" [ref=e386] [cursor=pointer]:
+          - img [ref=e387]
+          - generic [ref=e390]: Documents
+        - button "Reminders" [ref=e391] [cursor=pointer]:
+          - img [ref=e392]
+          - generic [ref=e395]: Reminders
+        - button "Tickets" [ref=e396] [cursor=pointer]:
+          - img [ref=e397]
+          - generic [ref=e399]: Tickets
+        - button "Reports" [ref=e400] [cursor=pointer]:
+          - img [ref=e401]
+          - generic [ref=e404]: Reports
+        - button "About" [ref=e405] [cursor=pointer]:
+          - img [ref=e406]
+          - generic [ref=e409]: About
+        - button "Settings" [ref=e410] [cursor=pointer]:
+          - img [ref=e411]
+          - generic [ref=e414]: Settings
+    - main [ref=e415]:
+      - generic [ref=e416]:
+        - generic [ref=e417]:
+          - heading "Apartments & dues" [level=1] [ref=e418]
+          - paragraph [ref=e419]: 9 apartments · monthly fee ₪280
+        - button "Add apartment" [ref=e421] [cursor=pointer]:
+          - img [ref=e422]
+          - text: Add apartment
+      - generic [ref=e424]:
+        - generic [ref=e425]:
+          - generic [ref=e426]: "View year:"
+          - combobox [ref=e427]:
+            - option "2024"
+            - option "2025"
+            - option "2026" [selected]
+            - option "2027"
+            - option "2028"
+            - option "2029"
+            - option "2030"
+            - option "2031"
+            - option "2032"
+            - option "2033"
+            - option "2034"
+            - option "2035"
+            - option "2036"
+        - button "Bulk mark paid" [active] [ref=e428] [cursor=pointer]
+        - generic [ref=e429]:
+          - text: "Total apartments:"
+          - strong [ref=e430]: "8"
+      - generic [ref=e1048]:
+        - strong [ref=e1050]: "Selected: 0"
+        - button "Select all" [ref=e1051] [cursor=pointer]
+        - button "Clear" [ref=e1052] [cursor=pointer]
+        - generic [ref=e1053]:
+          - generic [ref=e1054]: "Month:"
+          - combobox [ref=e1055]:
+            - option "January"
+            - option "February"
+            - option "March"
+            - option "April"
+            - option "May" [selected]
+            - option "June"
+            - option "July"
+            - option "August"
+            - option "September"
+            - option "October"
+            - option "November"
+            - option "December"
+        - button "Mark paid" [disabled] [ref=e1056]
+      - table [ref=e433]:
+        - rowgroup [ref=e434]:
+          - row "Apt Owner / Tenant Phone Yearly status 2026 Expected (yr) Actually paid Outstanding Actions" [ref=e435]:
+            - columnheader [ref=e1057]
+            - columnheader "Apt" [ref=e436]
+            - columnheader "Owner / Tenant" [ref=e437]
+            - columnheader "Phone" [ref=e438]
+            - columnheader "Yearly status 2026" [ref=e439]
+            - columnheader "Expected (yr)" [ref=e440]
+            - columnheader "Actually paid" [ref=e441]
+            - columnheader "Outstanding" [ref=e442]
+            - columnheader "Actions" [ref=e443]
+        - rowgroup [ref=e444]:
+          - 'row "1 דנה כהן Owner 050-1110001 dana@example.com January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,400 +₪400 infra total: ₪1,800 ₪0 Balanced Detail ↻" [ref=e445]':
+            - cell [ref=e1058]:
+              - checkbox [ref=e1059]
+            - cell "1" [ref=e446]:
+              - strong [ref=e447]: "1"
+            - cell "דנה כהן Owner" [ref=e448]:
+              - generic [ref=e449]:
+                - generic [ref=e450]: דנה כהן
+                - generic [ref=e451]: Owner
+            - cell "050-1110001 dana@example.com" [ref=e452]:
+              - link "050-1110001" [ref=e454] [cursor=pointer]:
+                - /url: tel:050-1110001
+              - link "dana@example.com" [ref=e456] [cursor=pointer]:
+                - /url: mailto:dana@example.com
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e457]':
+              - generic [ref=e458]:
+                - 'generic "January: ₪280 / ₪280" [ref=e459]'
+                - 'generic "February: ₪280 / ₪280" [ref=e460]'
+                - 'generic "March: ₪280 / ₪280" [ref=e461]'
+                - 'generic "April: ₪280 / ₪280" [ref=e462]'
+                - 'generic "May: ₪280 / ₪280" [ref=e463]'
+                - 'generic "June: ₪0 / ₪280" [ref=e464]'
+                - 'generic "July: ₪0 / ₪280" [ref=e465]'
+                - 'generic "August: ₪0 / ₪280" [ref=e466]'
+                - 'generic "September: ₪0 / ₪280" [ref=e467]'
+                - 'generic "October: ₪0 / ₪280" [ref=e468]'
+                - 'generic "November: ₪0 / ₪280" [ref=e469]'
+                - 'generic "December: ₪0 / ₪280" [ref=e470]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e471]':
+              - generic [ref=e472]: ₪3,360
+              - generic [ref=e473]: +₪400 infra
+              - generic [ref=e474]: "total: ₪3,760"
+            - 'cell "₪1,400 +₪400 infra total: ₪1,800" [ref=e475]':
+              - generic [ref=e476]: ₪1,400
+              - generic [ref=e477]: +₪400 infra
+              - generic [ref=e478]: "total: ₪1,800"
+            - cell "₪0 Balanced" [ref=e479]:
+              - text: ₪0
+              - generic [ref=e480]: Balanced
+            - cell "Detail ↻" [ref=e481]:
+              - button "Detail" [ref=e482] [cursor=pointer]
+              - button "Edit" [ref=e483] [cursor=pointer]:
+                - img [ref=e484]
+              - button "↻" [ref=e487] [cursor=pointer]
+              - button "Delete" [ref=e488] [cursor=pointer]:
+                - img [ref=e489]
+          - 'row "2 יוסי לוי Owner 050-1110002 January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,400 +₪400 infra total: ₪1,800 ₪0 Balanced Detail ↻" [ref=e491]':
+            - cell [ref=e1060]:
+              - checkbox [ref=e1061]
+            - cell "2" [ref=e492]:
+              - strong [ref=e493]: "2"
+            - cell "יוסי לוי Owner" [ref=e494]:
+              - generic [ref=e495]:
+                - generic [ref=e496]: יוסי לוי
+                - generic [ref=e497]: Owner
+            - cell "050-1110002" [ref=e498]:
+              - link "050-1110002" [ref=e500] [cursor=pointer]:
+                - /url: tel:050-1110002
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e501]':
+              - generic [ref=e502]:
+                - 'generic "January: ₪280 / ₪280" [ref=e503]'
+                - 'generic "February: ₪280 / ₪280" [ref=e504]'
+                - 'generic "March: ₪280 / ₪280" [ref=e505]'
+                - 'generic "April: ₪280 / ₪280" [ref=e506]'
+                - 'generic "May: ₪280 / ₪280" [ref=e507]'
+                - 'generic "June: ₪0 / ₪280" [ref=e508]'
+                - 'generic "July: ₪0 / ₪280" [ref=e509]'
+                - 'generic "August: ₪0 / ₪280" [ref=e510]'
+                - 'generic "September: ₪0 / ₪280" [ref=e511]'
+                - 'generic "October: ₪0 / ₪280" [ref=e512]'
+                - 'generic "November: ₪0 / ₪280" [ref=e513]'
+                - 'generic "December: ₪0 / ₪280" [ref=e514]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e515]':
+              - generic [ref=e516]: ₪3,360
+              - generic [ref=e517]: +₪400 infra
+              - generic [ref=e518]: "total: ₪3,760"
+            - 'cell "₪1,400 +₪400 infra total: ₪1,800" [ref=e519]':
+              - generic [ref=e520]: ₪1,400
+              - generic [ref=e521]: +₪400 infra
+              - generic [ref=e522]: "total: ₪1,800"
+            - cell "₪0 Balanced" [ref=e523]:
+              - text: ₪0
+              - generic [ref=e524]: Balanced
+            - cell "Detail ↻" [ref=e525]:
+              - button "Detail" [ref=e526] [cursor=pointer]
+              - button "Edit" [ref=e527] [cursor=pointer]:
+                - img [ref=e528]
+              - button "↻" [ref=e531] [cursor=pointer]
+              - button "Delete" [ref=e532] [cursor=pointer]:
+                - img [ref=e533]
+          - 'row "3 תום שוורץ Renter ▾ 052-2220003 January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪0 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,120 +₪400 infra total: ₪1,520 ₪280 Debt Detail 🔑 ↻" [ref=e535]':
+            - cell [ref=e1062]:
+              - checkbox [ref=e1063]
+            - cell "3" [ref=e536]:
+              - strong [ref=e537]: "3"
+            - cell "תום שוורץ Renter ▾" [ref=e538]:
+              - generic [ref=e539]:
+                - generic [ref=e540]: תום שוורץ
+                - generic [ref=e541]: Renter
+                - button "▾" [ref=e542] [cursor=pointer]
+            - cell "052-2220003" [ref=e543]:
+              - link "052-2220003" [ref=e545] [cursor=pointer]:
+                - /url: tel:052-2220003
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪0 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e546]':
+              - generic [ref=e547]:
+                - 'generic "January: ₪280 / ₪280" [ref=e548]'
+                - 'generic "February: ₪280 / ₪280" [ref=e549]'
+                - 'generic "March: ₪0 / ₪280" [ref=e550]'
+                - 'generic "April: ₪280 / ₪280" [ref=e551]'
+                - 'generic "May: ₪280 / ₪280" [ref=e552]'
+                - 'generic "June: ₪0 / ₪280" [ref=e553]'
+                - 'generic "July: ₪0 / ₪280" [ref=e554]'
+                - 'generic "August: ₪0 / ₪280" [ref=e555]'
+                - 'generic "September: ₪0 / ₪280" [ref=e556]'
+                - 'generic "October: ₪0 / ₪280" [ref=e557]'
+                - 'generic "November: ₪0 / ₪280" [ref=e558]'
+                - 'generic "December: ₪0 / ₪280" [ref=e559]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e560]':
+              - generic [ref=e561]: ₪3,360
+              - generic [ref=e562]: +₪400 infra
+              - generic [ref=e563]: "total: ₪3,760"
+            - 'cell "₪1,120 +₪400 infra total: ₪1,520" [ref=e564]':
+              - generic [ref=e565]: ₪1,120
+              - generic [ref=e566]: +₪400 infra
+              - generic [ref=e567]: "total: ₪1,520"
+            - cell "₪280 Debt" [ref=e568]:
+              - text: ₪280
+              - generic [ref=e569]: Debt
+            - cell "Detail 🔑 ↻" [ref=e570]:
+              - button "Detail" [ref=e571] [cursor=pointer]
+              - button "Edit" [ref=e572] [cursor=pointer]:
+                - img [ref=e573]
+              - button "🔑" [ref=e576] [cursor=pointer]
+              - button "↻" [ref=e577] [cursor=pointer]
+              - button "Delete" [ref=e578] [cursor=pointer]:
+                - img [ref=e579]
+          - 'row "4 אבי פרץ Owner 050-1110004 January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪0 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,120 ₪830 Debt Detail ↻" [ref=e581]':
+            - cell [ref=e1064]:
+              - checkbox [ref=e1065]
+            - cell "4" [ref=e582]:
+              - strong [ref=e583]: "4"
+            - cell "אבי פרץ Owner" [ref=e584]:
+              - generic [ref=e585]:
+                - generic [ref=e586]: אבי פרץ
+                - generic [ref=e587]: Owner
+            - cell "050-1110004" [ref=e588]:
+              - link "050-1110004" [ref=e590] [cursor=pointer]:
+                - /url: tel:050-1110004
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪0 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e591]':
+              - generic [ref=e592]:
+                - 'generic "January: ₪280 / ₪280" [ref=e593]'
+                - 'generic "February: ₪280 / ₪280" [ref=e594]'
+                - 'generic "March: ₪280 / ₪280" [ref=e595]'
+                - 'generic "April: ₪280 / ₪280" [ref=e596]'
+                - 'generic "May: ₪0 / ₪280" [ref=e597]'
+                - 'generic "June: ₪0 / ₪280" [ref=e598]'
+                - 'generic "July: ₪0 / ₪280" [ref=e599]'
+                - 'generic "August: ₪0 / ₪280" [ref=e600]'
+                - 'generic "September: ₪0 / ₪280" [ref=e601]'
+                - 'generic "October: ₪0 / ₪280" [ref=e602]'
+                - 'generic "November: ₪0 / ₪280" [ref=e603]'
+                - 'generic "December: ₪0 / ₪280" [ref=e604]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e605]':
+              - generic [ref=e606]: ₪3,360
+              - generic [ref=e607]: +₪400 infra
+              - generic [ref=e608]: "total: ₪3,760"
+            - cell "₪1,120" [ref=e609]:
+              - generic [ref=e610]: ₪1,120
+            - cell "₪830 Debt" [ref=e611]:
+              - text: ₪830
+              - generic [ref=e612]: Debt
+            - cell "Detail ↻" [ref=e613]:
+              - button "Detail" [ref=e614] [cursor=pointer]
+              - button "Edit" [ref=e615] [cursor=pointer]:
+                - img [ref=e616]
+              - button "↻" [ref=e619] [cursor=pointer]
+              - button "Delete" [ref=e620] [cursor=pointer]:
+                - img [ref=e621]
+          - 'row "5 מיכל אזולאי Owner 050-1110005 michal@example.com January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,400 ₪400 Debt Detail ↻" [ref=e623]':
+            - cell [ref=e1066]:
+              - checkbox [ref=e1067]
+            - cell "5" [ref=e624]:
+              - strong [ref=e625]: "5"
+            - cell "מיכל אזולאי Owner" [ref=e626]:
+              - generic [ref=e627]:
+                - generic [ref=e628]: מיכל אזולאי
+                - generic [ref=e629]: Owner
+            - cell "050-1110005 michal@example.com" [ref=e630]:
+              - link "050-1110005" [ref=e632] [cursor=pointer]:
+                - /url: tel:050-1110005
+              - link "michal@example.com" [ref=e634] [cursor=pointer]:
+                - /url: mailto:michal@example.com
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e635]':
+              - generic [ref=e636]:
+                - 'generic "January: ₪280 / ₪280" [ref=e637]'
+                - 'generic "February: ₪280 / ₪280" [ref=e638]'
+                - 'generic "March: ₪280 / ₪280" [ref=e639]'
+                - 'generic "April: ₪280 / ₪280" [ref=e640]'
+                - 'generic "May: ₪280 / ₪280" [ref=e641]'
+                - 'generic "June: ₪0 / ₪280" [ref=e642]'
+                - 'generic "July: ₪0 / ₪280" [ref=e643]'
+                - 'generic "August: ₪0 / ₪280" [ref=e644]'
+                - 'generic "September: ₪0 / ₪280" [ref=e645]'
+                - 'generic "October: ₪0 / ₪280" [ref=e646]'
+                - 'generic "November: ₪0 / ₪280" [ref=e647]'
+                - 'generic "December: ₪0 / ₪280" [ref=e648]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e649]':
+              - generic [ref=e650]: ₪3,360
+              - generic [ref=e651]: +₪400 infra
+              - generic [ref=e652]: "total: ₪3,760"
+            - cell "₪1,400" [ref=e653]:
+              - generic [ref=e654]: ₪1,400
+            - cell "₪400 Debt" [ref=e655]:
+              - text: ₪400
+              - generic [ref=e656]: Debt
+            - cell "Detail ↻" [ref=e657]:
+              - button "Detail" [ref=e658] [cursor=pointer]
+              - button "Edit" [ref=e659] [cursor=pointer]:
+                - img [ref=e660]
+              - button "↻" [ref=e663] [cursor=pointer]
+              - button "Delete" [ref=e664] [cursor=pointer]:
+                - img [ref=e665]
+          - 'row "6 איתי גרין Renter ▾ 054-3330006 January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪0 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,120 ₪680 Debt Detail 🔑 ↻" [ref=e667]':
+            - cell [ref=e1068]:
+              - checkbox [ref=e1069]
+            - cell "6" [ref=e668]:
+              - strong [ref=e669]: "6"
+            - cell "איתי גרין Renter ▾" [ref=e670]:
+              - generic [ref=e671]:
+                - generic [ref=e672]: איתי גרין
+                - generic [ref=e673]: Renter
+                - button "▾" [ref=e674] [cursor=pointer]
+            - cell "054-3330006" [ref=e675]:
+              - link "054-3330006" [ref=e677] [cursor=pointer]:
+                - /url: tel:054-3330006
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪0 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e678]':
+              - generic [ref=e679]:
+                - 'generic "January: ₪280 / ₪280" [ref=e680]'
+                - 'generic "February: ₪280 / ₪280" [ref=e681]'
+                - 'generic "March: ₪280 / ₪280" [ref=e682]'
+                - 'generic "April: ₪280 / ₪280" [ref=e683]'
+                - 'generic "May: ₪0 / ₪280" [ref=e684]'
+                - 'generic "June: ₪0 / ₪280" [ref=e685]'
+                - 'generic "July: ₪0 / ₪280" [ref=e686]'
+                - 'generic "August: ₪0 / ₪280" [ref=e687]'
+                - 'generic "September: ₪0 / ₪280" [ref=e688]'
+                - 'generic "October: ₪0 / ₪280" [ref=e689]'
+                - 'generic "November: ₪0 / ₪280" [ref=e690]'
+                - 'generic "December: ₪0 / ₪280" [ref=e691]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e692]':
+              - generic [ref=e693]: ₪3,360
+              - generic [ref=e694]: +₪400 infra
+              - generic [ref=e695]: "total: ₪3,760"
+            - cell "₪1,120" [ref=e696]:
+              - generic [ref=e697]: ₪1,120
+            - cell "₪680 Debt" [ref=e698]:
+              - text: ₪680
+              - generic [ref=e699]: Debt
+            - cell "Detail 🔑 ↻" [ref=e700]:
+              - button "Detail" [ref=e701] [cursor=pointer]
+              - button "Edit" [ref=e702] [cursor=pointer]:
+                - img [ref=e703]
+              - button "🔑" [ref=e706] [cursor=pointer]
+              - button "↻" [ref=e707] [cursor=pointer]
+              - button "Delete" [ref=e708] [cursor=pointer]:
+                - img [ref=e709]
+          - 'row "7 נועה אדלר Owner 050-1110007 January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,400 +₪400 infra total: ₪1,800 ₪0 Balanced Detail ↻" [ref=e711]':
+            - cell [ref=e1070]:
+              - checkbox [ref=e1071]
+            - cell "7" [ref=e712]:
+              - strong [ref=e713]: "7"
+            - cell "נועה אדלר Owner" [ref=e714]:
+              - generic [ref=e715]:
+                - generic [ref=e716]: נועה אדלר
+                - generic [ref=e717]: Owner
+            - cell "050-1110007" [ref=e718]:
+              - link "050-1110007" [ref=e720] [cursor=pointer]:
+                - /url: tel:050-1110007
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪0 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e721]':
+              - generic [ref=e722]:
+                - 'generic "January: ₪280 / ₪280" [ref=e723]'
+                - 'generic "February: ₪280 / ₪280" [ref=e724]'
+                - 'generic "March: ₪280 / ₪280" [ref=e725]'
+                - 'generic "April: ₪280 / ₪280" [ref=e726]'
+                - 'generic "May: ₪280 / ₪280" [ref=e727]'
+                - 'generic "June: ₪0 / ₪280" [ref=e728]'
+                - 'generic "July: ₪0 / ₪280" [ref=e729]'
+                - 'generic "August: ₪0 / ₪280" [ref=e730]'
+                - 'generic "September: ₪0 / ₪280" [ref=e731]'
+                - 'generic "October: ₪0 / ₪280" [ref=e732]'
+                - 'generic "November: ₪0 / ₪280" [ref=e733]'
+                - 'generic "December: ₪0 / ₪280" [ref=e734]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e735]':
+              - generic [ref=e736]: ₪3,360
+              - generic [ref=e737]: +₪400 infra
+              - generic [ref=e738]: "total: ₪3,760"
+            - 'cell "₪1,400 +₪400 infra total: ₪1,800" [ref=e739]':
+              - generic [ref=e740]: ₪1,400
+              - generic [ref=e741]: +₪400 infra
+              - generic [ref=e742]: "total: ₪1,800"
+            - cell "₪0 Balanced" [ref=e743]:
+              - text: ₪0
+              - generic [ref=e744]: Balanced
+            - cell "Detail ↻" [ref=e745]:
+              - button "Detail" [ref=e746] [cursor=pointer]
+              - button "Edit" [ref=e747] [cursor=pointer]:
+                - img [ref=e748]
+              - button "↻" [ref=e751] [cursor=pointer]
+              - button "Delete" [ref=e752] [cursor=pointer]:
+                - img [ref=e753]
+          - 'row "8 הילה דהן Renter ▾ 054-3330008 January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪280 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280 ₪3,360 +₪400 infra total: ₪3,760 ₪1,680 +₪400 infra total: ₪2,080 ₪280 Credit balance Detail 🔑 ↻" [ref=e755]':
+            - cell [ref=e1072]:
+              - checkbox [ref=e1073]
+            - cell "8" [ref=e756]:
+              - strong [ref=e757]: "8"
+            - cell "הילה דהן Renter ▾" [ref=e758]:
+              - generic [ref=e759]:
+                - generic [ref=e760]: הילה דהן
+                - generic [ref=e761]: Renter
+                - button "▾" [ref=e762] [cursor=pointer]
+            - cell "054-3330008" [ref=e763]:
+              - link "054-3330008" [ref=e765] [cursor=pointer]:
+                - /url: tel:054-3330008
+            - 'cell "January: ₪280 / ₪280 February: ₪280 / ₪280 March: ₪280 / ₪280 April: ₪280 / ₪280 May: ₪280 / ₪280 June: ₪280 / ₪280 July: ₪0 / ₪280 August: ₪0 / ₪280 September: ₪0 / ₪280 October: ₪0 / ₪280 November: ₪0 / ₪280 December: ₪0 / ₪280" [ref=e766]':
+              - generic [ref=e767]:
+                - 'generic "January: ₪280 / ₪280" [ref=e768]'
+                - 'generic "February: ₪280 / ₪280" [ref=e769]'
+                - 'generic "March: ₪280 / ₪280" [ref=e770]'
+                - 'generic "April: ₪280 / ₪280" [ref=e771]'
+                - 'generic "May: ₪280 / ₪280" [ref=e772]'
+                - 'generic "June: ₪280 / ₪280" [ref=e773]'
+                - 'generic "July: ₪0 / ₪280" [ref=e774]'
+                - 'generic "August: ₪0 / ₪280" [ref=e775]'
+                - 'generic "September: ₪0 / ₪280" [ref=e776]'
+                - 'generic "October: ₪0 / ₪280" [ref=e777]'
+                - 'generic "November: ₪0 / ₪280" [ref=e778]'
+                - 'generic "December: ₪0 / ₪280" [ref=e779]'
+            - 'cell "₪3,360 +₪400 infra total: ₪3,760" [ref=e780]':
+              - generic [ref=e781]: ₪3,360
+              - generic [ref=e782]: +₪400 infra
+              - generic [ref=e783]: "total: ₪3,760"
+            - 'cell "₪1,680 +₪400 infra total: ₪2,080" [ref=e784]':
+              - generic [ref=e785]: ₪1,680
+              - generic [ref=e786]: +₪400 infra
+              - generic [ref=e787]: "total: ₪2,080"
+            - cell "₪280 Credit balance" [ref=e788]:
+              - text: ₪280
+              - generic [ref=e789]: Credit balance
+            - cell "Detail 🔑 ↻" [ref=e790]:
+              - button "Detail" [ref=e791] [cursor=pointer]
+              - button "Edit" [ref=e792] [cursor=pointer]:
+                - img [ref=e793]
+              - button "🔑" [ref=e796] [cursor=pointer]
+              - button "↻" [ref=e797] [cursor=pointer]
+              - button "Delete" [ref=e798] [cursor=pointer]:
+                - img [ref=e799]
+        - rowgroup [ref=e801]:
+          - 'row "Total ₪26,880 +₪3,200 infra total: ₪30,080 ₪10,640 +₪2,000 infra total: ₪12,640 ₪1,910 Net debt Debt: ₪2,190 · Credit: ₪280" [ref=e802]':
+            - cell [ref=e1074]
+            - cell "Total" [ref=e803]
+            - 'cell "₪26,880 +₪3,200 infra total: ₪30,080" [ref=e804]':
+              - generic [ref=e805]: ₪26,880
+              - generic [ref=e806]: +₪3,200 infra
+              - generic [ref=e807]: "total: ₪30,080"
+            - 'cell "₪10,640 +₪2,000 infra total: ₪12,640" [ref=e808]':
+              - generic [ref=e809]: ₪10,640
+              - generic [ref=e810]: +₪2,000 infra
+              - generic [ref=e811]: "total: ₪12,640"
+            - 'cell "₪1,910 Net debt Debt: ₪2,190 · Credit: ₪280" [ref=e812]':
+              - text: ₪1,910
+              - generic [ref=e813]: Net debt
+              - generic [ref=e814]: "Debt: ₪2,190 · Credit: ₪280"
+            - cell [ref=e815]
+  - status

@@ -1,0 +1,146 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e118]:
+    - status [ref=e119]: 🧪 DEMO MODE · Fake data — does NOT reflect any real building
+    - banner [ref=e120]:
+      - generic [ref=e122]:
+        - generic [ref=e123]: V
+        - generic [ref=e124]:
+          - text: Building Committee
+          - generic [ref=e125]: Management & transparency for residents
+      - generic [ref=e126]:
+        - generic [ref=e127]:
+          - button "עברית" [ref=e128] [cursor=pointer]
+          - button "EN" [ref=e129] [cursor=pointer]
+        - button "Open reminders" [ref=e131] [cursor=pointer]:
+          - img [ref=e132]
+        - generic "Signed in as מנהל" [ref=e135]:
+          - generic [ref=e136]: מ
+          - generic [ref=e137]:
+            - generic [ref=e138]: מנהל
+            - generic [ref=e139]: Master admin
+        - button "Sign out" [ref=e140] [cursor=pointer]:
+          - img [ref=e141]
+          - generic [ref=e143]: Sign out
+    - complementary [ref=e144]:
+      - navigation [ref=e145]:
+        - generic [ref=e146]: Menu
+        - button "Dashboard" [ref=e147] [cursor=pointer]:
+          - img [ref=e148]
+          - generic [ref=e153]: Dashboard
+        - button "Apartments" [ref=e154] [cursor=pointer]:
+          - img [ref=e155]
+          - generic [ref=e158]: Apartments
+        - button "Property owners" [ref=e159] [cursor=pointer]:
+          - img [ref=e160]
+          - generic [ref=e164]: Property owners
+        - button "Income" [ref=e165] [cursor=pointer]:
+          - img [ref=e166]
+          - generic [ref=e168]: Income
+        - button "Expenses" [ref=e169] [cursor=pointer]:
+          - img [ref=e170]
+          - generic [ref=e172]: Expenses
+        - button "Infrastructure" [ref=e173] [cursor=pointer]:
+          - img [ref=e174]
+          - generic [ref=e176]: Infrastructure
+        - button "Contacts" [ref=e177] [cursor=pointer]:
+          - img [ref=e178]
+          - generic [ref=e182]: Contacts
+        - button "Documents" [ref=e183] [cursor=pointer]:
+          - img [ref=e184]
+          - generic [ref=e187]: Documents
+        - button "Reminders" [ref=e188] [cursor=pointer]:
+          - img [ref=e189]
+          - generic [ref=e192]: Reminders
+        - button "Tickets" [ref=e193] [cursor=pointer]:
+          - img [ref=e194]
+          - generic [ref=e196]: Tickets
+        - button "Reports" [ref=e197] [cursor=pointer]:
+          - img [ref=e198]
+          - generic [ref=e201]: Reports
+        - button "About" [ref=e202] [cursor=pointer]:
+          - img [ref=e203]
+          - generic [ref=e206]: About
+        - button "Settings" [ref=e207] [cursor=pointer]:
+          - img [ref=e208]
+          - generic [ref=e211]: Settings
+    - main [ref=e212]:
+      - generic [ref=e214]:
+        - heading "Dashboard" [level=1] [ref=e215]
+        - paragraph [ref=e216]: בית ההדגמה · רחוב הדמו 12, תל אביב · May 2026
+      - generic [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]: Active apartments
+          - generic [ref=e220]: "9"
+          - generic [ref=e221]: "Monthly fee: ₪280"
+        - generic [ref=e222]:
+          - generic [ref=e223]: Income this month
+          - generic [ref=e224]: ₪3,680
+          - generic [ref=e225]: "Expected: ₪5,720 · collection 64%"
+        - generic [ref=e226]:
+          - generic [ref=e227]: Expenses this month
+          - generic [ref=e228]: ₪823
+          - generic [ref=e229]: Actual cash flow
+        - generic [ref=e230]:
+          - generic [ref=e231]: Net for this month
+          - generic [ref=e232]: ₪2,857
+          - generic [ref=e233]: Surplus
+        - generic [ref=e234]:
+          - generic [ref=e235]: Bank balance (cumulative)
+          - generic [ref=e236]: ₪9,118
+          - generic [ref=e237]: Money currently in the checking account — includes opening balance
+          - button "Breakdown" [ref=e238] [cursor=pointer]
+        - generic [ref=e239]:
+          - generic [ref=e240]: Apartment balance
+          - generic [ref=e241]: ₪1,910
+          - generic [ref=e242]:
+            - text: Residents owe net
+            - generic [ref=e243]: "Debt: ₪2,190 · Credit: ₪280"
+      - generic [ref=e244]:
+        - generic [ref=e245]:
+          - generic [ref=e246]:
+            - heading "Last 12 months cash flow" [level=3] [ref=e247]
+            - generic [ref=e248]:
+              - generic [ref=e249]: Income
+              - generic [ref=e251]: Expenses
+          - generic [ref=e253]:
+            - generic [ref=e254]:
+              - 'generic "Jun 2025: Income ₪0 · Expenses ₪0" [ref=e255]'
+              - 'generic "Jul 2025: Income ₪0 · Expenses ₪0" [ref=e258]'
+              - 'generic "Aug 2025: Income ₪0 · Expenses ₪0" [ref=e261]'
+              - 'generic "Sep 2025: Income ₪0 · Expenses ₪0" [ref=e264]'
+              - 'generic "Oct 2025: Income ₪0 · Expenses ₪0" [ref=e267]'
+              - 'generic "Nov 2025: Income ₪0 · Expenses ₪0" [ref=e270]'
+              - 'generic "Dec 2025: Income ₪0 · Expenses ₪0" [ref=e273]'
+              - 'generic "Jan 2026: Income ₪2,240 · Expenses ₪1,255" [ref=e276]'
+              - 'generic "Feb 2026: Income ₪2,240 · Expenses ₪1,255" [ref=e279]'
+              - 'generic "Mar 2026: Income ₪1,960 · Expenses ₪3,655" [ref=e282]'
+              - 'generic "Apr 2026: Income ₪2,240 · Expenses ₪1,534" [ref=e285]'
+              - 'generic "May 2026: Income ₪3,680 · Expenses ₪823" [ref=e288]'
+            - generic [ref=e291]:
+              - generic [ref=e292]: Jun
+              - generic [ref=e293]: Jul
+              - generic [ref=e294]: Aug
+              - generic [ref=e295]: Sep
+              - generic [ref=e296]: Oct
+              - generic [ref=e297]: Nov
+              - generic [ref=e298]: Dec
+              - generic [ref=e299]: Jan
+              - generic [ref=e300]: Feb
+              - generic [ref=e301]: Mar
+              - generic [ref=e302]: Apr
+              - generic [ref=e303]: May
+        - generic [ref=e304]:
+          - heading "Year summary 2026" [level=3] [ref=e306]
+          - generic [ref=e308]:
+            - generic [ref=e309]:
+              - generic [ref=e310]: Actual income
+              - generic [ref=e311]: ₪12,640
+              - generic [ref=e312]: Out of expected ₪32,470
+            - generic [ref=e313]:
+              - generic [ref=e314]: Expenses
+              - generic [ref=e315]: ₪8,522
+            - generic [ref=e316]:
+              - generic [ref=e317]: Yearly net
+              - generic [ref=e318]: ₪4,118
+  - status:
+    - generic [ref=e320]: Signed in successfully
