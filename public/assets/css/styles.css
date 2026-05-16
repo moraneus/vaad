@@ -875,13 +875,17 @@ p { margin: 0 0 8px; }
   margin-bottom: 8px;
 }
 .bar-col {
-  flex: 1;
+  flex: 1 1 0;                    /* even share — same basis as .bar-labels > div
+                                     so bars and labels stay column-aligned even
+                                     on narrow viewports */
   display: flex;
   flex-direction: row;            /* income + expense side-by-side, not stacked */
   align-items: flex-end;          /* both bars rise from the bottom */
   justify-content: center;
   gap: 2px;
-  min-width: 22px;
+  min-width: 14px;                /* matches .bar-labels > div so the column
+                                     widths align 1:1; was 22 which overflowed
+                                     the chart on phones */
   position: relative;
   height: 100%;
 }

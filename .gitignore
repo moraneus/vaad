@@ -71,6 +71,9 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
+# Playwright MCP screenshots / snapshots / console logs
+.playwright*
+
 # ── OS / editor files ──────────────────────────────────────────
 .DS_Store
 Thumbs.db
