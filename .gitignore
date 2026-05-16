@@ -99,3 +99,8 @@ worker/wrangler.toml
 package.json
 wrangler.local.toml
 worker/wrangler.local.toml
+
+# ── Demo clone (separate deployable instance with fake data) ──────────────
+# Contains a full copy of the source + its own wrangler.toml + its own
+# seeded demo D1. Never committed — the real app lives at the repo root.
+demo/
