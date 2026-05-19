@@ -1081,8 +1081,11 @@ export function openExpenseDialog(exp = null, { onSaved } = {}) {
         <div class="field">
           <label class="field__label">${esc(t('exp.field.defaultMethod'))}</label>
           <select class="select" name="defaultMethod">
-            <option value="" ${!exp?.defaultMethod ? 'selected' : ''}>${esc(t('exp.field.defaultMethod.none'))}</option>
-            <option value="bank"           ${exp?.defaultMethod === 'bank'           ? 'selected' : ''}>${esc(t('pay.method.bank'))}</option>
+            <!-- New expenses pre-select 'bank' (העברה בנקאית) since it's the
+                 common case; editing an existing expense respects whatever is
+                 stored, including a deliberate "no default". -->
+            <option value=""               ${isEdit && !exp?.defaultMethod ? 'selected' : ''}>${esc(t('exp.field.defaultMethod.none'))}</option>
+            <option value="bank"           ${(exp?.defaultMethod === 'bank') || (!isEdit && !exp?.defaultMethod) ? 'selected' : ''}>${esc(t('pay.method.bank'))}</option>
             <option value="standing_order" ${exp?.defaultMethod === 'standing_order' ? 'selected' : ''}>${esc(t('pay.method.standing_order'))}</option>
             <option value="bit"            ${exp?.defaultMethod === 'bit'            ? 'selected' : ''}>${esc(t('pay.method.bit'))}</option>
             <option value="check"          ${exp?.defaultMethod === 'check'          ? 'selected' : ''}>${esc(t('pay.method.check'))}</option>

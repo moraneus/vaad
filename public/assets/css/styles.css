@@ -326,6 +326,12 @@ p { margin: 0 0 8px; }
   .toolbar select, .toolbar .select, .toolbar input { width: 100% !important; min-width: 0; }
   .toolbar .segmented { width: 100%; justify-content: center; }
   .toolbar .segmented__opt { flex: 1 1 0; text-align: center; padding: 7px 6px; font-size: 13px; }
+  /* Generic .segmented (not only in toolbars) — used inside forms too, e.g.
+     the expense-type picker with 5 options. inline-flex with no wrap caused
+     horizontal overflow on phones; switch to a wrapping flex row so buttons
+     spill onto a second line and each takes an even share of the row. */
+  .segmented { display: flex; flex-wrap: wrap; width: 100%; }
+  .segmented__opt { flex: 1 1 calc(33% - 4px); text-align: center; padding: 7px 6px; font-size: 12px; min-width: 0; }
   /* Page header subtitle wraps cleanly */
   .page-header__subtitle { font-size: 13px; }
   .page-header__actions { flex-wrap: wrap; }
