@@ -1047,13 +1047,24 @@ export function openExpenseDialog(exp = null, { onSaved } = {}) {
       <form id="exp-form" class="form-grid">
         <div class="field" style="grid-column:1/-1">
           <label class="field__label">${esc(t('exp.field.type'))}</label>
-          <div class="segmented" id="type-seg">
+          <!-- Desktop: segmented buttons. Mobile: native <select> so the OS
+               renders its own optimized picker (iOS scroll wheel / Android
+               sheet) — much easier to tap than five wrapped buttons. CSS
+               toggles which one is visible based on viewport width. -->
+          <div class="segmented seg-desktop-only" id="type-seg">
             <button type="button" class="segmented__opt ${ty==='monthly'?'segmented__opt--active':''}" data-type="monthly">${esc(t('exp.type.monthly'))}</button>
             <button type="button" class="segmented__opt ${ty==='annual'?'segmented__opt--active':''}" data-type="annual">${esc(t('exp.type.annual'))}</button>
             <button type="button" class="segmented__opt ${ty==='installments'?'segmented__opt--active':''}" data-type="installments">${esc(t('exp.type.installments'))}</button>
             <button type="button" class="segmented__opt ${ty==='oneoff'?'segmented__opt--active':''}" data-type="oneoff">${esc(t('exp.type.oneoff'))}</button>
             <button type="button" class="segmented__opt ${ty==='variable_monthly'?'segmented__opt--active':''}" data-type="variable_monthly">${esc(t('exp.type.variable_monthly'))}</button>
           </div>
+          <select class="select seg-mobile-only" id="type-select">
+            <option value="monthly"          ${ty==='monthly'         ?'selected':''}>${esc(t('exp.type.monthly'))}</option>
+            <option value="annual"           ${ty==='annual'          ?'selected':''}>${esc(t('exp.type.annual'))}</option>
+            <option value="installments"     ${ty==='installments'    ?'selected':''}>${esc(t('exp.type.installments'))}</option>
+            <option value="oneoff"           ${ty==='oneoff'          ?'selected':''}>${esc(t('exp.type.oneoff'))}</option>
+            <option value="variable_monthly" ${ty==='variable_monthly'?'selected':''}>${esc(t('exp.type.variable_monthly'))}</option>
+          </select>
           <input type="hidden" name="type" id="type-val" value="${ty}" />
         </div>
 
@@ -1313,6 +1324,8 @@ export function openExpenseDialog(exp = null, { onSaved } = {}) {
   const setType = (newType) => {
     m.bodyEl.querySelector('#type-val').value = newType;
     m.bodyEl.querySelectorAll('[data-type]').forEach(b => b.classList.toggle('segmented__opt--active', b.dataset.type === newType));
+    const typeSel = m.bodyEl.querySelector('#type-select');
+    if (typeSel && typeSel.value !== newType) typeSel.value = newType;
     // variable_monthly is identical to oneoff for all form behaviors —
     // same single-date field, no start/end range, no installments count.
     const isOneOffLike = newType === 'oneoff' || newType === 'variable_monthly';
@@ -1365,6 +1378,7 @@ export function openExpenseDialog(exp = null, { onSaved } = {}) {
   };
   setType(ty);
   m.bodyEl.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => setType(b.dataset.type)));
+  m.bodyEl.querySelector('#type-select')?.addEventListener('change', (e) => setType(e.target.value));
 
   // For monthly expenses, when admin picks a startDate, snap it to the 1st
   // of that month and (if endDate hasn't been touched away from auto-default)
