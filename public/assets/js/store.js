@@ -38,7 +38,28 @@ export async function upsertPayment(p) {
   await refreshAll();
 }
 export async function deletePayment(id) {
+  // Capture (apartmentId, year, month) BEFORE the delete so we can detect a
+  // newly-orphaned per-cell fee override. The "Record payment" dialog can
+  // create the override and the payment together (when admin types a Y that
+  // differs from the inherited fee); deleting only the payment used to leave
+  // the override behind, so the cell stayed stuck at the override's expected
+  // value instead of returning to the global default.
+  const pay = getPayments().find(p => p.id === id);
   await api.deletePayment(id);
+  if (pay) {
+    const stillHasPayments = getPayments().some(
+      p => p.id !== id && p.apartmentId === pay.apartmentId && p.year === pay.year && p.month === pay.month
+    );
+    if (!stillHasPayments) {
+      const ov = getFeeOverrides().find(
+        o => o.apartmentId === pay.apartmentId && o.year === pay.year && o.month === pay.month
+      );
+      if (ov) {
+        try { await api.clearFeeOverride({ apartmentId: pay.apartmentId, year: pay.year, month: pay.month }); }
+        catch (_) { /* best-effort cleanup — don't fail the delete on this */ }
+      }
+    }
+  }
   await refreshAll();
 }
 

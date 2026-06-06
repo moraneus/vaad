@@ -68,7 +68,25 @@ export const onRequestDelete = async ({ request, env }) => {
   const r = await requireAdmin(env, request); if (r.error) return r.error;
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return error('id חסר', 400);
+  // Look up the payment's cell coordinates BEFORE deleting so we can detect
+  // a now-orphaned per-cell fee override. The "Record payment" dialog can
+  // create a fee override and the payment together (when the admin types a Y
+  // that differs from the inherited fee). Deleting only the payment used to
+  // leave the override behind, so the cell appeared stuck at the override's
+  // value forever. Enforcing the rule here (not just in the client) means
+  // any caller — UI, script, future cron — gets the same cleanup.
+  const cell = await env.DB.prepare('SELECT apartment_id AS aid, year, month FROM payments WHERE id = ?').bind(id).first();
   await env.DB.prepare('DELETE FROM payments WHERE id = ?').bind(id).run();
-  await logAudit(env.DB, request, { event: 'payment_deleted', role: 'admin', userLabel: 'מנהל', success: true });
+  let overrideCleared = false;
+  if (cell) {
+    const remaining = await env.DB.prepare('SELECT COUNT(*) AS n FROM payments WHERE apartment_id = ? AND year = ? AND month = ?')
+      .bind(cell.aid, cell.year, cell.month).first();
+    if ((remaining?.n || 0) === 0) {
+      const res = await env.DB.prepare('DELETE FROM apartment_monthly_fee_overrides WHERE apartment_id = ? AND year = ? AND month = ?')
+        .bind(cell.aid, cell.year, cell.month).run();
+      overrideCleared = (res?.meta?.changes || res?.changes || 0) > 0;
+    }
+  }
+  await logAudit(env.DB, request, { event: 'payment_deleted', role: 'admin', userLabel: 'מנהל', success: true, meta: { overrideCleared } });
   return json({ ok: true });
 };
