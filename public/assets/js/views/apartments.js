@@ -1242,11 +1242,15 @@ function openAdjustmentDialog(apt, kind, onSaved) {
   });
 }
 
-export function openPaymentDialog(apt, onSaved) {
+export function openPaymentDialog(apt, onSaved, opts = {}) {
   if (!requireAdmin()) return;
   const settings = getSettings();
   const now = new Date();
-  const defaultMonth = monthKey(now.getFullYear(), now.getMonth() + 1);
+  // When opened from a specific cell (e.g. income view → "+ רישום תשלום"),
+  // the caller can pre-select that (year, month). Default = current month.
+  const preselectYear = Number(opts.year) || now.getFullYear();
+  const preselectMonth = Number(opts.month) || (now.getMonth() + 1);
+  const defaultMonth = monthKey(preselectYear, preselectMonth);
   const monthsOptions = [];
   for (const y of availableYears()) {
     for (let mo = 1; mo <= 12; mo++) {
@@ -1254,11 +1258,12 @@ export function openPaymentDialog(apt, onSaved) {
       monthsOptions.push(`<option ${k === defaultMonth ? 'selected' : ''} value="${k}">${monthName(mo)} ${y}</option>`);
     }
   }
-  // Resolve the expected fee for the default month using the per-apt-per-month
-  // override pipeline (so a previously-set override is shown, not the global value).
+  // Resolve the expected fee for the pre-selected month using the per-apt
+  // per-month override pipeline (so a previously-set override is shown, not
+  // the global value).
   const initialFee = (() => {
-    const st = apartmentMonthStatus(apt.id, now.getFullYear(), now.getMonth() + 1);
-    return st.expected || (valueAtMonth(settings.monthlyFeeHistory, now.getFullYear(), now.getMonth() + 1)?.amount || 0);
+    const st = apartmentMonthStatus(apt.id, preselectYear, preselectMonth);
+    return st.expected || (valueAtMonth(settings.monthlyFeeHistory, preselectYear, preselectMonth)?.amount || 0);
   })();
   const m = openModal({
     title: t('pay.dialog.title', { number: apt.number }),
@@ -1324,13 +1329,21 @@ export function openPaymentDialog(apt, onSaved) {
     return fee ? Number(fee.amount) || 0 : 0;
   };
 
+  // Track whether the user has touched X. If they have, we don't overwrite
+  // it on month change (a misclick on the month dropdown used to wipe a
+  // typed amount back to the new month's expected, losing user input).
+  let xIsDirty = false;
+  xEl.addEventListener('input', () => { xIsDirty = true; });
+
   // When the month changes, refresh Y to reflect that month's expected value
-  // (override-aware) and update the inherited-fee hint.
+  // (override-aware) and update the inherited-fee hint. X is only synced to
+  // Y while it's untouched — once the user has typed an amount, their value
+  // wins until they explicitly press the "X = Y" shortcut.
   const refreshForMonth = () => {
     const { year, month } = parseMonthKey(monthEl.value);
     const st = apartmentMonthStatus(apt.id, year, month);
     yEl.value = st.expected;
-    xEl.value = st.expected;
+    if (!xIsDirty) xEl.value = st.expected;
     const inherited = inheritedFor(year, month);
     hintEl.textContent = t('apt.ledger.editExpected.hint', { value: fmtCurrency(inherited) });
     updatePreview();

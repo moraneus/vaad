@@ -67,7 +67,8 @@ export function openModal({ title, body, footer, size = 'md', onClose }) {
   const onKey = (e) => { if (e.key === 'Escape') close(); };
 
   closeBtn.addEventListener('click', close);
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  // Backdrop click does NOT close — a misclick on a form would discard
+  // everything the user just typed. Use the ✕ button or the Escape key.
   document.addEventListener('keydown', onKey);
 
   root.appendChild(backdrop);

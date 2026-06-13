@@ -412,7 +412,8 @@ function openMonthPaymentsDialog(apt, year, month) {
   m.footerEl.querySelector('[data-act="close"]').addEventListener('click', () => m.close());
   m.footerEl.querySelector('[data-act="add"]')?.addEventListener('click', () => {
     m.close();
-    openPaymentDialog(apt, () => renderIncome());
+    // Pre-select the cell's month so the admin doesn't have to re-pick it.
+    openPaymentDialog(apt, () => renderIncome(), { year, month });
   });
   m.footerEl.querySelector('[data-act="receipt"]')?.addEventListener('click', async () => {
     try { await issueReceiptAndOpen(apt.id, year, month); }
